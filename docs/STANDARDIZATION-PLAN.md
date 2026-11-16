@@ -3,7 +3,7 @@
 > 目标：让界面更清爽、品牌与动效更统一、隐私与发版更可信，同时把工程门禁补齐。
 > 原则：先收口，再改样式；先有测试/门禁，再做结构拆分；不为“规范”而规范。
 >
-> **执行状态（2026-11-16）**：Phase 0–3 已完成；Phase 4（API schema、IndexedDB 版本、E2E 拆分、fixtures 移出 public）与 Phase 5 留待下一轮。CI 的远端绿灯与 `v0.2.0-rc.1` 干跑需要在推送 tag 后确认。
+> **执行状态（2026-11-16）**：Phase 0–3 已完成；CI Linux/Windows 与 release 干跑均通过，`v0.2.0` 已发布。Phase 4（API schema、IndexedDB 版本、E2E 拆分、fixtures 移出 public）与 Phase 5 留待下一轮。
 
 ## 1. 现状结论
 
@@ -786,8 +786,8 @@ MIT
 - [x] `npm run test:e2e`
 - [x] `npm run build`
 - [x] `npm run build:server`
-- [ ] CI Linux + Windows 全绿（本地命令已全绿；远端 Actions 待推送后确认）
-- [ ] `main` required check 开启（仓库设置，推送后配置）
+- [x] CI Linux + Windows 全绿
+- [x] `main` required check 开启
 
 界面：
 
@@ -817,7 +817,7 @@ MIT
 - [x] README 链接全部有效
 - [x] 截图 6–8 张、单张 <300KB、总量 <2.4MB
 - [x] CHANGELOG/ROADMAP/README 数字一致
-- [ ] `v0.2.0-rc.1` 干跑产出 zip + checksum + notes
+- [x] `v0.2.0-rc.1` 干跑产出 zip + checksum + notes（用 `workflow_dispatch` 干跑；随后发布 `v0.2.0`）
 - [x] release notes 包含已知问题与校验和
 
 结构：
