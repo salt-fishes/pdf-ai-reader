@@ -52,7 +52,7 @@ jobs:
       - name: Build NSIS and MSI installers
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
-        run: npx electron-builder --win nsis msi --x64
+        run: npx electron-builder --win nsis msi --x64 --publish never
       - name: Checksum
         shell: pwsh
         run: |
