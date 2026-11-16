@@ -1,7 +1,7 @@
 {
   "name": "pdf-ai-reader",
   "private": true,
-  "version": "0.4.0",
+  "version": "0.4.1",
   "type": "module",
   "description": "Local-first PDF reader with an AI reading assistant",
   "main": "electron/main.mjs",
@@ -71,6 +71,7 @@
     "remark-gfm": "4.0.1",
     "remark-math": "^6.0.0",
     "tsx": "4.23.15",
+    "undici": "7.30.2",
     "zod": "^4.6.7",
     "zustand": "5.1.0"
   },

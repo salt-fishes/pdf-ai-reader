@@ -68,7 +68,8 @@ Set `MOCK_AI=1` to stream a local mock answer without calling a real model.
 - Recent document cache: ≤24MB per file, ≤64MB total, 8 entries.
 - OCR inference runs in a local worker; images are not sent to a cloud OCR service.
 - The desktop app ships without OCR: the runtime pack (~26MB compressed) and models are
-  downloaded only when you enable OCR in Settings.
+  downloaded only when you enable OCR in Settings. Downloads follow the Windows system proxy
+  and always bypass it for localhost.
 - Update checks run only when you click the button, and only against GitHub Releases.
 
 See [docs/PRIVACY.md](docs/PRIVACY.md) for details.

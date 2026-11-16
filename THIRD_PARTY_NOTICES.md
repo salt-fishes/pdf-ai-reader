@@ -19,6 +19,7 @@
 | dotenv                           | BSD-2-Clause | 环境变量               |
 | semver                           | ISC          | 版本比较               |
 | adm-zip                          | MIT          | 解压 OCR 组件包        |
+| undici                           | MIT          | 系统代理支持           |
 
 ## 图标与品牌
 

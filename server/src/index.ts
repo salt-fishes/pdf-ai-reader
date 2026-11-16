@@ -6,10 +6,13 @@ import { readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { config } from "./config";
 import { applySecurityHeaders, jsonError, trustedMutation } from "./http";
+import { installEnvProxy } from "./proxy";
 import { provider } from "./provider";
 import { registerChatRoute } from "./routes/chat";
 import { registerOcrRoutes } from "./routes/ocr";
 import { registerProviderRoutes } from "./routes/provider";
+
+installEnvProxy();
 
 const app = new Hono();
 

@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.4.1] — 2026-11-16
+
+### 修复
+
+- 桌面版读取 Windows 系统代理并把 `HTTPS_PROXY` 传给本地代理；Node `fetch`
+  通过 undici 使用该代理。此前 0.4.0 在需要代理才能访问 GitHub 的机器上无法下载
+  OCR 组件包，即使 Electron 的更新检查可以联网。
+- 本地推理地址（`127.0.0.1` / `localhost`）始终绕过代理，避免 Ollama 等本机
+  provider 被误转发。
+
+### 工程
+
+- 服务端 bundle 增加约 1MB（undici）；基础 zip 仍在 160MB 预算内。
+
 ## [0.4.0] — 2026-11-16
 
 ### 变更

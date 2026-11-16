@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, net, shell } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, net, session, shell } from "electron";
 import { spawn } from "node:child_process";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -119,6 +119,23 @@ async function waitForHealth(url, timeoutMs = 20_000) {
   return false;
 }
 
+/**
+ * Node fetch does not read the Windows proxy settings. Resolve the proxy that
+ * Electron's net stack would use and pass it to the local server so OCR pack
+ * and model downloads work behind a system proxy or VPN client.
+ */
+async function systemProxyEnv() {
+  try {
+    const resolved = await session.defaultSession.resolveProxy("https://github.com");
+    const match = /(?:PROXY|HTTPS)\s+([^;\s]+)/i.exec(resolved);
+    if (!match) return {};
+    const server = /^[a-z]+:\/\//i.test(match[1]) ? match[1] : `http://${match[1]}`;
+    return { HTTPS_PROXY: server, HTTP_PROXY: server };
+  } catch {
+    return {};
+  }
+}
+
 async function startServer() {
   if (isDev) return DEV_URL;
   if (await waitForHealth(APP_ORIGIN, 600)) {
@@ -128,10 +145,12 @@ async function startServer() {
   const appDir = app.getAppPath();
   const entry = join(appDir, "server", "dist", "index.mjs");
   const userData = app.getPath("userData");
+  const proxyEnv = await systemProxyEnv();
   serverProcess = spawn(process.execPath, [entry], {
     cwd: appDir,
     env: {
       ...process.env,
+      ...proxyEnv,
       ELECTRON_RUN_AS_NODE: "1",
       HOST: "127.0.0.1",
       PORT: String(APP_PORT),
@@ -141,6 +160,7 @@ async function startServer() {
       OCR_PACK_VERSION: app.getVersion(),
       APP_ORIGIN,
       NODE_ENV: "production",
+      NO_PROXY: [process.env.NO_PROXY, "127.0.0.1,localhost"].filter(Boolean).join(","),
     },
     stdio: "ignore",
     windowsHide: true,

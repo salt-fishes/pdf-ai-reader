@@ -63,7 +63,7 @@
 
 - PP-OCRv6 tiny / small / medium，本机 worker 推理，图片不上传。
 - 桌面版不内置 OCR：首次在设置中开启时下载约 26MB 的运行时组件（解压约 71MB），
-  再按需下载 tiny / small / medium 模型；可配置模型镜像根地址。
+  再按需下载 tiny / small / medium 模型；下载会自动使用 Windows 系统代理，也可配置模型镜像根地址。
 - 切换未下载模型先询问，下载成功后才切换。
 
 **桌面与隐私**
