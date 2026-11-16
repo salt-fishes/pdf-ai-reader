@@ -25,6 +25,10 @@ P0 与主要 P1 已实现，浏览器和 Electron 桌面版都可运行：
 - **页面选择器**：展开上下文后显示“当前页 / 全部页 / 选择…”；选择器内可直接输入 `3`、`3-7`、`2,5,9-12`，也可点击 PDF 目录章节加入该章页码范围。页码范围与当前页互斥，发送时不再叠加。
 - **整本总结**：输入框工具栏和空状态都可触发。小文档直接一次总结；长文档按约 3 万字分段，逐段摘要后合并，显示进度、可取消；分段结果按文档/模型缓存，重复总结只重跑最后合并。
 - **高亮持久化**：高亮按文档存入 IndexedDB，刷新/重新打开后恢复；左侧“高亮”栏可导出 Markdown 或 JSON。
+- **虚拟页面列表**：只挂载可视区附近的页面；5000 页实测滚动 p95 约 15ms、DOM 约 126 个节点，跳页不依赖全量页面 DOM。
+- **密码 PDF**：加密文档弹出密码框，错误密码可重试，取消后保留当前文档。
+- **最近文档**：≤24MB 的 PDF 在本机缓存字节，空文档页与“更多”菜单可直接重开。
+- **引用回跳**：记录每页最后阅读位置，引用点击回到该页的阅读锚点。
 - **模型服务设置**：Base URL、默认模型、允许列表、API Key 可在设置里配置（密钥只写入本机代理）；费用单价（未命中输入 / 缓存命中 / 输出）也可配置，用于本地估算。
 - 助手回答支持 Markdown + KaTeX：`$...$`、`$$...$$`、`\(...\)`、`\[...\]` 都会渲染；行间公式在窄面板内横向滚动，不会被裁切。
 - 长文档智能筛选（P1）：本地按 800 字切块、中文 bigram + BM25 打分，只把与问题最相关的段落发给模型；显示“已从 32 页中筛选 4 段”，可展开看页码、匹配问题并逐页回跳。整本 PDF 不参与上传。启用后会替换当前页上下文，避免无关页混入。
@@ -190,20 +194,20 @@ npm run smoke:region  # Edge 全流程：标题区域框选 → 只发选区 →
 
 ![多会话](docs/sessions.png)
 
-### 扫描件 OCR（可选）
+### 扫描件 OCR（后台自动）
 
-当页面没有文字层时，上下文条会出现“识别文字”按钮。首次点击会询问是否下载 **PP-OCRv6 tiny**（检测 + 识别，约 6.0 MB）；下载完成后，识别在本机代理进程中运行（onnxruntime-node），图片不会上传云端。
+页面没有文字层时，阅读器会在 650ms 空闲后自动把当前页加入 OCR 队列；模型缺失时在后台准备，不弹窗、不打断阅读。识别在本机代理的 worker 线程中运行（onnxruntime-node），图片不会上传云端，也不会阻塞滚动或聊天流。
 
-- 识别结果写入当前页的文本缓存，因此可以直接提问，也会被全文搜索和 BM25 智能筛选使用。
-- OCR 结果按文档缓存到 IndexedDB，重新打开 PDF 不需要再次识别。
-- 页面本身仍是图片；当前搜索命中会在结果列表显示，但不会在画布上画框。
-- 模型文件默认在 `server/models/ppocrv6`（`det.onnx`、`rec.onnx`、`dict.txt`），已被 `.gitignore` 忽略；可用 `OCR_MODEL_DIR` 指定目录，或用 `OCR_MODEL_BASE_URL` 指向镜像。
-- 也可从 [oar-ocr v0.7.0](https://github.com/GreatV/oar-ocr/releases/tag/v0.7.0) 手动下载 `pp-ocrv6_tiny_det.onnx`、`pp-ocrv6_tiny_rec.onnx`、`ppocrv6_tiny_dict.txt` 并按上面三个文件名放入目录。模型来自 PaddleOCR PP-OCRv6（Apache-2.0），ONNX 转换由 oar-ocr 发布；运行时使用 `ppu-paddle-ocr`（MIT）与 `onnxruntime-node`。
+- 识别结果写入当前页文本缓存，可直接提问，也会被全文搜索、BM25 智能筛选和整本总结使用。
+- 生成**行级 OCR 文本层**：扫描页可以像普通 PDF 一样拖选、双击、复制、高亮、引用和搜索；页面、侧栏、搜索结果和上下文都会标注 `OCR`，首次选中会提示“可能有误差”。
+- OCR 结果按页缓存到 IndexedDB，重新打开 PDF 不需要再次识别；高亮跳转会直接落到高亮行。
+- 模型分三档：`tiny`（默认，约 6.3 MB）、`small`、`medium`。tiny 随桌面版分发（存在时），small / medium 在设置 → 扫描件 OCR 中按需下载；切换模型会自动重启 OCR worker。
+- 设置里可以关闭 OCR 文本层；关闭后扫描页回到纯图片阅读，但仍可手动在设置中重新开启。
+- 模型目录：`server/models/ppocrv6`（tiny，`det.onnx`、`rec.onnx`、`dict.txt`）以及 `ppocrv6-small` / `ppocrv6-medium`；桌面版把可写模型放在 Electron `userData/ocr-models`。可用 `OCR_MODEL_DIR` 指定可写根目录。
+- 也可从 [oar-ocr v0.7.0](https://github.com/GreatV/oar-ocr/releases/tag/v0.7.0) 手动下载 tiny 的三个文件并按上面的文件名放入目录。模型来自 PaddleOCR PP-OCRv6（Apache-2.0），ONNX 转换由 oar-ocr 发布；运行时使用 `ppu-paddle-ocr`（MIT）与 `onnxruntime-node`。
 - `onnxruntime-node` 作为 npm 依赖随安装；只有模型文件按需下载。
 
 ![扫描件 OCR](docs/ocr.png)
-
-![OCR 可选下载](docs/ocr-download.png)
 
 ### 测试
 
@@ -228,8 +232,9 @@ E2E 启动前会检查代理必须是 `MOCK_AI=1`，避免误用真实密钥产�
 | `MOCK_AI` | `1` 时使用内置 mock 流，不访问真实模型 |
 | `PORT` / `HOST` | 默认 `8787` / `127.0.0.1` |
 | `APP_ORIGIN` | 开发前端地址，写入 `/api/config` |
-| `OCR_MODEL_BASE_URL` | 可选：OCR 模型下载镜像前缀，默认 GitHub release；国内网络可换镜像 |
-| `OCR_MODEL_DIR` | 可选：OCR 模型目录，默认 `server/models/ppocrv6` |
+| `OCR_MODEL_BASE_URL` | 可选：tiny 模型下载镜像前缀，默认 GitHub release；国内网络可换镜像 |
+| `OCR_MODEL_DIR` | 可选：可写模型根目录（包含 `ppocrv6`、`ppocrv6-small`、`ppocrv6-medium`）；默认 `server/models` |
+| `OCR_MODEL` | 可选：默认 OCR 模型，`v6-tiny` / `v6-small` / `v6-medium`，默认 `v6-tiny` |
 
 换 provider 时选一个多模态模型（Qwen-VL / GLM-4V / Gemini / GPT-4o 等），截图与文字走同一个模型。
 
@@ -270,8 +275,11 @@ tests/fixtures/           中文样例 PDF（STSong-Light）与生成脚本
 
 ## 已知限制 / 下一步
 
-- DOCX 导入、OCR 画布高亮、双页/横向阅读尚未实现。
-- OCR 文本用于提问、搜索和 BM25，但扫描页本身仍是图片；当前不会在画布上绘制 OCR 命中框。
+- DOCX 导入、双页/横向阅读尚未实现。
+- OCR 文本层是行级框，不是词级框；倾斜或双栏页面的选区可能略宽，词级命中框留作后续增强。
+- 引用回跳使用“该页最后阅读位置”作为启发式锚点，不是对模型引用语句的字级定位。
+- 最近文档只缓存 ≤24MB 的文件；更大的 PDF 需要重新选择。
+- 桌面 zip 实测约 183MB；Electron 本体、ONNX Runtime、canvas/opencv 是主要体积来源。
 - 上下文预算是本地软限制，默认 1M；真正的硬上限是模型上下文窗口。实际费用以 provider usage 为准。
 - 智能暗色使用 48px 的粗粒度亮度蒙版，超大深色/浅色块交界处会有约 20px 的柔和过渡；缩略图保持原色，不套用页面滤镜。
 - 色彩滤镜使用 Canvas 2D 的 `filter`，依赖 Chromium / Edge / WebView2；其他内核需要额外的像素级回退。
@@ -279,7 +287,7 @@ tests/fixtures/           中文样例 PDF（STSong-Light）与生成脚本
 - 服务端默认单用户、本机使用；局域网部署需自行加认证、限流与 TLS。
 - 代理不强制 `max_tokens`，输出长度由模型与问题决定；费用以 provider 返回的 usage 为准。
 - Electron 安装包未做代码签名与自动更新；部分受控文件夹/杀毒软件会阻止写入 DLL，可改用 `npm run package:desktop` 输出到普通目录或临时目录。
-- OCR 模型下载目前只校验文件大小，生产环境建议增加 SHA-256 校验。
+- OCR 模型下载目前只校验文件是否完整，生产环境建议增加 SHA-256 校验。
 
 ## 开源
 
