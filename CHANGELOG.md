@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.3.1] — 2026-11-16
+
+### 变更
+
+- 服务端拆分：`index.ts` 745 → 51 行，路由移至 `routes/provider.ts`、`routes/chat.ts`、`routes/ocr.ts`，provider 状态与 mock/校验拆到 `provider.ts`、`http.ts`、`mock.ts`。
+- 设置页拆分：`SettingsDialog` 1154 → 674 行，OCR 与关于章节移入 `settings/sections/`。
+- Vitest 增加 v8 覆盖率与 `src/lib` 阈值（lines/statements/branches 50%、functions 40%）；CI Linux 改跑 `test:coverage`。
+- Release 包体积预算从 200MB 收紧到 185MB；Vite 忽略 `coverage/`、`test-results/`、`release/` 变更。
+
+### 工程
+
+- 76 个单元测试 / 40 个 Playwright E2E。
+- 本地覆盖率：statements 51.1%、branches 51.7%、functions 40.4%、lines 51.7%。
+
 ## [0.3.0] — 2026-11-16
 
 ### 新增

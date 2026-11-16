@@ -15,6 +15,10 @@ Electron 主进程 ── 启动/停止 ──> 本地代理 (Hono, 127.0.0.1:87
 
 浏览器模式由 Vite 开发服务器代理 `/api` 到 8787；生产模式由本地代理同时托管 `dist/`。
 
+服务端入口只负责中间件、静态资源与启动；provider 状态与保存规则在 `provider.ts`，请求校验在
+`schemas.ts`，HTTP 助手在 `http.ts`，mock 流在 `mock.ts`，路由按 `routes/provider.ts`、
+`routes/chat.ts`、`routes/ocr.ts` 拆分。
+
 ## 阅读器
 
 - pdf.js 6.5.438，自绘虚拟列表；只挂载可视区附近的页面。

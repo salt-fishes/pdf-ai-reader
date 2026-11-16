@@ -77,7 +77,8 @@ See [docs/PRIVACY.md](docs/PRIVACY.md) for details.
 npm run typecheck
 npm run lint
 npm run format:check
-npm test              # 73 unit tests
+npm test              # 76 unit tests
+npm run test:coverage # v8 coverage with src/lib thresholds
 npm run test:e2e      # 40 Playwright tests (PW_CHANNEL=chromium on Linux)
 npm run build
 npm run build:server

@@ -54,7 +54,7 @@ jobs:
         shell: pwsh
         run: |
           $zip = Get-Item "release/paper-reader-${{ github.ref_name || 'dry-run' }}-win-x64.zip"
-          if ($zip.Length -gt 200MB) { throw "Zip is $([math]::Round($zip.Length/1MB))MB, budget is 200MB" }
+          if ($zip.Length -gt 185MB) { throw "Zip is $([math]::Round($zip.Length/1MB))MB, budget is 185MB" }
       - name: Generate release notes
         run: node scripts/release-notes.mjs
       - uses: softprops/action-gh-release@v2

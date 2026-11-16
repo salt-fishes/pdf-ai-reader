@@ -143,7 +143,8 @@ npm run package:desktop   # 可移植目录，输出到 release/
 npm run typecheck
 npm run lint
 npm run format:check
-npm test              # 73 个单元测试
+npm test              # 76 个单元测试
+npm run test:coverage # 覆盖率与 src/lib 阈值
 npm run test:e2e      # 40 个 Playwright 用例（Edge；Linux 用 PW_CHANNEL=chromium）
 npm run build
 npm run build:server

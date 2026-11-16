@@ -33,7 +33,7 @@ npm run package:desktop
 - 隐私/关于：版本、commit、构建日期来自构建注入；复制诊断信息不含 Key。
 - 检查更新：点一次才发请求；离线/限流有可读错误；不自动下载。
 - 外链走系统浏览器；代理只监听 `127.0.0.1`。
-- zip <200MB；无 `.env`、`server/models`、`server/data`、测试 PDF。
+- zip <185MB；无 `.env`、`server/models`、`server/data`、测试 PDF。
 
 ## 发布
 
