@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { MorphIcon } from "morphicons/react";
-import { Send, Square } from "lucide";
-import { WinIcon } from "../../components/icons/WinIcon";
+import { Icon, StateIcon } from "../../components/icons/Icon";
 import { formatTokens } from "../../lib/tokens/estimate";
 import { useViewer } from "../viewer/useViewerStore";
 import { PagePicker } from "./PagePicker";
@@ -150,7 +148,7 @@ export function Composer() {
           title="添加附件（PDF / 图片 / 文本）"
           aria-label="添加附件"
         >
-          {attaching ? <span className="spin" /> : <WinIcon glyph="attach" size={15} />}
+          {attaching ? <span className="spin" /> : <Icon name="attach" size={16} />}
         </button>
         <button
           className={styles.toolButton}
@@ -163,11 +161,7 @@ export function Composer() {
           aria-label="截取当前页"
           aria-keyshortcuts="Control+Alt+S"
         >
-          {capturingPage !== null ? (
-            <span className="spin" />
-          ) : (
-            <WinIcon glyph="camera" size={15} />
-          )}
+          {capturingPage !== null ? <span className="spin" /> : <Icon name="camera" size={16} />}
         </button>
         <button
           className={styles.toolButton}
@@ -180,7 +174,7 @@ export function Composer() {
           aria-label="框选截图"
           aria-keyshortcuts="Control+Alt+R"
         >
-          {capturingPage !== null ? <span className="spin" /> : <WinIcon glyph="crop" size={15} />}
+          {capturingPage !== null ? <span className="spin" /> : <Icon name="crop" size={16} />}
         </button>
         <button
           className={styles.toolButton}
@@ -189,7 +183,7 @@ export function Composer() {
           title="总结整份文档（自动分段，不把全部页面塞进当前上下文）"
           aria-label="总结整份文档"
         >
-          {summary ? <span className="spin" /> : <WinIcon glyph="outline" size={15} />}
+          {summary ? <span className="spin" /> : <Icon name="outline" size={16} />}
         </button>
         <button
           className={`${styles.toolButton} ${pageOpen ? styles.actionActive : ""}`}
@@ -198,7 +192,7 @@ export function Composer() {
           aria-label="限定页码"
           aria-expanded={pageOpen}
         >
-          <WinIcon glyph="page" size={15} />
+          <Icon name="page" size={16} />
         </button>
 
         <div className={styles.composerSpacer} />
@@ -217,13 +211,7 @@ export function Composer() {
           aria-label={streaming ? "停止生成" : "发送"}
           title={streaming ? "停止生成" : "发送（Enter）"}
         >
-          <MorphIcon
-            icon={streaming ? Square : Send}
-            size={15}
-            strokeWidth={1.8}
-            spring="snappy"
-            reducedMotion="user"
-          />
+          <StateIcon off="send" on="stop" active={streaming} size={16} strokeWidth={2} />
         </button>
       </div>
 

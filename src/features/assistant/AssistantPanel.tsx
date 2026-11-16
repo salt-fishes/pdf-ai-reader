@@ -5,9 +5,7 @@ import {
   useState,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { MorphIcon } from "morphicons/react";
-import { PanelRight, PictureInPicture2 } from "lucide";
-import { WinIcon } from "../../components/icons/WinIcon";
+import { Icon } from "../../components/icons/Icon";
 import { ModelIcon, modelLabel } from "../../components/icons/ModelIcon";
 import { SparkleIcon } from "../../components/icons/SparkleIcon";
 import { fetchModels } from "../../lib/ai/client";
@@ -528,7 +526,7 @@ export function AssistantPanel() {
                   </div>
                 ) : null}
                 <button className={styles.menuItem} onClick={() => void refreshModels()}>
-                  <WinIcon glyph="history" size={13} />
+                  <Icon name="history" size={14} />
                   刷新模型列表
                 </button>
               </div>
@@ -552,7 +550,7 @@ export function AssistantPanel() {
                 aria-expanded={sessionOpen}
                 title="切换对话会话"
               >
-                <WinIcon glyph="chevronDown" size={10} />
+                <Icon name="chevronDown" size={14} />
               </button>
             </div>
 
@@ -604,9 +602,7 @@ export function AssistantPanel() {
                             {session.messages.length} 条 · {formatSessionTime(session.updatedAt)}
                           </span>
                         </div>
-                        {session.id === activeSessionId ? (
-                          <WinIcon glyph="check" size={12} />
-                        ) : null}
+                        {session.id === activeSessionId ? <Icon name="check" size={14} /> : null}
                         {sessions.length > 1 ? (
                           <button
                             className={styles.sessionDelete}
@@ -617,7 +613,7 @@ export function AssistantPanel() {
                             aria-label={`删除对话 ${session.title}`}
                             title="删除对话"
                           >
-                            <WinIcon glyph="clear" size={11} />
+                            <Icon name="clear" size={14} />
                           </button>
                         ) : null}
                       </div>
@@ -664,13 +660,7 @@ export function AssistantPanel() {
                 aria-pressed={!sidebar}
                 title="悬浮窗：覆盖在阅读区上，可拖动缩放"
               >
-                <MorphIcon
-                  icon={PictureInPicture2}
-                  size={12}
-                  strokeWidth={1.7}
-                  spring="snappy"
-                  reducedMotion="user"
-                />
+                <Icon name="float" size={14} />
               </button>
               <button
                 className={`${styles.modeOption} ${sidebar ? styles.modeActive : ""}`}
@@ -680,13 +670,7 @@ export function AssistantPanel() {
                 aria-pressed={sidebar}
                 title="侧边栏：停靠右侧，阅读区自动让位"
               >
-                <MorphIcon
-                  icon={PanelRight}
-                  size={12}
-                  strokeWidth={1.7}
-                  spring="snappy"
-                  reducedMotion="user"
-                />
+                <Icon name="sidebar" size={14} />
               </button>
             </div>
           ) : null}
@@ -699,7 +683,7 @@ export function AssistantPanel() {
             aria-label="清空当前对话与上下文"
             title="清空当前对话与上下文"
           >
-            <WinIcon glyph="clear" size={14} />
+            <Icon name="clear" size={16} />
           </button>
           <span className={styles.headerSep} />
           <button
@@ -709,7 +693,7 @@ export function AssistantPanel() {
             aria-label="最小化"
             title="最小化（Esc）"
           >
-            <WinIcon glyph="minimize" size={14} />
+            <Icon name="minimize" size={16} />
           </button>
           <button
             className={styles.headerButton}
@@ -718,7 +702,7 @@ export function AssistantPanel() {
             aria-label="关闭"
             title="关闭（Alt+J）"
           >
-            <WinIcon glyph="close" size={14} />
+            <Icon name="close" size={16} />
           </button>
         </div>
 

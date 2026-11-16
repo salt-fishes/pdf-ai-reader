@@ -1,4 +1,4 @@
-import { WinIcon } from "../../components/icons/WinIcon";
+import { Icon } from "../../components/icons/Icon";
 import { QuoteIcon } from "../../components/icons/SparkleIcon";
 import { copyText } from "../../lib/clipboard";
 import { useViewer } from "../viewer/useViewerStore";
@@ -45,7 +45,7 @@ export function SelectionToolbar() {
         }}
         title={ocr ? "复制 OCR 识别文字" : "复制原文"}
       >
-        <WinIcon glyph="copy" size={13} />
+        <Icon name="copy" size={14} />
         复制
       </button>
       <button
@@ -65,7 +65,7 @@ export function SelectionToolbar() {
         }}
         title="引用到对话（Ctrl+Alt+Q）"
       >
-        <QuoteIcon size={13} />
+        <QuoteIcon size={14} />
         引用
       </button>
       <span className={styles.selectionSep} />
@@ -78,7 +78,7 @@ export function SelectionToolbar() {
         }}
         title="高亮这段文字"
       >
-        <WinIcon glyph="highlight" size={13} />
+        <Icon name="highlight" size={14} />
         高亮
       </button>
     </div>

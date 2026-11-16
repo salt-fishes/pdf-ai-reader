@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { WinIcon } from "../components/icons/WinIcon";
+import { Icon } from "../components/icons/Icon";
 import { useViewer } from "../features/viewer/useViewerStore";
 import { useOcr } from "../features/ocr/useOcrStore";
 import styles from "./Chrome.module.css";
@@ -48,7 +48,7 @@ export function SearchOverlay() {
   return (
     <div className={styles.search} ref={boxRef} role="dialog" aria-label="搜索文档">
       <div className={styles.searchBar}>
-        <WinIcon glyph="search" size={15} />
+        <Icon name="search" size={16} />
         <input
           ref={inputRef}
           className={styles.searchInput}

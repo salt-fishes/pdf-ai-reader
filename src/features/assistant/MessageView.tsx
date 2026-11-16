@@ -4,14 +4,12 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
-import { MorphIcon } from "morphicons/react";
-import { Check, Copy, RotateCcw } from "lucide";
+import { Icon, StateIcon } from "../../components/icons/Icon";
 import type { ChatMessage } from "../../lib/ai/types";
 import { countInvalidCitations, extractCitedPages } from "../../lib/ai/citations";
 import { copyText } from "../../lib/clipboard";
 import { useViewer } from "../viewer/useViewerStore";
 import { QuoteIcon } from "../../components/icons/SparkleIcon";
-import { WinIcon } from "../../components/icons/WinIcon";
 import { useAssistant } from "./useAssistantStore";
 import styles from "./Assistant.module.css";
 
@@ -106,13 +104,7 @@ export function MessageView({ message, onQuote, onContextMenu }: Props) {
         {message.excluded ? <div className={styles.excludedTag}>已从上下文移除</div> : null}
         <div className={styles.messageActions}>
           <button className={styles.actionButton} onClick={handleCopy} title="复制">
-            <MorphIcon
-              icon={copied ? Check : Copy}
-              size={13}
-              strokeWidth={1.7}
-              spring="snappy"
-              reducedMotion="user"
-            />
+            <StateIcon off="copy" on="check" active={copied} size={14} />
           </button>
           <button
             className={`${styles.actionButton} ${isQuoted ? styles.actionActive : ""}`}
@@ -120,7 +112,7 @@ export function MessageView({ message, onQuote, onContextMenu }: Props) {
             title={isQuoted ? "取消引用" : "引用为上下文"}
             aria-pressed={isQuoted}
           >
-            <QuoteIcon size={13} />
+            <QuoteIcon size={14} />
           </button>
         </div>
       </div>
@@ -236,13 +228,7 @@ export function MessageView({ message, onQuote, onContextMenu }: Props) {
 
       <div className={styles.messageActions}>
         <button className={styles.actionButton} onClick={handleCopy} title="复制回答">
-          <MorphIcon
-            icon={copied ? Check : Copy}
-            size={13}
-            strokeWidth={1.7}
-            spring="snappy"
-            reducedMotion="user"
-          />
+          <StateIcon off="copy" on="check" active={copied} size={14} />
           <span>复制</span>
         </button>
         <button
@@ -251,7 +237,7 @@ export function MessageView({ message, onQuote, onContextMenu }: Props) {
           disabled={Boolean(streamingId)}
           title="重新生成"
         >
-          <MorphIcon icon={RotateCcw} size={13} strokeWidth={1.7} reducedMotion="user" />
+          <Icon name="retry" size={14} />
           <span>重试</span>
         </button>
         <button
@@ -260,12 +246,12 @@ export function MessageView({ message, onQuote, onContextMenu }: Props) {
           title={isQuoted ? "取消引用" : "引用为上下文"}
           aria-pressed={isQuoted}
         >
-          <QuoteIcon size={13} />
+          <QuoteIcon size={14} />
           <span>引用</span>
         </button>
         {cited.length ? (
           <span className={styles.actionButton} aria-hidden="true">
-            <WinIcon glyph="page" size={11} />
+            <Icon name="page" size={14} />
             {cited.join(", ")}
           </span>
         ) : null}

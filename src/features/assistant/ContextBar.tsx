@@ -1,8 +1,6 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { MorphIcon } from "morphicons/react";
-import { ChevronDown, ChevronUp } from "lucide";
-import { WinIcon } from "../../components/icons/WinIcon";
+import { Icon, StateIcon } from "../../components/icons/Icon";
 import { copyImage, copyText, downloadDataUrl } from "../../lib/clipboard";
 import { formatChars, formatTokens } from "../../lib/tokens/estimate";
 import { estimateCost, formatCny } from "../../lib/tokens/meter";
@@ -89,8 +87,6 @@ export function ContextBar() {
       ? context.smart.pages.includes(context.currentPage)
       : false;
 
-  const smartQuery = context.smart?.query ?? "";
-  const smartQueryLabel = smartQuery.length > 60 ? `${smartQuery.slice(0, 60)}…` : smartQuery;
   const allSelected = numPages > 0 && context.pageRange?.length === numPages;
   const selectionPages = context.selection?.pages?.map((page) => page.page) ?? [];
   const selectionLabel =
@@ -101,7 +97,7 @@ export function ContextBar() {
     <div className={styles.context}>
       {autoCurrentPage && context.currentPage && scannedPages.includes(context.currentPage) ? (
         <div className={styles.scannedBanner}>
-          <WinIcon glyph="info" size={12} />
+          <Icon name="info" size={14} />
           <span>
             {!ocrEnabled
               ? `第 ${context.currentPage} 页没有文字层；OCR 文本层已在设置中关闭。`
@@ -113,7 +109,6 @@ export function ContextBar() {
                     ? `第 ${context.currentPage} 页已加入后台识别队列。`
                     : `第 ${context.currentPage} 页没有文字层，扫描件可自动识别。`}
           </span>
-          <span className={styles.ocrHint}>不影响阅读</span>
         </div>
       ) : null}
       <button
@@ -129,7 +124,7 @@ export function ContextBar() {
         <span className={styles.sourceStack} aria-hidden="true">
           {(icons.length ? icons : (["page"] as const)).slice(0, 3).map((glyph, index) => (
             <span key={`${glyph}_${index}`} className={styles.sourceIcon}>
-              <WinIcon glyph={glyph} size={10} />
+              <Icon name={glyph} size={14} />
             </span>
           ))}
         </span>
@@ -139,13 +134,7 @@ export function ContextBar() {
         <TokenRing value={occupancy} />
         <span className={styles.contextMeta}>{Math.max(1, Math.round(occupancy * 100))}%</span>
         <span className={styles.chevron}>
-          <MorphIcon
-            icon={expanded ? ChevronUp : ChevronDown}
-            size={13}
-            strokeWidth={1.7}
-            spring="snappy"
-            reducedMotion="user"
-          />
+          <StateIcon off="chevronDown" on="chevronUp" active={expanded} size={14} strokeWidth={2} />
         </span>
       </button>
 
@@ -192,7 +181,7 @@ export function ContextBar() {
                   onClick={removeCurrentPage}
                   aria-label="移除当前页"
                 >
-                  <WinIcon glyph="close" size={10} />
+                  <Icon name="close" size={14} />
                 </button>
               </span>
             ) : null}
@@ -211,7 +200,7 @@ export function ContextBar() {
                   onClick={removePageRange}
                   aria-label="移除页码"
                 >
-                  <WinIcon glyph="close" size={10} />
+                  <Icon name="close" size={14} />
                 </button>
               </span>
             ) : null}
@@ -231,7 +220,7 @@ export function ContextBar() {
                   onClick={removeSmartFilter}
                   aria-label="移除智能筛选"
                 >
-                  <WinIcon glyph="close" size={10} />
+                  <Icon name="close" size={14} />
                 </button>
               </span>
             ) : null}
@@ -251,7 +240,7 @@ export function ContextBar() {
                   onClick={removeSelection}
                   aria-label="移除选中文字"
                 >
-                  <WinIcon glyph="close" size={10} />
+                  <Icon name="close" size={14} />
                 </button>
               </span>
             ) : null}
@@ -272,7 +261,7 @@ export function ContextBar() {
                   onClick={() => removeScreenshot(shot.id)}
                   aria-label="移除截图"
                 >
-                  <WinIcon glyph="close" size={10} />
+                  <Icon name="close" size={14} />
                 </button>
               </span>
             ))}
@@ -303,7 +292,7 @@ export function ContextBar() {
                   onClick={() => removeAttachment(file.id)}
                   aria-label="移除附件"
                 >
-                  <WinIcon glyph="close" size={10} />
+                  <Icon name="close" size={14} />
                 </button>
               </span>
             ))}
@@ -319,7 +308,7 @@ export function ContextBar() {
                   onClick={() => removeQuote(quote.messageId)}
                   aria-label="取消引用"
                 >
-                  <WinIcon glyph="close" size={10} />
+                  <Icon name="close" size={14} />
                 </button>
               </span>
             ))}
@@ -330,15 +319,17 @@ export function ContextBar() {
           </div>
 
           {context.smart ? (
-            <div className={styles.smartNote}>
-              <div>
-                已从 {context.smart.scannedPages} 页中筛选 {context.smart.chunks} 段
+            <div
+              className={styles.smartNote}
+              title={context.smart.query ? `匹配问题：${context.smart.query}` : undefined}
+            >
+              <span className={styles.smartText}>
+                已从 {context.smart.scannedPages} 页筛出 {context.smart.chunks} 段
                 {context.smart.scannedPages < context.smart.totalPages
-                  ? `（全文 ${context.smart.totalPages} 页，仅扫描前 ${context.smart.scannedPages} 页）`
+                  ? ` · 扫描前 ${context.smart.scannedPages}/${context.smart.totalPages} 页`
                   : ""}
-                ，匹配问题“{smartQueryLabel}”。
-              </div>
-              <div className={styles.smartPages}>
+              </span>
+              <span className={styles.smartPages}>
                 {context.smart.pages.map((page) => (
                   <button key={page} className={styles.smartPage} onClick={() => jump(page)}>
                     P{page}
@@ -347,7 +338,7 @@ export function ContextBar() {
                 <button className={styles.smartPage} onClick={removeSmartFilter}>
                   移除
                 </button>
-              </div>
+              </span>
             </div>
           ) : null}
 
@@ -405,8 +396,7 @@ export function ContextBar() {
               </span>
             </div>
             <div className={styles.bucketNote}>
-              上下文预算 {formatTokens(budget)} 只作提示与圆环刻度；发送上限由模型 1M
-              上下文决定，超限时会建议改用整本总结。
+              预算 {formatTokens(budget)} 仅作提示，实际上限由模型上下文决定。
             </div>
           </div>
         </div>
@@ -454,7 +444,7 @@ export function ContextBar() {
                 aria-label="关闭预览"
                 onClick={() => setPreview(null)}
               >
-                <WinIcon glyph="close" size={16} />
+                <Icon name="close" size={16} />
               </button>
             </div>,
             document.body,

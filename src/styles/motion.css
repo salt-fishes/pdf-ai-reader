@@ -1,3 +1,106 @@
+/*
+ * One entrance language for menus, popovers, dialogs, sidebars and messages.
+ * Components must reference --motion-* / --ease-* tokens and one of the
+ * keyframes below; scripts/check-motion.mjs enforces both rules.
+ */
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.99);
+  }
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+/* Selection toolbar keeps its horizontal anchor while sliding up. */
+@keyframes toolbar-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(3px);
+  }
+}
+
+/* One-shot page / result attention rings. */
+@keyframes page-flash {
+  0% {
+    box-shadow: 0 0 0 2px transparent;
+  }
+  18% {
+    box-shadow: 0 0 0 2px var(--brand-a85);
+  }
+  60% {
+    box-shadow: 0 0 0 2px var(--brand-a55);
+  }
+  100% {
+    box-shadow: 0 0 0 2px transparent;
+  }
+}
+
+@keyframes focus-flash {
+  0% {
+    box-shadow: 0 0 0 0 rgb(245 158 11 / 75%);
+  }
+  65% {
+    box-shadow: 0 0 0 6px rgb(245 158 11 / 0%);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgb(245 158 11 / 0%);
+  }
+}
+
+@keyframes search-flash {
+  0% {
+    box-shadow: 0 0 0 0 var(--brand-a55);
+  }
+  70% {
+    box-shadow: 0 0 0 6px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+/* Loading loops. */
+@keyframes skeleton {
+  to {
+    background-position:
+      -120% 0,
+      0 0;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* Assistant FAB: one soft halo, opacity only, no hard rings. */
 @keyframes fab-glow {
   0%,
@@ -23,21 +126,6 @@
   }
 }
 
-@keyframes page-flash {
-  0% {
-    box-shadow: 0 0 0 2px rgb(91 91 214 / 0%);
-  }
-  18% {
-    box-shadow: 0 0 0 2px rgb(91 91 214 / 85%);
-  }
-  60% {
-    box-shadow: 0 0 0 2px rgb(91 91 214 / 55%);
-  }
-  100% {
-    box-shadow: 0 0 0 2px rgb(91 91 214 / 0%);
-  }
-}
-
 @keyframes caret-pulse {
   0%,
   100% {
@@ -48,23 +136,10 @@
   }
 }
 
-@keyframes toast-in {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes fade-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
+@keyframes dot-pulse {
+  50% {
+    opacity: 0.45;
+    box-shadow: 0 0 0 4px rgb(245 158 11 / 9%);
   }
 }
 

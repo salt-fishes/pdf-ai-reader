@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { WinIcon } from "../../components/icons/WinIcon";
+import { Icon } from "../../components/icons/Icon";
 import {
   COLOR_INTENSITY_MAX,
   COLOR_INTENSITY_MIN,
@@ -70,7 +70,7 @@ export function ColorModeControl({ className }: Props) {
                 ) : null}
                 {selected ? (
                   <span className={styles.check}>
-                    <WinIcon glyph="check" size={9} />
+                    <Icon name="check" size={14} />
                   </span>
                 ) : null}
               </span>

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { WinIcon } from "../components/icons/WinIcon";
+import { Icon } from "../components/icons/Icon";
 import { useFocusTrap } from "../hooks/useFocusTrap";
 import { useViewer } from "../features/viewer/useViewerStore";
 import styles from "../components/Modal.module.css";
@@ -45,7 +45,7 @@ export function PasswordDialog() {
             onClick={cancelPassword}
             aria-label="取消打开"
           >
-            <WinIcon glyph="close" size={15} />
+            <Icon name="close" size={18} />
           </button>
         </div>
         <div className={styles.body}>

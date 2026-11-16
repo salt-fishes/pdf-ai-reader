@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { WinIcon } from "../components/icons/WinIcon";
+import { Icon } from "../components/icons/Icon";
 import { getActiveDocument, renderPageThumbnail } from "../lib/pdf/pdf";
 import { chapterRanges } from "../lib/pdf/chapters";
 import { downloadText, safeFileName } from "../lib/download";
@@ -259,7 +259,7 @@ export function Sidebar() {
                           removeHighlight(highlight.id);
                         }}
                       >
-                        <WinIcon glyph="clear" size={12} />
+                        <Icon name="clear" size={14} />
                       </button>
                     </div>
                   </div>

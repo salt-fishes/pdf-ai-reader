@@ -579,7 +579,9 @@ export function PdfViewer() {
       onKeyDown={(event) => {
         if (event.key === "Escape") setSelection(null);
       }}
-      tabIndex={-1}
+      tabIndex={0}
+      role="region"
+      aria-label="PDF 阅读区"
     >
       <div ref={pagesRef} className={styles.pages} aria-label={`${docName}，共 ${numPages} 页`}>
         {beforeHeight > 0 ? <div aria-hidden="true" style={{ height: beforeHeight }} /> : null}

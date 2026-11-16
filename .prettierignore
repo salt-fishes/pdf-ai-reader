@@ -13,3 +13,5 @@ server/data
 eslint-report.json
 
 public/pdfjs
+
+release-notes.md

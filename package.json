@@ -1,7 +1,7 @@
 {
   "name": "pdf-ai-reader",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "description": "Local-first PDF reader with an AI reading assistant",
   "main": "electron/main.mjs",
@@ -58,7 +58,6 @@
     "idb-keyval": "6.3.0",
     "katex": "0.19.1",
     "lucide": "1.73.0",
-    "morphicons": "2.0.2",
     "onnxruntime-node": "^1.31.1",
     "pdfjs-dist": "6.5.438",
     "ppu-paddle-ocr": "^6.7.1",

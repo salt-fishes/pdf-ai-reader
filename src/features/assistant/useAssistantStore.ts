@@ -317,8 +317,8 @@ function normalizeStoredMessages(raw: unknown): ChatMessage[] {
 }
 
 function defaultPanel(): PanelRect {
-  const width = Math.min(360, window.innerWidth - 32);
-  const height = Math.min(360, window.innerHeight - 140);
+  const width = Math.min(380, window.innerWidth - 32);
+  const height = Math.min(460, window.innerHeight - 140);
   return {
     left: Math.max(16, window.innerWidth - 24 - width),
     top: Math.max(64, window.innerHeight - 92 - height),

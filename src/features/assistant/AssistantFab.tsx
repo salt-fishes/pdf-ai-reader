@@ -17,7 +17,7 @@ export function AssistantFab() {
     <button
       className={styles.fab}
       data-assistant-fab
-      aria-label="打开 AI 阅读助手"
+      aria-label={`打开 AI 阅读助手${count > 0 ? `，${count} 个新来源` : ""}`}
       title="AI 阅读助手（Ctrl+J）"
       onClick={(event) => openFrom(event.currentTarget)}
     >

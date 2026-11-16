@@ -1,4 +1,4 @@
-import { WinIcon } from "../../components/icons/WinIcon";
+import { Icon } from "../../components/icons/Icon";
 import { useAssistant } from "./useAssistantStore";
 import modal from "../../components/Modal.module.css";
 import styles from "./OcrDialog.module.css";
@@ -43,14 +43,14 @@ export function OcrDialog() {
             aria-label="关闭 OCR 对话框"
             disabled={recognizing}
           >
-            <WinIcon glyph="close" size={15} />
+            <Icon name="close" size={18} />
           </button>
         </div>
 
         <div className={modal.body}>
           <section className={modal.section}>
             <div className={modal.sectionTitle}>
-              <WinIcon glyph="search" size={13} />
+              <Icon name="search" size={14} />
               PP-OCRv6 tiny
             </div>
             <div className={styles.lead}>

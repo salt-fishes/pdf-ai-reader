@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { WinIcon } from "../components/icons/WinIcon";
+import { Icon } from "../components/icons/Icon";
 import { getColorMode } from "../lib/reading/color";
 import { ColorModeControl } from "../features/viewer/ColorModeControl";
 import { useViewer } from "../features/viewer/useViewerStore";
@@ -47,7 +47,7 @@ export function Rail({ onOpenSettings, onOpenShortcuts }: Props) {
         title="页面"
         disabled={!hasDoc}
       >
-        <WinIcon glyph="page" size={16} />
+        <Icon name="page" size={16} />
       </button>
       <button
         className={`${styles.railButton} ${sidebar === "outline" ? styles.active : ""}`}
@@ -57,7 +57,7 @@ export function Rail({ onOpenSettings, onOpenShortcuts }: Props) {
         title="目录"
         disabled={!hasDoc}
       >
-        <WinIcon glyph="outline" size={16} />
+        <Icon name="outline" size={16} />
       </button>
       <button
         className={`${styles.railButton} ${sidebar === "highlights" ? styles.active : ""}`}
@@ -67,7 +67,7 @@ export function Rail({ onOpenSettings, onOpenShortcuts }: Props) {
         title="高亮"
         disabled={!hasDoc}
       >
-        <WinIcon glyph="highlightList" size={16} />
+        <Icon name="highlightList" size={16} />
       </button>
 
       <div className={styles.railSpacer} />
@@ -81,8 +81,8 @@ export function Rail({ onOpenSettings, onOpenShortcuts }: Props) {
           aria-expanded={colorOpen}
           title={`色彩模式：${color.label}`}
         >
-          <WinIcon
-            glyph={colorMode === "smart" || colorMode === "invert" ? "moon" : "theme"}
+          <Icon
+            name={colorMode === "smart" || colorMode === "invert" ? "moon" : "theme"}
             size={16}
           />
         </button>
@@ -102,10 +102,10 @@ export function Rail({ onOpenSettings, onOpenShortcuts }: Props) {
         aria-label="快捷键"
         title="快捷键（?）"
       >
-        <WinIcon glyph="help" size={16} />
+        <Icon name="help" size={16} />
       </button>
       <button className={styles.railButton} onClick={onOpenSettings} aria-label="设置" title="设置">
-        <WinIcon glyph="settings" size={16} />
+        <Icon name="settings" size={16} />
       </button>
     </aside>
   );

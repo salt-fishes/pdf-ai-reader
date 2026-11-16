@@ -17,7 +17,7 @@
   gap: 8px;
   color: var(--accent);
   font-weight: 600;
-  font-size: 13px;
+  font-size: var(--text-sm);
   letter-spacing: 0.01em;
   white-space: nowrap;
 }
@@ -41,14 +41,8 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--ink);
-  font-size: 12.5px;
+  font-size: var(--text-xs);
   font-weight: 500;
-}
-
-.docMeta {
-  color: var(--faint);
-  font-size: 11px;
-  white-space: nowrap;
 }
 
 .spacer {
@@ -69,8 +63,8 @@
   place-items: center;
   color: var(--muted);
   transition:
-    background 120ms ease,
-    color 120ms ease;
+    background var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard);
 }
 
 .iconButton:hover {
@@ -90,21 +84,21 @@
   display: grid;
   place-items: center;
   color: var(--accent);
-  background: rgb(91 91 214 / 9%);
+  background: var(--brand-a09);
   transition:
-    background 160ms ease,
-    color 160ms ease,
-    box-shadow 160ms ease;
+    background var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard);
 }
 
 .aiButton:hover {
-  background: rgb(91 91 214 / 16%);
+  background: var(--brand-a16);
 }
 
 .aiButton.active {
   background: var(--accent);
   color: #fff;
-  box-shadow: 0 6px 16px -8px rgb(91 91 214 / 80%);
+  box-shadow: 0 6px 16px -8px var(--brand-a80);
 }
 
 .pager {
@@ -115,7 +109,7 @@
   padding: 0 6px;
   border-radius: 6px;
   color: var(--muted);
-  font-size: 11.5px;
+  font-size: var(--text-xs);
   font-variant-numeric: tabular-nums;
 }
 
@@ -131,7 +125,7 @@
   background: transparent;
   text-align: right;
   color: var(--ink);
-  font-size: 11.5px;
+  font-size: var(--text-xs);
   font-variant-numeric: tabular-nums;
   padding: 0 2px;
 }
@@ -151,7 +145,7 @@
   padding: 0 7px;
   border-radius: 6px;
   color: var(--muted);
-  font-size: 11.5px;
+  font-size: var(--text-xs);
   font-variant-numeric: tabular-nums;
   min-width: 46px;
 }
@@ -173,7 +167,7 @@
   display: grid;
   place-items: center;
   color: var(--muted);
-  font-size: 15px;
+  font-size: var(--text-lg);
   line-height: 1;
 }
 
@@ -194,7 +188,7 @@
   backdrop-filter: blur(18px) saturate(1.2);
   border: 1px solid var(--line);
   box-shadow: var(--shadow-soft);
-  animation: menu-in 120ms var(--ease-out);
+  animation: pop-in var(--motion-base) var(--ease-out);
 }
 
 :global([data-theme="night"]) .zoomStep:hover {
@@ -223,14 +217,7 @@
   border: 1px solid var(--line);
   box-shadow: var(--shadow-soft);
   z-index: 60;
-  animation: menu-in 120ms var(--ease-out);
-}
-
-@keyframes menu-in {
-  from {
-    opacity: 0;
-    transform: translateY(-3px) scale(0.98);
-  }
+  animation: pop-in var(--motion-base) var(--ease-out);
 }
 
 .menuItem {
@@ -242,7 +229,7 @@
   padding: 0 9px;
   border-radius: 6px;
   color: var(--ink);
-  font-size: 12.5px;
+  font-size: var(--text-xs);
   text-align: left;
 }
 
@@ -252,12 +239,6 @@
 
 .menuItem.danger {
   color: var(--danger);
-}
-
-.menuKey {
-  margin-left: auto;
-  color: var(--faint);
-  font-size: 10.5px;
 }
 
 .menuRecentName {
@@ -294,8 +275,8 @@
   color: var(--muted);
   position: relative;
   transition:
-    background 120ms ease,
-    color 120ms ease;
+    background var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard);
 }
 
 .railButton:hover {
@@ -336,14 +317,7 @@
   background: var(--glass-strong);
   box-shadow: var(--shadow-panel);
   backdrop-filter: blur(18px) saturate(1.15);
-  animation: popover-in 140ms var(--ease-out);
-}
-
-@keyframes popover-in {
-  from {
-    opacity: 0;
-    transform: translateX(-5px) scale(0.985);
-  }
+  animation: pop-in var(--motion-base) var(--ease-out);
 }
 
 .popoverHead {
@@ -355,13 +329,13 @@
 }
 
 .popoverTitle {
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 600;
 }
 
 .popoverMode {
-  color: var(--faint);
-  font-size: 10.5px;
+  color: var(--muted);
+  font-size: var(--text-xs);
 }
 
 @media (max-width: 420px) {
@@ -379,14 +353,7 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
-  animation: sidebar-in 160ms var(--ease-out);
-}
-
-@keyframes sidebar-in {
-  from {
-    opacity: 0;
-    transform: translateX(-6px);
-  }
+  animation: fade-in var(--motion-slow) var(--ease-out);
 }
 
 .sidebarHead {
@@ -399,14 +366,14 @@
 }
 
 .sidebarTitle {
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 600;
   color: var(--ink);
 }
 
 .sidebarCount {
-  color: var(--faint);
-  font-size: 11px;
+  color: var(--muted);
+  font-size: var(--text-xs);
 }
 
 .sidebarBody {
@@ -430,8 +397,8 @@
   border: 1px solid transparent;
   border-radius: 8px;
   transition:
-    background 140ms ease,
-    border-color 140ms ease;
+    background var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard);
 }
 
 .thumb:hover {
@@ -440,7 +407,7 @@
 
 .thumbActive {
   background: var(--accent-soft);
-  border-color: rgb(91 91 214 / 30%);
+  border-color: var(--brand-a30);
 }
 
 .thumbFrame {
@@ -469,20 +436,12 @@
     linear-gradient(100deg, transparent 30%, rgb(24 32 47 / 5%) 46%, transparent 62%) 0 0 / 220%
       100%,
     #fff;
-  animation: thumb-shimmer 1.3s linear infinite;
-}
-
-@keyframes thumb-shimmer {
-  to {
-    background-position:
-      -120% 0,
-      0 0;
-  }
+  animation: skeleton var(--motion-skeleton) linear infinite;
 }
 
 .thumbLabel {
-  color: var(--faint);
-  font-size: 10.5px;
+  color: var(--muted);
+  font-size: var(--text-xs);
   font-variant-numeric: tabular-nums;
   text-align: center;
 }
@@ -500,7 +459,7 @@
   padding: 0 8px 0 0;
   border-radius: 6px;
   color: var(--ink);
-  font-size: 12px;
+  font-size: var(--text-xs);
   line-height: 1.45;
   overflow: hidden;
   white-space: nowrap;
@@ -512,7 +471,7 @@
   padding: 6px 0;
   overflow: hidden;
   color: inherit;
-  font-size: 12px;
+  font-size: var(--text-xs);
   text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -528,12 +487,12 @@
   height: 20px;
   padding: 0 5px;
   border-radius: 5px;
-  color: var(--faint);
-  font-size: 10.5px;
+  color: var(--muted);
+  font-size: var(--text-xs);
   font-variant-numeric: tabular-nums;
   transition:
-    background 120ms ease,
-    color 120ms ease;
+    background var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard);
 }
 
 .outlinePage:hover {
@@ -546,8 +505,8 @@
 }
 
 .outlineMeta {
-  color: var(--faint);
-  font-size: 10.5px;
+  color: var(--muted);
+  font-size: var(--text-xs);
   margin-left: 6px;
 }
 
@@ -556,8 +515,8 @@
   align-items: center;
   gap: 5px;
   margin-bottom: 8px;
-  color: var(--faint);
-  font-size: 10px;
+  color: var(--muted);
+  font-size: var(--text-xs);
 }
 
 .highlightTools > span {
@@ -568,13 +527,13 @@
   height: 23px;
   padding: 0 7px;
   border-radius: 5px;
-  background: rgb(91 91 214 / 8%);
+  background: var(--brand-a08);
   color: var(--accent-deep);
-  font-size: 9.5px;
+  font-size: var(--text-xs);
 }
 
 .highlightTools button:hover {
-  background: rgb(91 91 214 / 16%);
+  background: var(--brand-a16);
 }
 
 .highlightItem {
@@ -583,14 +542,14 @@
   border: 1px solid var(--line);
   background: #fff;
   margin-bottom: 6px;
-  font-size: 11.5px;
+  font-size: var(--text-xs);
   line-height: 1.5;
   color: var(--ink);
   cursor: pointer;
 }
 
 .highlightItem:hover {
-  border-color: rgb(91 91 214 / 40%);
+  border-color: var(--brand-a40);
 }
 
 .highlightText {
@@ -605,9 +564,9 @@
   margin-left: 5px;
   padding: 0 4px;
   border-radius: 3px;
-  background: rgb(91 91 214 / 12%);
+  background: var(--brand-a12);
   color: rgb(70 70 170);
-  font-size: 9px;
+  font-size: var(--text-xs);
   font-weight: 600;
   letter-spacing: 0.04em;
   vertical-align: 1px;
@@ -616,15 +575,15 @@
 .highlightMeta {
   display: flex;
   justify-content: space-between;
-  color: var(--faint);
-  font-size: 10.5px;
+  color: var(--muted);
+  font-size: var(--text-xs);
   margin-top: 4px;
 }
 
 .emptySidebar {
   padding: 24px 12px;
-  color: var(--faint);
-  font-size: 11.5px;
+  color: var(--muted);
+  font-size: var(--text-xs);
   text-align: center;
   line-height: 1.7;
 }
@@ -648,14 +607,7 @@
   box-shadow: var(--shadow-soft);
   z-index: 70;
   overflow: hidden;
-  animation: search-in 140ms var(--ease-out);
-}
-
-@keyframes search-in {
-  from {
-    opacity: 0;
-    transform: translateY(-4px) scale(0.99);
-  }
+  animation: pop-in var(--motion-base) var(--ease-out);
 }
 
 .searchBar {
@@ -671,13 +623,13 @@
   height: 26px;
   border: 0;
   background: transparent;
-  font-size: 12.5px;
+  font-size: var(--text-xs);
   outline: none;
 }
 
 .searchHint {
-  color: var(--faint);
-  font-size: 10.5px;
+  color: var(--muted);
+  font-size: var(--text-xs);
   white-space: nowrap;
 }
 
@@ -696,17 +648,17 @@
   gap: 8px;
   align-items: baseline;
   color: var(--ink);
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 
 .searchResult:hover {
-  background: rgb(91 91 214 / 8%);
+  background: var(--brand-a08);
 }
 
 .searchPage {
   flex: none;
   min-width: 28px;
-  font-size: 10.5px;
+  font-size: var(--text-xs);
   color: var(--accent);
   font-variant-numeric: tabular-nums;
 }
@@ -715,9 +667,9 @@
   margin-left: 3px;
   padding: 0 3px;
   border-radius: 3px;
-  background: rgb(91 91 214 / 12%);
+  background: var(--brand-a12);
   color: rgb(70 70 170);
-  font-size: 8px;
+  font-size: var(--text-xs);
   font-weight: 600;
   letter-spacing: 0.04em;
 }
@@ -732,8 +684,8 @@
 .searchEmpty {
   padding: 18px 10px;
   text-align: center;
-  color: var(--faint);
-  font-size: 11.5px;
+  color: var(--muted);
+  font-size: var(--text-xs);
 }
 
 @media (max-width: 980px) {
@@ -750,7 +702,6 @@
 }
 
 @media (max-width: 720px) {
-  .docMeta,
   .zoomButton,
   .zoomGroup {
     display: none;

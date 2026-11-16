@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { WinIcon } from "../../components/icons/WinIcon";
+import { Icon } from "../../components/icons/Icon";
 import { chapterRanges } from "../../lib/pdf/chapters";
 import { formatPageList, parsePageRange } from "../../lib/pdf/range";
 import { useViewer } from "../viewer/useViewerStore";
@@ -244,7 +244,7 @@ export function PagePicker({ onClose, showSmart = false }: Props) {
           disabled={disabled || !draft.trim()}
           title="按当前问题在本地检索最相关的段落，不把整本 PDF 发出去"
         >
-          <WinIcon glyph="search" size={13} />
+          <Icon name="search" size={14} />
           <span>智能筛选全文</span>
           <span className={styles.pageSmartHint}>{draft.trim() ? "按问题筛选" : "先输入问题"}</span>
         </button>

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { BrandMark, SparkleIcon } from "../components/icons/SparkleIcon";
-import { WinIcon } from "../components/icons/WinIcon";
+import { Icon } from "../components/icons/Icon";
 import { pickPdfFile } from "../lib/openFile";
 import { useViewer } from "../features/viewer/useViewerStore";
 import { useAssistant } from "../features/assistant/useAssistantStore";
@@ -88,16 +88,15 @@ export function Header({ onOpenSettings, onOpenShortcuts, onOpenSearch }: Props)
       </div>
       <div className={styles.divider} />
       <div className={styles.docTitle} title={docName || "未打开文档"}>
-        {docName || "未打开文档"}
+        {docName ? `${docName}${numPages ? ` · ${numPages} 页` : ""}` : "未打开文档"}
       </div>
-      {numPages ? <span className={styles.docMeta}>{numPages} 页</span> : null}
 
       <div className={styles.spacer} />
 
       {numPages ? (
         <>
           <div className={styles.pager} title="跳转页码">
-            <WinIcon glyph="page" size={13} />
+            <Icon name="page" size={14} />
             <input
               className={styles.pageInput}
               value={pageDraft}
@@ -185,7 +184,7 @@ export function Header({ onOpenSettings, onOpenShortcuts, onOpenSearch }: Props)
           aria-keyshortcuts="Control+F"
           title="搜索（Ctrl+F）"
         >
-          <WinIcon glyph="search" size={16} />
+          <Icon name="search" size={16} />
         </button>
         <div className={styles.divider} />
         <button
@@ -205,7 +204,7 @@ export function Header({ onOpenSettings, onOpenShortcuts, onOpenSearch }: Props)
             aria-expanded={menuOpen}
             onClick={() => setMenuOpen((open) => !open)}
           >
-            <WinIcon glyph="more" size={16} />
+            <Icon name="more" size={16} />
           </button>
           {menuOpen ? (
             <div className={styles.menu} role="menu">
@@ -217,9 +216,8 @@ export function Header({ onOpenSettings, onOpenShortcuts, onOpenSearch }: Props)
                   pickPdfFile((file) => void openFile(file));
                 }}
               >
-                <WinIcon glyph="page" size={14} />
+                <Icon name="page" size={14} />
                 打开 PDF
-                <span className={styles.menuKey}>Ctrl O</span>
               </button>
               {recent.slice(0, 3).map((item) => (
                 <button
@@ -232,7 +230,7 @@ export function Header({ onOpenSettings, onOpenShortcuts, onOpenSearch }: Props)
                     void openRecent(item.hash);
                   }}
                 >
-                  <WinIcon glyph="history" size={14} />
+                  <Icon name="history" size={14} />
                   <span className={styles.menuRecentName}>{item.name}</span>
                 </button>
               ))}
@@ -244,9 +242,8 @@ export function Header({ onOpenSettings, onOpenShortcuts, onOpenSearch }: Props)
                   onOpenSearch();
                 }}
               >
-                <WinIcon glyph="search" size={14} />
+                <Icon name="search" size={14} />
                 搜索
-                <span className={styles.menuKey}>Ctrl F</span>
               </button>
               <div className={styles.menuSep} />
               <button
@@ -257,9 +254,8 @@ export function Header({ onOpenSettings, onOpenShortcuts, onOpenSearch }: Props)
                   onOpenShortcuts();
                 }}
               >
-                <WinIcon glyph="help" size={14} />
+                <Icon name="help" size={14} />
                 快捷键
-                <span className={styles.menuKey}>?</span>
               </button>
               <button
                 className={styles.menuItem}
@@ -269,7 +265,7 @@ export function Header({ onOpenSettings, onOpenShortcuts, onOpenSearch }: Props)
                   onOpenSettings();
                 }}
               >
-                <WinIcon glyph="settings" size={14} />
+                <Icon name="settings" size={14} />
                 设置
               </button>
               {docName ? (
@@ -283,7 +279,7 @@ export function Header({ onOpenSettings, onOpenShortcuts, onOpenSearch }: Props)
                       void closeDocument();
                     }}
                   >
-                    <WinIcon glyph="close" size={14} />
+                    <Icon name="close" size={14} />
                     关闭文档
                   </button>
                 </>

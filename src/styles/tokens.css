@@ -1,11 +1,47 @@
 :root {
-  --accent: #5b5bd6;
-  --accent-deep: #4545bd;
-  --accent-soft: #ecebfb;
+  /* Brand palette. Hex values live here only; components use tokens. */
+  --brand-600: #5b5bd6;
+  --brand-700: #4545bd;
+  --brand-100: #ecebfb;
+  --brand-contrast: #ffffff;
+  --brand-a04: color-mix(in srgb, var(--brand-600) 4%, transparent);
+  --brand-a05: color-mix(in srgb, var(--brand-600) 5%, transparent);
+  --brand-a07: color-mix(in srgb, var(--brand-600) 7%, transparent);
+  --brand-a08: color-mix(in srgb, var(--brand-600) 8%, transparent);
+  --brand-a09: color-mix(in srgb, var(--brand-600) 9%, transparent);
+  --brand-a10: color-mix(in srgb, var(--brand-600) 10%, transparent);
+  --brand-a12: color-mix(in srgb, var(--brand-600) 12%, transparent);
+  --brand-a14: color-mix(in srgb, var(--brand-600) 14%, transparent);
+  --brand-a15: color-mix(in srgb, var(--brand-600) 15%, transparent);
+  --brand-a16: color-mix(in srgb, var(--brand-600) 16%, transparent);
+  --brand-a18: color-mix(in srgb, var(--brand-600) 18%, transparent);
+  --brand-a22: color-mix(in srgb, var(--brand-600) 22%, transparent);
+  --brand-a24: color-mix(in srgb, var(--brand-600) 24%, transparent);
+  --brand-a26: color-mix(in srgb, var(--brand-600) 26%, transparent);
+  --brand-a30: color-mix(in srgb, var(--brand-600) 30%, transparent);
+  --brand-a34: color-mix(in srgb, var(--brand-600) 34%, transparent);
+  --brand-a35: color-mix(in srgb, var(--brand-600) 35%, transparent);
+  --brand-a40: color-mix(in srgb, var(--brand-600) 40%, transparent);
+  --brand-a42: color-mix(in srgb, var(--brand-600) 42%, transparent);
+  --brand-a45: color-mix(in srgb, var(--brand-600) 45%, transparent);
+  --brand-a55: color-mix(in srgb, var(--brand-600) 55%, transparent);
+  --brand-a58: color-mix(in srgb, var(--brand-600) 58%, transparent);
+  --brand-a70: color-mix(in srgb, var(--brand-600) 70%, transparent);
+  --brand-a72: color-mix(in srgb, var(--brand-600) 72%, transparent);
+  --brand-a80: color-mix(in srgb, var(--brand-600) 80%, transparent);
+  --brand-a85: color-mix(in srgb, var(--brand-600) 85%, transparent);
+
+  /* Compatibility aliases; new code should prefer --brand-*. */
+  --accent: var(--brand-600);
+  --accent-deep: var(--brand-700);
+  --accent-soft: var(--brand-100);
+
   --teal: #0ea5b7;
   --amber: #f59e0b;
+  --amber-ink: #8a5a00;
   --amber-soft: #fdf1db;
   --success: #10b981;
+  --success-ink: #087a4f;
   --danger: #dc4b4b;
 
   --paper: #f6f5f2;
@@ -13,7 +49,8 @@
   --surface: #ffffff;
   --surface-muted: #f3f2ee;
   --ink: #18202f;
-  --muted: #717887;
+  --muted: #5f6675;
+  /* Icon, border and divider colour only. Never use for text. */
   --faint: #9aa0ac;
   --line: rgb(24 32 47 / 9%);
   --line-strong: rgb(24 32 47 / 16%);
@@ -28,22 +65,39 @@
   --radius-chip: 8px;
   --radius-button: 7px;
 
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-md: 14px;
+  --text-lg: 16px;
+  --text-xl: 20px;
+  --text-2xl: 24px;
+
   --font-ui:
     "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", system-ui,
     sans-serif;
   --font-reading: "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", system-ui, sans-serif;
   --font-mono: "Cascadia Mono", "JetBrains Mono", Consolas, monospace;
 
+  --motion-instant: 80ms;
   --motion-fast: 120ms;
   --motion-base: 180ms;
+  --motion-slow: 260ms;
   --motion-panel: 360ms;
-  --motion-exit: 220ms;
+  --motion-exit: 180ms;
+  --motion-spin: 800ms;
+  --motion-skeleton: 1400ms;
+  --motion-pulse: 1400ms;
+  --motion-attention: 1400ms;
+  --motion-fab: 3800ms;
+  --motion-fab-busy: 2800ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
 
   --header-h: 48px;
   --rail-w: 48px;
-  --panel-w: 360px;
-  --panel-h: 360px;
+  --panel-w: 380px;
+  --panel-h: 460px;
 }
 
 /* Night reading: dark chrome, dimmed pages (images stay un-inverted). */
@@ -54,8 +108,10 @@
   --accent-soft: #262645;
   --teal: #38bdf8;
   --amber: #fbbf24;
+  --amber-ink: #fbbf24;
   --amber-soft: #3a2b10;
   --success: #34d399;
+  --success-ink: #34d399;
   --danger: #f87171;
 
   --paper: #0f131b;
@@ -64,6 +120,7 @@
   --surface-muted: #1b2130;
   --ink: #e8eaf1;
   --muted: #a3aab9;
+  /* Icon, border and divider colour only. */
   --faint: #747c8d;
   --line: rgb(255 255 255 / 9%);
   --line-strong: rgb(255 255 255 / 16%);

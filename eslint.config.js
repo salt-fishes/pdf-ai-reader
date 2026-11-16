@@ -56,6 +56,9 @@ export default tseslint.config(
       "jsx-a11y/no-static-element-interactions": "off",
       "jsx-a11y/no-noninteractive-element-interactions": "off",
       "jsx-a11y/click-events-have-key-events": "off",
+      // Scroll containers (reader, message list, settings) are intentionally
+      // keyboard-focusable so users can scroll them without a mouse.
+      "jsx-a11y/no-noninteractive-tabindex": "off",
     },
   },
   {

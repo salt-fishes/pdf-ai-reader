@@ -15,3 +15,5 @@ server/models/
 server/data/
 
 eslint-report.json
+
+release-notes.md

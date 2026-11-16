@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import type { ChatMessage } from "../../lib/ai/types";
 import { QuoteIcon, SparkleIcon } from "../../components/icons/SparkleIcon";
-import { WinIcon } from "../../components/icons/WinIcon";
+import { Icon } from "../../components/icons/Icon";
 import { formatTokens } from "../../lib/tokens/estimate";
 import { useViewer } from "../viewer/useViewerStore";
 import { useAssistant, useContextCount } from "./useAssistantStore";
@@ -132,6 +132,8 @@ export function MessageList() {
       <div
         className={styles.messages}
         ref={scrollRef}
+        tabIndex={0}
+        aria-label="对话消息"
         onScroll={(event) => {
           const element = event.currentTarget;
           stickRef.current = element.scrollHeight - element.scrollTop - element.clientHeight < 60;
@@ -245,7 +247,7 @@ export function MessageList() {
               setMenu(null);
             }}
           >
-            <WinIcon glyph={menu.message.excluded ? "check" : "clear"} size={13} />
+            <Icon name={menu.message.excluded ? "check" : "clear"} size={14} />
             {menu.message.excluded ? "恢复到上下文" : "从上下文移除"}
             <span className={styles.menuHint}>中键</span>
           </button>
