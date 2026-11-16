@@ -15,11 +15,12 @@
 
 纸间默认按**单用户、本机使用**设计：
 
-- 本地代理默认只监听 `127.0.0.1:8787`。
+- 本地代理默认只监听 `127.0.0.1:8787`，并校验 Origin；密钥与隐私边界见 [docs/PRIVACY.md](docs/PRIVACY.md)。
 - 主 PDF 在浏览器本地解析，不上传。
 - 只有用户明确选择的页码、文字、截图、附件与问题会发给模型。
 - API Key 只保存在本机代理的 `server/.env` 或 `server/data/provider.json`，不会返回给浏览器。
 - 桌面版把 provider 配置与 OCR 模型放在 Electron `userData` 目录。
+- 自定义 OCR 镜像只允许 http(s)，目录结构与限制见 [docs/OCR-MIRROR.md](docs/OCR-MIRROR.md)。
 
 ## 部署提醒
 

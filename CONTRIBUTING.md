@@ -21,13 +21,17 @@ npm run dev:all
 
 ```bash
 npm run typecheck     # TypeScript 项目引用检查
+npm run lint          # ESLint（typescript-eslint + react-hooks + jsx-a11y）
+npm run format:check  # Prettier
 npm test              # Vitest 单元测试
 npm run test:e2e      # Playwright（需要 Edge 或 PW_CHANNEL=chromium）
 npm run build         # 前端生产构建
 npm run build:server  # 把本地代理打成 server/dist/index.mjs
 npm run desktop:dev   # 启动 Vite/API + Electron 开发壳
-npm run build:desktop # 构建 Windows 安装包（NSIS + portable）
+npm run package:desktop # 可移植桌面目录
 ```
+
+发布流程、tag 与校验和见 [`docs/RELEASE.md`](docs/RELEASE.md)。
 
 E2E 默认会启动 mock 代理。**不要**在真实密钥模式下跑 E2E，`tests/e2e/reader.spec.ts` 会在启动时检查 `mock`。
 
@@ -48,6 +52,8 @@ E2E 默认会启动 mock 代理。**不要**在真实密钥模式下跑 E2E，`t
 
 ```bash
 npm run typecheck
+npm run lint
+npm run format:check
 npm test
 npm run build
 ```

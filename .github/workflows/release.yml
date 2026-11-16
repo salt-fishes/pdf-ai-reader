@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Build without publishing a GitHub release
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -11,25 +17,49 @@ permissions:
 jobs:
   windows:
     runs-on: windows-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
+    env:
+      MOCK_AI: "1"
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "0"
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
       - run: npm ci
+      - name: Check tag matches package.json
+        if: github.event_name == 'push'
+        run: node scripts/check-version.mjs ${{ github.ref_name }}
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+      - run: npm run build:server
       - run: npm run package:desktop
       - name: Zip portable app
         shell: pwsh
-        run: Compress-Archive -Path release/win-unpacked/* -DestinationPath release/paper-reader-${{ github.ref_name }}-win-x64.zip
+        run: Compress-Archive -Path release/win-unpacked/* -DestinationPath release/paper-reader-${{ github.ref_name || 'dry-run' }}-win-x64.zip
       - name: Checksum
         shell: pwsh
         run: |
-          $zip = "release/paper-reader-${{ github.ref_name }}-win-x64.zip"
+          $zip = "release/paper-reader-${{ github.ref_name || 'dry-run' }}-win-x64.zip"
           "$((Get-FileHash $zip -Algorithm SHA256).Hash.ToLower())  $(Split-Path $zip -Leaf)" | Set-Content release/SHA256SUMS.txt
+      - name: Check package size
+        shell: pwsh
+        run: |
+          $zip = Get-Item "release/paper-reader-${{ github.ref_name || 'dry-run' }}-win-x64.zip"
+          if ($zip.Length -gt 200MB) { throw "Zip is $([math]::Round($zip.Length/1MB))MB, budget is 200MB" }
+      - name: Generate release notes
+        run: node scripts/release-notes.mjs
       - uses: softprops/action-gh-release@v2
+        if: github.event_name == 'push'
         with:
+          body_path: release-notes.md
           files: |
             release/paper-reader-${{ github.ref_name }}-win-x64.zip
             release/SHA256SUMS.txt
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-rc.') }}

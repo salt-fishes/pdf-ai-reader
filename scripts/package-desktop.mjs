@@ -1,9 +1,10 @@
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { homedir } from "node:os";
 
 const root = process.cwd();
+const version = JSON.parse(readFileSync(join(root, "package.json"), "utf8")).version;
 const release = process.env.PDF_AI_RELEASE_DIR
   ? join(process.env.PDF_AI_RELEASE_DIR)
   : join(root, "release");
@@ -146,9 +147,9 @@ if (rcedit && existsSync(join(root, "build", "icon.ico"))) {
       "--set-icon",
       join(root, "build", "icon.ico"),
       "--set-file-version",
-      "0.1.0",
+      version,
       "--set-product-version",
-      "0.1.0",
+      version,
       "--set-version-string",
       "ProductName",
       "纸间",
@@ -178,5 +179,5 @@ writeFileSync(
 
 console.log(`portable desktop app ready: ${out}`);
 console.log(
-  `zip it with: Compress-Archive -Path '${join(out, "*")}' -DestinationPath '${join(release, "paper-reader-0.1.0-win-x64.zip")}'`,
+  `zip it with: Compress-Archive -Path '${join(out, "*")}' -DestinationPath '${join(release, `paper-reader-${version}-win-x64.zip`)}'`,
 );

@@ -33,7 +33,7 @@ $env:PDF_AI_RELEASE_DIR="$env:TEMP\PaperReader"
 npm run package:desktop
 ```
 
-`build:desktop` 需要 electron-builder 下载 NSIS/winCodeSign 工具；网络受限时优先用 `package:desktop`。产物在 `release/`，图标在 `build/icon.ico`（由 `public/favicon.svg` 生成）。
+`build:desktop` 需要 electron-builder 下载 NSIS/winCodeSign 工具；网络受限时优先用 `package:desktop`。产物在 `release/`，图标在 `build/icon.ico`（由 `build/icon.svg` 经 `npm run icons` 生成）。
 
 ## 数据位置
 
@@ -51,8 +51,15 @@ npm run package:desktop
 - 单实例锁避免两个窗口同时启动代理。
 - 外部链接交给系统浏览器打开；应用内导航限制在本地 origin。
 
+## 检查更新
+
+- 关于页的“检查更新”通过 preload bridge 调用主进程，主进程用 `net.fetch` 请求 GitHub Releases API。
+- 只在点击时请求；不后台轮询、不自动下载或安装，也不会打开自定义更新源。
+- 发现新版本只提供“打开发布页”；网络/限流错误会显示可读提示。
+- 发布 rc 时必须在 GitHub 标记 pre-release，否则 `latest` 会把 rc 当正式版。
+
 ## 已知限制
 
-- 未做自动更新与代码签名；公开分发前需要配置证书。
+- 未做自动更新安装与代码签名；公开分发前需要配置证书。
 - 安装包体积较大（Electron + Node 依赖 + ONNX Runtime）；打包脚本已保留 zh-CN/en-US、移除 DirectML/dxcompiler 与跨平台 ONNX Runtime，实测 zip 约 183MB。
 - tiny OCR 模型存在时随包分发；small/medium 或缺少 tiny 时需要联网下载，也可以手动放到 `<userData>/ocr-models`。
