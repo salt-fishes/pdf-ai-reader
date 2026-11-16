@@ -97,6 +97,7 @@ npm run build:installers  # NSIS .exe + MSI，输出到 release/
 ```
 
 发布页同时提供便携 zip、NSIS 与 MSI；安装版和便携版都不内置 OCR，首次开启时下载组件。
+NSIS 安装向导可选择“在 PDF 打开方式中显示纸间”（默认勾选），只声明打开方式，不会自动设为默认。
 
 ### 没有 API Key
 

@@ -1,7 +1,7 @@
 {
   "name": "pdf-ai-reader",
   "private": true,
-  "version": "0.6.1",
+  "version": "0.6.2",
   "type": "module",
   "description": "Local-first PDF reader with an AI reading assistant",
   "main": "electron/main.mjs",
@@ -141,7 +141,8 @@
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "shortcutName": "纸间"
+      "shortcutName": "纸间",
+      "include": "installer.nsh"
     },
     "msi": {
       "oneClick": false,
