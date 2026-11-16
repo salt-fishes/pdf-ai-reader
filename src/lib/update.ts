@@ -9,8 +9,23 @@ export type UpdateInfo = {
   publishedAt?: string;
 };
 
+export type PdfAssociationStatus = {
+  supported: boolean;
+  registered: boolean;
+  stale: boolean;
+  isDefault: boolean;
+  currentDefault: string | null;
+  appName: string;
+};
+
 type DesktopBridge = {
   checkForUpdates?: () => Promise<UpdateInfo>;
+  pdfAssociation?: {
+    status: () => Promise<PdfAssociationStatus>;
+    register: () => Promise<PdfAssociationStatus>;
+    remove: () => Promise<PdfAssociationStatus>;
+    openSettings: () => Promise<PdfAssociationStatus>;
+  };
   versions?: { electron?: string; chrome?: string };
 };
 
@@ -88,6 +103,44 @@ export function desktopVersions(): { electron?: string; chrome?: string } {
   if (window.paperReader?.versions) return window.paperReader.versions;
   const chrome = navigator.userAgent.match(/Chrome\/([\d.]+)/)?.[1];
   return { chrome };
+}
+
+function unsupportedAssociation(): PdfAssociationStatus {
+  return {
+    supported: false,
+    registered: false,
+    stale: false,
+    isDefault: false,
+    currentDefault: null,
+    appName: "纸间",
+  };
+}
+
+export async function pdfAssociationStatus(): Promise<PdfAssociationStatus> {
+  return window.paperReader?.pdfAssociation
+    ? window.paperReader.pdfAssociation.status()
+    : unsupportedAssociation();
+}
+
+export async function registerPdfAssociation(): Promise<PdfAssociationStatus> {
+  if (!window.paperReader?.pdfAssociation) {
+    throw new Error("只有 Windows 桌面版支持注册 PDF 打开方式。");
+  }
+  return window.paperReader.pdfAssociation.register();
+}
+
+export async function removePdfAssociation(): Promise<PdfAssociationStatus> {
+  if (!window.paperReader?.pdfAssociation) {
+    throw new Error("只有 Windows 桌面版支持移除 PDF 打开方式。");
+  }
+  return window.paperReader.pdfAssociation.remove();
+}
+
+export async function openPdfDefaultApps(): Promise<PdfAssociationStatus> {
+  if (!window.paperReader?.pdfAssociation) {
+    throw new Error("只有 Windows 桌面版支持打开默认应用设置。");
+  }
+  return window.paperReader.pdfAssociation.openSettings();
 }
 
 export const REPOSITORY_URL = `https://github.com/${REPO}`;

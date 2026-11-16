@@ -2,7 +2,7 @@
 
 ## 版本策略
 
-- 当前目标版本：`0.4.0`；`0.3.1` 已发布。
+- 当前目标版本：`0.5.0`；`0.4.1` 已发布。
 - SemVer：`MAJOR.MINOR.PATCH`。0.x 阶段 minor 加功能，patch 修问题。
 - `package.json` 是唯一版本源；用 `npm version X.Y.Z --no-git-tag-version` 同步 lockfile。
 - tag 格式 `vX.Y.Z`，使用 annotated tag；预发布用 `vX.Y.Z-rc.1` 并标记 pre-release。

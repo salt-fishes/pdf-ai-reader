@@ -6,8 +6,13 @@ import {
   checkForUpdates,
   desktopVersions,
   isPrerelease,
+  openPdfDefaultApps,
+  pdfAssociationStatus,
+  registerPdfAssociation,
+  removePdfAssociation,
   RELEASES_PAGE,
   REPOSITORY_URL,
+  type PdfAssociationStatus,
   type UpdateInfo,
 } from "../../../lib/update";
 import { useAssistant } from "../../assistant/useAssistantStore";
@@ -23,6 +28,9 @@ export function AboutSection() {
   const [updateError, setUpdateError] = useState("");
   const [diagnosticsCopied, setDiagnosticsCopied] = useState(false);
   const [pdfjsVersion, setPdfjsVersion] = useState("—");
+  const [association, setAssociation] = useState<PdfAssociationStatus | null>(null);
+  const [associationBusy, setAssociationBusy] = useState(false);
+  const [associationMessage, setAssociationMessage] = useState("");
   const versions = desktopVersions();
 
   useEffect(() => {
@@ -30,6 +38,80 @@ export function AboutSection() {
       .then((module) => setPdfjsVersion(module.version))
       .catch(() => undefined);
   }, []);
+
+  useEffect(() => {
+    let alive = true;
+    const load = async () => {
+      // The bridge can still be attaching on the first frame after the splash
+      // navigation; retry instead of hiding the section until a reload.
+      for (let attempt = 0; attempt < 4; attempt += 1) {
+        try {
+          const status = await pdfAssociationStatus();
+          if (!alive) return;
+          if (status.supported || !window.paperReader?.pdfAssociation) {
+            setAssociation(status);
+            return;
+          }
+        } catch {
+          // Retry below; a browser build has no bridge and will settle as unsupported.
+        }
+        await new Promise((resolve) => setTimeout(resolve, 150));
+      }
+      if (alive) {
+        setAssociation(await pdfAssociationStatus().catch(() => null));
+      }
+    };
+    void load();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const associationError = (error: unknown) =>
+    (error instanceof Error ? error.message : "操作失败，请重试。").replace(
+      /^Error invoking remote method '[^']+': (?:Error: )?/,
+      "",
+    );
+
+  const registerAssociation = async () => {
+    setAssociationBusy(true);
+    setAssociationMessage("");
+    try {
+      const status = await registerPdfAssociation();
+      setAssociation(status);
+      setAssociationMessage("已注册。请在 Windows 设置中选择“纸间”并确认。");
+      await openPdfDefaultApps();
+    } catch (error) {
+      setAssociationMessage(associationError(error));
+    } finally {
+      setAssociationBusy(false);
+    }
+  };
+
+  const openAssociationSettings = async () => {
+    setAssociationBusy(true);
+    setAssociationMessage("");
+    try {
+      setAssociation(await openPdfDefaultApps());
+    } catch (error) {
+      setAssociationMessage(associationError(error));
+    } finally {
+      setAssociationBusy(false);
+    }
+  };
+
+  const removeAssociation = async () => {
+    setAssociationBusy(true);
+    setAssociationMessage("");
+    try {
+      setAssociation(await removePdfAssociation());
+      setAssociationMessage("已移除 PDF 打开方式注册，当前默认应用未改动。");
+    } catch (error) {
+      setAssociationMessage(associationError(error));
+    } finally {
+      setAssociationBusy(false);
+    }
+  };
 
   const checkUpdate = async () => {
     setCheckingUpdate(true);
@@ -91,6 +173,61 @@ export function AboutSection() {
           <span>pdf.js {pdfjsVersion}</span>
         </div>
       </div>
+      {association?.supported ? (
+        <>
+          <div className={styles.rows} style={{ marginTop: 14 }}>
+            <div className={styles.row}>
+              <span className={styles.label}>默认 PDF 应用</span>
+              <span className={`${styles.value} ${association.isDefault ? styles.ok : ""}`}>
+                {association.isDefault
+                  ? "纸间"
+                  : association.registered
+                    ? association.stale
+                      ? "已注册，路径已变化"
+                      : "已注册，未设为默认"
+                    : "未注册"}
+              </span>
+            </div>
+          </div>
+          <div className={styles.actions}>
+            {association.registered && !association.stale ? (
+              <button
+                className={styles.button}
+                onClick={() => void openAssociationSettings()}
+                disabled={associationBusy}
+              >
+                打开默认应用设置
+              </button>
+            ) : (
+              <button
+                className={`${styles.button} ${styles.primary}`}
+                onClick={() => void registerAssociation()}
+                disabled={associationBusy}
+              >
+                {associationBusy
+                  ? "处理中…"
+                  : association.stale
+                    ? "重新注册 PDF 打开方式"
+                    : "注册为 PDF 打开方式"}
+              </button>
+            )}
+            {association.registered ? (
+              <button
+                className={styles.button}
+                onClick={() => void removeAssociation()}
+                disabled={associationBusy}
+              >
+                移除关联
+              </button>
+            ) : null}
+          </div>
+          <div className={styles.note}>
+            不会自动修改默认应用。注册后请在弹出的 Windows
+            设置中选择“纸间”并确认；移动安装目录后需要重新注册。
+          </div>
+          {associationMessage ? <div className={styles.result}>{associationMessage}</div> : null}
+        </>
+      ) : null}
       <div className={styles.actions}>
         <button
           className={`${styles.button} ${styles.primary}`}

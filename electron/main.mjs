@@ -2,12 +2,20 @@ import { app, BrowserWindow, dialog, ipcMain, net, session, shell } from "electr
 import { spawn } from "node:child_process";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  pdfAssociationStatus,
+  registerPdfAssociation,
+  removePdfAssociation,
+  unsupportedPdfAssociation,
+} from "./pdf-association.mjs";
 
 const DEV_URL = process.env.PDF_AI_DESKTOP_URL;
 const APP_PORT = 8787;
 const APP_ORIGIN = `http://127.0.0.1:${APP_PORT}`;
 const RELEASES_API = "https://api.github.com/repos/salt-fishes/pdf-ai-reader/releases/latest";
 const isDev = Boolean(DEV_URL);
+const PDF_ASSOCIATION_SUPPORTED =
+  process.platform === "win32" && !/electron\.exe$/i.test(process.execPath);
 
 // Trim Chromium background work that this single-window reader never uses.
 app.commandLine.appendSwitch("disable-background-networking");
@@ -74,6 +82,40 @@ function isNewer(current, latest) {
   }
   return comparePrerelease(b.prerelease, a.prerelease) > 0;
 }
+
+function currentAssociationStatus() {
+  return PDF_ASSOCIATION_SUPPORTED
+    ? pdfAssociationStatus(process.execPath)
+    : Promise.resolve(unsupportedPdfAssociation());
+}
+
+ipcMain.handle("app:pdf-association-status", () => currentAssociationStatus());
+
+ipcMain.handle("app:pdf-association-register", async () => {
+  if (!PDF_ASSOCIATION_SUPPORTED) {
+    throw new Error("只有 Windows 桌面版支持注册 PDF 打开方式。");
+  }
+  return registerPdfAssociation(process.execPath);
+});
+
+ipcMain.handle("app:pdf-association-remove", async () => {
+  if (!PDF_ASSOCIATION_SUPPORTED) {
+    throw new Error("只有 Windows 桌面版支持移除 PDF 打开方式。");
+  }
+  return removePdfAssociation(process.execPath);
+});
+
+ipcMain.handle("app:pdf-association-open-settings", async () => {
+  if (!PDF_ASSOCIATION_SUPPORTED) {
+    throw new Error("只有 Windows 桌面版支持打开默认应用设置。");
+  }
+  try {
+    await shell.openExternal("ms-settings:defaultapps?registeredAppUser=PaperReader");
+  } catch {
+    await shell.openExternal("ms-settings:defaultapps");
+  }
+  return currentAssociationStatus();
+});
 
 ipcMain.handle("app:check-for-updates", async () => {
   const current = app.getVersion();

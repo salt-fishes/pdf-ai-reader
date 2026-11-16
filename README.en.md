@@ -71,6 +71,8 @@ Set `MOCK_AI=1` to stream a local mock answer without calling a real model.
   downloaded only when you enable OCR in Settings. Downloads follow the Windows system proxy
   and always bypass it for localhost.
 - Update checks run only when you click the button, and only against GitHub Releases.
+- Settings → About can register PaperReader as a PDF opener. It never changes the default
+  silently; Windows Settings asks you to confirm.
 
 See [docs/PRIVACY.md](docs/PRIVACY.md) for details.
 
@@ -80,7 +82,7 @@ See [docs/PRIVACY.md](docs/PRIVACY.md) for details.
 npm run typecheck
 npm run lint
 npm run format:check
-npm test              # 79 unit tests
+npm test              # 81 unit tests
 npm run test:coverage # v8 coverage with src/lib thresholds
 npm run test:e2e      # 41 Playwright tests (PW_CHANNEL=chromium on Linux)
 npm run build
