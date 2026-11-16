@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 
 const pkg = JSON.parse(readFileSync("package.json", "utf8"));
 const version = String(process.argv[2] ?? pkg.version).replace(/^v/, "");
@@ -11,6 +11,10 @@ if (start < 0) {
 }
 const rest = changelog.slice(start);
 const next = rest.slice(1).search(/^##\s/m);
-const section = (next < 0 ? rest : rest.slice(0, next + 1)).trim();
+let section = (next < 0 ? rest : rest.slice(0, next + 1)).trim();
+if (existsSync("release/SHA256SUMS.txt")) {
+  const checksums = readFileSync("release/SHA256SUMS.txt", "utf8").trim();
+  section += `\n\n## 校验和\n\n\`\`\`\n${checksums}\n\`\`\``;
+}
 writeFileSync("release-notes.md", `${section}\n`, "utf8");
 console.log(`release-notes.md written for ${version}`);
