@@ -340,4 +340,10 @@ test("records a custom shortcut and uses it immediately", async ({ page }) => {
   const beforeZoom = await zoom.innerText();
   await page.keyboard.press("Control+Shift+E");
   await expect.poll(async () => zoom.innerText(), { timeout: 6_000 }).not.toBe(beforeZoom);
+
+  // The default ? chord still opens the editor.
+  await page.keyboard.press("?");
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
 });

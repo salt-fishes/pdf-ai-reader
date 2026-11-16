@@ -130,7 +130,10 @@ export const SHORTCUT_ACTIONS: ShortcutAction[] = [
     id: "app.shortcuts",
     group: "全局",
     label: "快捷键面板",
-    defaults: [{ key: "?", shift: true }],
+    defaults: [
+      { key: "?", shift: true },
+      { key: "?", shift: false },
+    ],
   },
 ];
 
