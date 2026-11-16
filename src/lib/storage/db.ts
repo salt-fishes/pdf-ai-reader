@@ -1,0 +1,176 @@
+import { clear, get, set } from "idb-keyval";
+import type { ColorMode } from "../reading/color";
+
+export type DocumentRecord = {
+  hash: string;
+  name: string;
+  pages: number;
+  lastPage: number;
+  zoom: number;
+  /** New records store CSS-scale (100% = 96dpi). Older ones used viewport scale. */
+  zoomUnits?: "css";
+  scrollTop: number;
+  updatedAt?: number;
+};
+
+export type StoredChatSession = {
+  id: string;
+  title: string;
+  createdAt: number;
+  updatedAt: number;
+  messages: unknown[];
+  model: string;
+  anchor: unknown;
+};
+
+export type ChatRecord = {
+  hash: string;
+  sessions?: StoredChatSession[];
+  activeId?: string;
+  /** Legacy single-session fields; read for migration only. */
+  messages?: unknown[];
+  model?: string;
+  anchor?: unknown;
+  updatedAt?: number;
+};
+
+export type OcrRecord = {
+  hash: string;
+  pages: Record<string, string>;
+  updatedAt?: number;
+};
+
+export type SummaryChunk = {
+  start: number;
+  end: number;
+  text: string;
+  updatedAt: number;
+};
+
+export type SummaryRecord = {
+  hash: string;
+  /** Keyed by model + page range so switching models doesn't reuse stale text. */
+  chunks: Record<string, SummaryChunk>;
+  updatedAt?: number;
+};
+
+export type StoredHighlight = {
+  id: string;
+  page: number;
+  rects: Array<{ x: number; y: number; w: number; h: number }>;
+  text: string;
+  createdAt: number;
+};
+
+export type HighlightsRecord = {
+  hash: string;
+  highlights: StoredHighlight[];
+  updatedAt?: number;
+};
+
+const docKey = (hash: string) => `doc:${hash}`;
+const chatKey = (hash: string) => `chat:${hash}`;
+const ocrKey = (hash: string) => `ocr:${hash}`;
+const summaryKey = (hash: string) => `summary:${hash}`;
+const highlightsKey = (hash: string) => `highlights:${hash}`;
+
+export async function loadDocumentRecord(hash: string): Promise<DocumentRecord | null> {
+  return (await get<DocumentRecord>(docKey(hash))) ?? null;
+}
+
+export async function saveDocumentRecord(record: DocumentRecord): Promise<void> {
+  await set(docKey(record.hash), { ...record, updatedAt: Date.now() });
+}
+
+export async function loadChatRecord(hash: string): Promise<ChatRecord | null> {
+  return (await get<ChatRecord>(chatKey(hash))) ?? null;
+}
+
+export async function saveChatRecord(record: ChatRecord): Promise<void> {
+  await set(chatKey(record.hash), { ...record, updatedAt: Date.now() });
+}
+
+export async function clearChatRecord(hash: string): Promise<void> {
+  await set(chatKey(hash), null);
+}
+
+export async function loadOcrRecord(hash: string): Promise<OcrRecord | null> {
+  return (await get<OcrRecord>(ocrKey(hash))) ?? null;
+}
+
+export async function saveOcrRecord(record: OcrRecord): Promise<void> {
+  await set(ocrKey(record.hash), { ...record, updatedAt: Date.now() });
+}
+
+export async function loadSummaryRecord(hash: string): Promise<SummaryRecord | null> {
+  return (await get<SummaryRecord>(summaryKey(hash))) ?? null;
+}
+
+export async function saveSummaryRecord(record: SummaryRecord): Promise<void> {
+  await set(summaryKey(record.hash), { ...record, updatedAt: Date.now() });
+}
+
+export async function clearSummaryRecord(hash: string): Promise<void> {
+  await set(summaryKey(hash), null);
+}
+
+export async function loadHighlightsRecord(hash: string): Promise<HighlightsRecord | null> {
+  return (await get<HighlightsRecord>(highlightsKey(hash))) ?? null;
+}
+
+export async function saveHighlightsRecord(record: HighlightsRecord): Promise<void> {
+  await set(highlightsKey(record.hash), { ...record, updatedAt: Date.now() });
+}
+
+export async function hashBytes(bytes: ArrayBuffer): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return [...new Uint8Array(digest)]
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+const SETTINGS_KEY = "pdf-ai-reader:settings:v1";
+
+export type StoredSettings = {
+  assistantStatus?: "minimized" | "closed";
+  assistantMode?: "float" | "sidebar";
+  panel?: { left: number; top: number; width: number; height: number; docked: boolean };
+  model?: string;
+  /** Legacy reading theme, migrated to colorMode on load. */
+  theme?: "paper" | "eye" | "night";
+  colorMode?: ColorMode;
+  colorIntensity?: number;
+  thinking?: "none" | "low" | "high" | "max";
+  contextBudget?: number;
+  historyLimit?: number;
+  pricing?: { inputMiss: number; inputHit: number; output: number };
+  showShortcuts?: boolean;
+};
+
+export function loadSettings(): StoredSettings {
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    return raw ? (JSON.parse(raw) as StoredSettings) : {};
+  } catch {
+    return {};
+  }
+}
+
+export function saveSettings(patch: StoredSettings): void {
+  try {
+    const next = { ...loadSettings(), ...patch };
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
+  } catch {
+    // storage may be unavailable in private mode; ignore.
+  }
+}
+
+export async function clearAllLocalData(): Promise<void> {
+  await clear();
+  try {
+    localStorage.removeItem(SETTINGS_KEY);
+  } catch {
+    // ignore
+  }
+  window.location.reload();
+}

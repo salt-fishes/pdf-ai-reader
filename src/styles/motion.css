@@ -1,0 +1,85 @@
+/* Assistant FAB: one soft halo, opacity only, no hard rings. */
+@keyframes fab-glow {
+  0%,
+  100% {
+    opacity: 0.12;
+    transform: scale(0.96);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(1.06);
+  }
+}
+
+@keyframes fab-glow-busy {
+  0%,
+  100% {
+    opacity: 0.16;
+    transform: scale(0.97);
+  }
+  50% {
+    opacity: 0.62;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes page-flash {
+  0% {
+    box-shadow: 0 0 0 2px rgb(91 91 214 / 0%);
+  }
+  18% {
+    box-shadow: 0 0 0 2px rgb(91 91 214 / 85%);
+  }
+  60% {
+    box-shadow: 0 0 0 2px rgb(91 91 214 / 55%);
+  }
+  100% {
+    box-shadow: 0 0 0 2px rgb(91 91 214 / 0%);
+  }
+}
+
+@keyframes caret-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.15;
+  }
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .fab-glow {
+    animation: none !important;
+    opacity: 0.32 !important;
+  }
+}

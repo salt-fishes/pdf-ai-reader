@@ -1,0 +1,95 @@
+.lead {
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.7;
+}
+
+.lead code,
+.note code {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: rgb(24 32 47 / 6%);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+  color: var(--faint);
+  font-size: 10.5px;
+}
+
+.ok {
+  color: var(--success);
+}
+
+.pending {
+  color: var(--amber);
+}
+
+.track {
+  height: 5px;
+  margin-top: 10px;
+  border-radius: 999px;
+  background: rgb(24 32 47 / 8%);
+  overflow: hidden;
+}
+
+.fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width 200ms ease;
+}
+
+.progressText {
+  margin-top: 4px;
+  color: var(--faint);
+  font-size: 10px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.busy {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.busy :global(.spin) {
+  width: 12px;
+  height: 12px;
+  border-width: 1.5px;
+}
+
+.error {
+  margin-top: 9px;
+  padding: 7px 9px;
+  border-radius: 7px;
+  background: #fdf0ef;
+  color: #9b2c2c;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+:global([data-theme="night"]) .lead code,
+:global([data-theme="night"]) .note code {
+  background: rgb(255 255 255 / 6%);
+}
+
+:global([data-theme="night"]) .track {
+  background: rgb(255 255 255 / 8%);
+}
+
+:global([data-theme="night"]) .error {
+  background: #3a2020;
+  color: #fca5a5;
+}

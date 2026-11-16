@@ -1,0 +1,37 @@
+name: Release desktop
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: "0"
+      - run: npm run package:desktop
+      - name: Zip portable app
+        shell: pwsh
+        run: Compress-Archive -Path release/win-unpacked/* -DestinationPath release/paper-reader-${{ github.ref_name }}-win-x64.zip
+      - name: Checksum
+        shell: pwsh
+        run: |
+          $zip = "release/paper-reader-${{ github.ref_name }}-win-x64.zip"
+          "$((Get-FileHash $zip -Algorithm SHA256).Hash.ToLower())  $(Split-Path $zip -Leaf)" | Set-Content release/SHA256SUMS.txt
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release/paper-reader-${{ github.ref_name }}-win-x64.zip
+            release/SHA256SUMS.txt

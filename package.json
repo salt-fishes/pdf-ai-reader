@@ -1,0 +1,113 @@
+{
+  "name": "pdf-ai-reader",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Local-first PDF reader with an AI reading assistant",
+  "main": "electron/main.mjs",
+  "license": "MIT",
+  "author": "Paper Reader contributors",
+  "engines": {
+    "node": ">=24"
+  },
+  "keywords": [
+    "pdf",
+    "pdfjs",
+    "ai",
+    "reader",
+    "local-first",
+    "electron"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "dev:server": "tsx server/src/index.ts",
+    "dev:server:watch": "tsx watch server/src/index.ts",
+    "dev:all": "concurrently -n web,api -c cyan,magenta \"npm:dev\" \"npm:dev:server\"",
+    "build": "tsc -b && vite build",
+    "build:server": "esbuild server/src/index.ts --bundle --platform=node --format=esm --target=node22 --outfile=server/dist/index.mjs --external:onnxruntime-node --external:ppu-paddle-ocr --banner:js=\"import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);\"",
+    "desktop:dev": "node electron/dev.mjs",
+    "desktop": "npm run build && npm run build:server && electron .",
+    "build:desktop": "npm run build && npm run build:server && electron-builder --win --x64",
+    "build:desktop:dir": "npm run build && npm run build:server && electron-builder --win --x64 --dir",
+    "package:desktop": "npm run build && npm run build:server && node scripts/package-desktop.mjs",
+    "preview": "vite preview",
+    "start": "node --import tsx server/src/index.ts",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "smoke": "node scripts/smoke-real.mjs",
+    "smoke:ui": "node scripts/smoke-real-ui.mjs",
+    "smoke:smart": "node scripts/smoke-real-smart.mjs",
+    "smoke:region": "node scripts/smoke-real-region.mjs",
+    "smoke:vision": "node scripts/smoke-real-vision.mjs",
+    "typecheck": "tsc -b --pretty false"
+  },
+  "dependencies": {
+    "@hono/node-server": "2.1.8",
+    "@lobehub/icons-static-svg": "1.102.0",
+    "dotenv": "17.2.3",
+    "hono": "4.13.18",
+    "idb-keyval": "6.3.0",
+    "katex": "0.19.1",
+    "lucide": "1.73.0",
+    "morphicons": "2.0.2",
+    "onnxruntime-node": "^1.31.1",
+    "pdfjs-dist": "6.5.438",
+    "ppu-paddle-ocr": "^6.7.1",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "react-markdown": "10.1.0",
+    "rehype-katex": "7.0.1",
+    "remark-gfm": "4.0.1",
+    "remark-math": "^6.0.0",
+    "tsx": "4.23.15",
+    "zustand": "5.1.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.65.1",
+    "@types/node": "24.10.1",
+    "@types/react": "19.2.13",
+    "@types/react-dom": "19.2.4",
+    "@vitejs/plugin-react": "6.3.0",
+    "concurrently": "9.2.1",
+    "electron": "^45.3.2",
+    "electron-builder": "^26.18.0",
+    "esbuild": "^0.28.2",
+    "typescript": "5.9.3",
+    "vite": "8.3.8",
+    "vitest": "5.1.0"
+  },
+  "build": {
+    "appId": "cn.paperreader.app",
+    "productName": "纸间",
+    "artifactName": "paper-reader-${version}-${arch}.${ext}",
+    "asar": false,
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "server/dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "build/icon.ico",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "纸间"
+    },
+    "portable": {
+      "artifactName": "paper-reader-${version}-portable.${ext}"
+    }
+  }
+}

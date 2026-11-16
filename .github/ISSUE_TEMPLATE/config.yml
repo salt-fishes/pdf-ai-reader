@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 安全问题
+    url: https://github.com/OWNER/REPO/security/advisories/new
+    about: 请私下报告漏洞，不要在公开 issue 中披露密钥或私人文档。
+  - name: 使用问题
+    url: https://github.com/OWNER/REPO/discussions
+    about: 配置、模型接入与使用问题可以发到 Discussions（发布前请替换 OWNER/REPO）。

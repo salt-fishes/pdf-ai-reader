@@ -1,0 +1,15 @@
+node_modules
+dist
+release
+server/dist
+.env
+.env.local
+server/.env
+*.log
+test-results
+playwright-report
+*.tsbuildinfo
+coverage
+
+server/models/
+server/data/

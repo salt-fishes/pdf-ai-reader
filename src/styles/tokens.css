@@ -1,0 +1,80 @@
+:root {
+  --accent: #5b5bd6;
+  --accent-deep: #4545bd;
+  --accent-soft: #ecebfb;
+  --teal: #0ea5b7;
+  --amber: #f59e0b;
+  --amber-soft: #fdf1db;
+  --success: #10b981;
+  --danger: #dc4b4b;
+
+  --paper: #f6f5f2;
+  --reading: #e7e5df;
+  --surface: #ffffff;
+  --surface-muted: #f3f2ee;
+  --ink: #18202f;
+  --muted: #717887;
+  --faint: #9aa0ac;
+  --line: rgb(24 32 47 / 9%);
+  --line-strong: rgb(24 32 47 / 16%);
+
+  --glass: rgb(255 255 255 / 82%);
+  --glass-strong: rgb(255 255 255 / 92%);
+  --shadow-panel: 0 34px 80px -30px rgb(23 32 52 / 42%);
+  --shadow-soft: 0 10px 30px -18px rgb(23 32 52 / 35%);
+
+  --radius-panel: 18px;
+  --radius-card: 10px;
+  --radius-chip: 8px;
+  --radius-button: 7px;
+
+  --font-ui: "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei",
+    system-ui, sans-serif;
+  --font-reading: "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", system-ui, sans-serif;
+  --font-mono: "Cascadia Mono", "JetBrains Mono", Consolas, monospace;
+
+  --motion-fast: 120ms;
+  --motion-base: 180ms;
+  --motion-panel: 360ms;
+  --motion-exit: 220ms;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --header-h: 48px;
+  --rail-w: 48px;
+  --panel-w: 360px;
+  --panel-h: 360px;
+}
+
+/* Night reading: dark chrome, dimmed pages (images stay un-inverted). */
+[data-theme="night"] {
+  color-scheme: dark;
+  --accent: #6565d8;
+  --accent-deep: #b9b9ff;
+  --accent-soft: #262645;
+  --teal: #38bdf8;
+  --amber: #fbbf24;
+  --amber-soft: #3a2b10;
+  --success: #34d399;
+  --danger: #f87171;
+
+  --paper: #0f131b;
+  --reading: #070a10;
+  --surface: #171c26;
+  --surface-muted: #1b2130;
+  --ink: #e8eaf1;
+  --muted: #a3aab9;
+  --faint: #747c8d;
+  --line: rgb(255 255 255 / 9%);
+  --line-strong: rgb(255 255 255 / 16%);
+
+  --glass: rgb(23 28 38 / 82%);
+  --glass-strong: rgb(23 28 38 / 95%);
+  --shadow-panel: 0 34px 80px -30px rgb(0 0 0 / 72%);
+  --shadow-soft: 0 10px 30px -18px rgb(0 0 0 / 60%);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: light;
+  }
+}
