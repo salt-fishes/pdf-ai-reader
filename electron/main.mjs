@@ -1,6 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain, net, session, shell } from "electron";
 import { execFile, spawn } from "node:child_process";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import {
@@ -127,6 +127,18 @@ function associationScript(scope, mode) {
       lines.push(args.join(" "));
       lines.push("if ($LASTEXITCODE -ne 0) { throw 'registry write failed' }");
     }
+    // A Start Menu link makes the portable build look like an installed app,
+    // which Windows 11's Default Apps page expects when listing Win32 entries.
+    const startMenu =
+      scope === "machine"
+        ? "$env:ProgramData\\Microsoft\\Windows\\Start Menu\\Programs"
+        : "$env:APPDATA\\Microsoft\\Windows\\Start Menu\\Programs";
+    lines.push("$ws = New-Object -ComObject WScript.Shell");
+    lines.push(`$lnk = $ws.CreateShortcut((Join-Path ${psQuote(startMenu)} '纸间.lnk'))`);
+    lines.push(`$lnk.TargetPath = ${psQuote(process.execPath)}`);
+    lines.push(`$lnk.WorkingDirectory = ${psQuote(dirname(process.execPath))}`);
+    lines.push(`$lnk.IconLocation = ${psQuote(`${process.execPath},0`)}`);
+    lines.push("$lnk.Save()");
   } else {
     const removals = associationRemovals(scope);
     for (const key of removals.keys) {

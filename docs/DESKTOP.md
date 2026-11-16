@@ -42,8 +42,8 @@ npm run package:desktop
 
 安装包由 electron-builder 生成：
 
-- NSIS：`release/paper-reader-v0.6.0-x64.exe`，支持选择安装目录、创建桌面与开始菜单快捷方式。
-- MSI：`release/paper-reader-v0.6.0-x64.msi`，使用 `build/zh-CN.wxl` 的 GBK 代码页；中文产品名、快捷方式与卸载项正常。
+- NSIS：`release/paper-reader-v0.6.1-x64.exe`，支持选择安装目录、创建桌面与开始菜单快捷方式。
+- MSI：`release/paper-reader-v0.6.1-x64.msi`，使用 `build/zh-CN.wxl` 的 GBK 代码页；中文产品名、快捷方式与卸载项正常。
 - 两者都按当前用户安装到 `%LOCALAPPDATA%\Programs\PaperReader`，安装后的可执行文件为
   `PaperReader.exe`，快捷方式显示“纸间”；不包含 `node_modules` 或 OCR 组件。
 - 首次构建 MSI 会下载 WiX，需能访问 GitHub；网络受限时先配置系统代理或 `HTTPS_PROXY`。
@@ -76,7 +76,8 @@ npm run package:desktop
 - Windows 11 的“默认应用”列表只显示**系统级**注册（`HKLM`）。便携版或按用户安装时，
   仅写 `HKCU` 只会出现在“打开方式”，不会出现在默认应用列表，这是系统行为。
 - “注册到系统（需要管理员）”会弹出一次 UAC，把 ProgID、OpenWithProgids、
-  `RegisteredApplications` 与 `Capabilities` 写入 `HKLM`，之后即可在默认应用列表中找到“纸间”。
+  `RegisteredApplications` 与 `Capabilities` 写入 `HKLM`，并创建公共开始菜单快捷方式；
+  之后即可在默认应用列表中找到“纸间”。
 - “仅当前用户”不弹 UAC，只写 `HKCU`；适合只想通过“打开方式”临时选择的场景。
 - 注册本身**不会**改变默认应用；仍需在 Windows 设置中选择“纸间”并确认。
 - 移动可移植目录后，原注册路径会失效；状态会显示“路径已变化”，重新注册即可。
