@@ -269,3 +269,75 @@ test("restores the saved scroll offset, not just the page number", async ({ page
     )
     .toBeGreaterThan(1750);
 });
+
+test("Ctrl + wheel zooms around the pointer without shifting the page", async ({ page }) => {
+  await openSample(page, "sample-long.pdf");
+  const target = page.locator('[data-page="4"]');
+  await target.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(400);
+
+  const viewerBox = await page.locator("[data-reader]").boundingBox();
+  const beforeBox = await target.boundingBox();
+  if (!viewerBox || !beforeBox) throw new Error("viewer or page missing");
+
+  const pointerX = Math.min(
+    Math.max(beforeBox.x + beforeBox.width / 2, viewerBox.x + 20),
+    viewerBox.x + viewerBox.width - 20,
+  );
+  const visibleTop = Math.max(beforeBox.y, viewerBox.y + 60);
+  const visibleBottom = Math.min(
+    beforeBox.y + beforeBox.height,
+    viewerBox.y + viewerBox.height - 60,
+  );
+  const pointerY = (visibleTop + visibleBottom) / 2;
+  const fractionBefore = (pointerY - beforeBox.y) / beforeBox.height;
+
+  const zoom = page.locator('header button[aria-label^="缩放 "]');
+  const beforeZoom = await zoom.innerText();
+
+  await page.mouse.move(pointerX, pointerY);
+  await page.keyboard.down("Control");
+  await page.mouse.wheel(0, -180);
+  await page.keyboard.up("Control");
+
+  await expect.poll(async () => zoom.innerText(), { timeout: 6_000 }).not.toBe(beforeZoom);
+  await expect
+    .poll(
+      () =>
+        page.evaluate(
+          ({ y, fraction }) => {
+            const rect = document
+              .querySelector<HTMLElement>('[data-page="4"]')
+              ?.getBoundingClientRect();
+            if (!rect) return 1;
+            return Math.abs((y - rect.top) / rect.height - fraction);
+          },
+          { y: pointerY, fraction: fractionBefore },
+        ),
+      { timeout: 6_000 },
+    )
+    .toBeLessThan(0.08);
+});
+
+test("records a custom shortcut and uses it immediately", async ({ page }) => {
+  await openSample(page);
+
+  await page.getByRole("button", { name: "快捷键" }).click();
+  const dialog = page.getByRole("dialog", { name: "快捷键" });
+  await expect(dialog).toBeVisible();
+
+  await dialog.getByRole("button", { name: "修改快捷键：放大" }).click();
+  await page.keyboard.press("Control+Shift+E");
+  const row = dialog.getByRole("button", { name: "修改快捷键：放大" });
+  await expect(row).toContainText("Ctrl");
+  await expect(row).toContainText("Shift");
+  await expect(row).toContainText("E");
+
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+
+  const zoom = page.locator('header button[aria-label^="缩放 "]');
+  const beforeZoom = await zoom.innerText();
+  await page.keyboard.press("Control+Shift+E");
+  await expect.poll(async () => zoom.innerText(), { timeout: 6_000 }).not.toBe(beforeZoom);
+});

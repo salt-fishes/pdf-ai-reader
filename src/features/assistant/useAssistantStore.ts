@@ -72,6 +72,7 @@ import {
 } from "../../lib/storage/db";
 import { SYSTEM_PROMPT } from "../../lib/ai/prompt";
 import { selectSmartContext } from "../../lib/ai/smart";
+import { extractCitedPages } from "../../lib/ai/citations";
 import {
   fetchOcrStatus,
   recognizeImage,
@@ -1623,13 +1624,7 @@ export const useAssistant = create<AssistantState>((set, get) => {
         } else {
           const buckets = usageFromProvider(usageRaw) ?? EMPTY_USAGE;
           const hasUsage = Boolean(usageFromProvider(usageRaw));
-          const cited = [
-            ...new Set(
-              [...content.matchAll(/\[\[p\.(\d+)\]\]|\[p\.(\d+)\]/g)].map((match) =>
-                Number(match[1] ?? match[2]),
-              ),
-            ),
-          ];
+          const cited = extractCitedPages(content);
           patchMessage(assistantId, {
             status: "done",
             content: content.trim() || "（模型没有返回内容）",

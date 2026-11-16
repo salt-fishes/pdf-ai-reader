@@ -68,6 +68,20 @@ export type LocationTarget = {
   at: number;
 };
 
+export type CitationFocus = {
+  page: number;
+  /** Verbatim excerpt used to locate the exact line on the rendered page. */
+  quote?: string;
+  at: number;
+};
+
+export type CitationFlash = {
+  page: number;
+  /** Empty when the quote could not be located; the page outline pulses instead. */
+  rects: NormalizedRect[];
+  at: number;
+};
+
 export type SearchResult = {
   page: number;
   excerpt: string;
@@ -107,6 +121,8 @@ type ViewerState = {
   sidebar: "pages" | "outline" | "highlights" | null;
   scrollTarget: LocationTarget | null;
   focusedHighlight: { id: string; at: number } | null;
+  citationFocus: CitationFocus | null;
+  citationFlash: CitationFlash | null;
   restoreScrollTop: number | null;
   searchOpen: boolean;
   searchQuery: string;
@@ -129,7 +145,8 @@ type ViewerState = {
   resetZoom: () => void;
   requestScroll: (page: number) => void;
   requestLocation: (target: Omit<LocationTarget, "at">) => void;
-  requestCitation: (page: number) => void;
+  requestCitation: (page: number, quote?: string) => void;
+  revealCitation: (page: number, rects: NormalizedRect[], y?: number) => void;
   clearRestoreScroll: () => void;
   setSelection: (selection: SelectionState | null) => void;
   addHighlight: (selection: SelectionState) => void;
@@ -153,6 +170,8 @@ const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 3;
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 let focusTimer: ReturnType<typeof setTimeout> | null = null;
+let citationFlashTimer: ReturnType<typeof setTimeout> | null = null;
+let locationSeq = 0;
 let scrollTopMemory = 0;
 let searchToken = 0;
 let pendingOpen: { file: File; bytes: ArrayBuffer } | null = null;
@@ -221,6 +240,8 @@ export const useViewer = create<ViewerState>((set, get) => {
       sidebar: null,
       outline: [],
       regionPage: null,
+      citationFocus: null,
+      citationFlash: null,
     });
 
     if (bytes.byteLength <= 24 * 1024 * 1024) {
@@ -286,6 +307,8 @@ export const useViewer = create<ViewerState>((set, get) => {
     sidebar: null,
     scrollTarget: null,
     focusedHighlight: null,
+    citationFocus: null,
+    citationFlash: null,
     restoreScrollTop: null,
     searchOpen: false,
     searchQuery: "",
@@ -307,6 +330,8 @@ export const useViewer = create<ViewerState>((set, get) => {
         searchFocus: null,
         scrollTarget: null,
         focusedHighlight: null,
+        citationFocus: null,
+        citationFlash: null,
       });
       try {
         const bytes = await file.arrayBuffer();
@@ -421,6 +446,8 @@ export const useViewer = create<ViewerState>((set, get) => {
         sidebar: null,
         scrollTarget: null,
         focusedHighlight: null,
+        citationFocus: null,
+        citationFlash: null,
         restoreScrollTop: null,
         searchOpen: false,
         searchResults: [],
@@ -465,7 +492,13 @@ export const useViewer = create<ViewerState>((set, get) => {
 
     requestScroll: (page) => get().requestLocation({ page }),
 
-    requestCitation: (page) => {
+    requestCitation: (page, quote) => {
+      const at = Date.now();
+      if (citationFlashTimer) {
+        clearTimeout(citationFlashTimer);
+        citationFlashTimer = null;
+      }
+      set({ citationFocus: { page, quote, at }, citationFlash: null });
       const y = pageAnchorMemory[page];
       if (y !== undefined) {
         get().requestLocation({ page, y, align: "top" });
@@ -474,8 +507,25 @@ export const useViewer = create<ViewerState>((set, get) => {
       }
     },
 
+    revealCitation: (page, rects, y) => {
+      const at = ++locationSeq;
+      const flashAt = Date.now();
+      set({
+        citationFocus: null,
+        citationFlash: { page, rects, at: flashAt },
+        focusedHighlight: null,
+        ...(y === undefined ? {} : { scrollTarget: { page, y, align: "top" as const, at } }),
+      });
+      if (citationFlashTimer) clearTimeout(citationFlashTimer);
+      citationFlashTimer = setTimeout(() => {
+        if (useViewer.getState().citationFlash?.at === flashAt) {
+          set({ citationFlash: null });
+        }
+      }, 2800);
+    },
+
     requestLocation: (target) => {
-      const at = Date.now();
+      const at = ++locationSeq;
       set({ scrollTarget: { ...target, at } });
       if (focusTimer) clearTimeout(focusTimer);
       if (!target.focusId) {

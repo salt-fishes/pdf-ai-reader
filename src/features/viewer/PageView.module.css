@@ -79,6 +79,39 @@
   background: rgb(185 185 255 / 28%);
 }
 
+.citationFlashes {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.citationFlash {
+  position: absolute;
+  border-radius: 2px;
+  background: rgb(245 158 11 / 34%);
+  box-shadow: 0 0 0 1px rgb(245 158 11 / 42%);
+  mix-blend-mode: multiply;
+  animation: citation-flash 2.6s var(--ease-out) forwards;
+}
+
+:global([data-theme="night"]) .citationFlash {
+  background: rgb(251 191 36 / 28%);
+  box-shadow: 0 0 0 1px rgb(251 191 36 / 42%);
+  mix-blend-mode: screen;
+}
+
+.citationPageFlash {
+  outline: 2px solid rgb(245 158 11 / 55%);
+  outline-offset: 3px;
+  animation: citation-outline 2.6s var(--ease-out) forwards;
+}
+
+:global([data-theme="night"]) .citationPageFlash {
+  outline-color: rgb(251 191 36 / 55%);
+}
+
 .searchHits {
   position: absolute;
   inset: 0;
@@ -236,6 +269,11 @@
   }
 
   .searchHit {
+    animation: none;
+  }
+
+  .citationFlash,
+  .citationPageFlash {
     animation: none;
   }
 }

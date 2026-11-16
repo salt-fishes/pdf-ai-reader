@@ -21,9 +21,11 @@ import { useAssistant } from "../features/assistant/useAssistantStore";
 import { closePanel, minimizePanel } from "../features/assistant/panelControl";
 import { SettingsDialog } from "../features/settings/SettingsDialog";
 import { ShortcutsDialog } from "../features/shortcuts/ShortcutsDialog";
+import { useShortcutsStore } from "../features/shortcuts/useShortcutsStore";
 import { useHotkeys, type Hotkey } from "../hooks/useHotkeys";
 import { pickPdfFile } from "../lib/openFile";
 import { getColorMode } from "../lib/reading/color";
+import { SHORTCUT_ACTIONS, type ShortcutId } from "../lib/shortcuts";
 import styles from "./App.module.css";
 import assistantStyles from "../features/assistant/Assistant.module.css";
 
@@ -46,6 +48,7 @@ export function App() {
   const toast = useAssistant((state) => state.toast);
   const loadForDoc = useAssistant((state) => state.loadForDoc);
   const bootstrap = useAssistant((state) => state.bootstrap);
+  const shortcutBindings = useShortcutsStore((state) => state.bindings);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
@@ -63,6 +66,16 @@ export function App() {
   useEffect(() => {
     void bootstrap();
   }, [bootstrap]);
+
+  // Ctrl/⌘ + wheel is reserved for document zoom. Outside the reader there is
+  // nothing to scale, so stop Chromium from zooming the whole application UI.
+  useEffect(() => {
+    const onWheel = (event: WheelEvent) => {
+      if (event.ctrlKey && !event.defaultPrevented) event.preventDefault();
+    };
+    window.addEventListener("wheel", onWheel, { passive: false });
+    return () => window.removeEventListener("wheel", onWheel);
+  }, []);
 
   useEffect(() => {
     const onRegion = (event: Event) => {
@@ -92,100 +105,67 @@ export function App() {
     void useAssistant.getState().syncCurrentPage(currentPage);
   }, [currentPage, docHash]);
 
-  const toggleAssistant = () => {
-    const assistant = useAssistant.getState();
-    if (assistant.status === "open") {
-      minimizePanel();
-      return;
-    }
-    const trigger =
-      document.querySelector<HTMLElement>("[data-assistant-fab]") ??
-      document.querySelector<HTMLElement>("[data-ai-entry]");
-    assistant.openFrom(trigger);
-  };
+  const bindings = useMemo<Hotkey[]>(() => {
+    const toggleAssistant = () => {
+      const assistant = useAssistant.getState();
+      if (assistant.status === "open") {
+        minimizePanel();
+        return;
+      }
+      const trigger =
+        document.querySelector<HTMLElement>("[data-assistant-fab]") ??
+        document.querySelector<HTMLElement>("[data-ai-entry]");
+      assistant.openFrom(trigger);
+    };
 
-  const bindings = useMemo<Hotkey[]>(
-    () => [
-      { key: "j", mod: true, allowInInput: true, run: toggleAssistant },
-      { key: "j", alt: true, allowInInput: true, run: () => closePanel() },
-      {
-        key: "k",
-        mod: true,
-        allowInInput: true,
-        run: () => {
-          const trigger = document.querySelector<HTMLElement>("[data-ai-entry]");
-          useAssistant.getState().openFrom(trigger);
-        },
+    const runs: Record<ShortcutId, () => void> = {
+      "assistant.toggle": toggleAssistant,
+      "assistant.close": () => closePanel(),
+      "assistant.focus": () => {
+        const trigger = document.querySelector<HTMLElement>("[data-ai-entry]");
+        useAssistant.getState().openFrom(trigger);
       },
-      {
-        key: "f",
-        mod: true,
-        allowInInput: true,
-        run: () => useViewer.getState().openSearch(),
+      "assistant.capturePage": () => {
+        const viewer = useViewer.getState();
+        if (viewer.docHash) void useAssistant.getState().capturePage(viewer.currentPage);
       },
-      {
-        key: "o",
-        mod: true,
-        allowInInput: true,
-        run: () => pickPdfFile((file) => void useViewer.getState().openFile(file)),
+      "assistant.captureRegion": () => {
+        const viewer = useViewer.getState();
+        if (viewer.docHash) useAssistant.getState().startRegionCapture(viewer.currentPage);
       },
-      {
-        key: "s",
-        mod: true,
-        alt: true,
-        allowInInput: true,
-        run: () => {
-          const viewer = useViewer.getState();
-          if (viewer.docHash) void useAssistant.getState().capturePage(viewer.currentPage);
-        },
+      "assistant.quoteSelection": () => {
+        const selection = useViewer.getState().selection;
+        if (selection) useAssistant.getState().addSelection(selection.page, selection.text);
       },
-      {
-        key: "r",
-        mod: true,
-        alt: true,
-        allowInInput: true,
-        run: () => {
-          const viewer = useViewer.getState();
-          if (viewer.docHash) useAssistant.getState().startRegionCapture(viewer.currentPage);
-        },
+      "reader.search": () => useViewer.getState().openSearch(),
+      "reader.open": () => pickPdfFile((file) => void useViewer.getState().openFile(file)),
+      "reader.nextPage": () => {
+        const viewer = useViewer.getState();
+        if (viewer.numPages)
+          viewer.requestScroll(Math.min(viewer.numPages, viewer.currentPage + 1));
       },
-      {
-        key: "q",
-        mod: true,
-        alt: true,
-        allowInInput: true,
-        run: () => {
-          const selection = useViewer.getState().selection;
-          if (selection) useAssistant.getState().addSelection(selection.page, selection.text);
-        },
+      "reader.prevPage": () => {
+        const viewer = useViewer.getState();
+        if (viewer.numPages) viewer.requestScroll(Math.max(1, viewer.currentPage - 1));
       },
-      {
-        key: "?",
-        run: () => setShortcutsOpen((open) => !open),
-      },
-      {
-        key: "pagedown",
-        run: () => {
-          const viewer = useViewer.getState();
-          if (viewer.numPages)
-            viewer.requestScroll(Math.min(viewer.numPages, viewer.currentPage + 1));
-        },
-      },
-      {
-        key: "pageup",
-        run: () => {
-          const viewer = useViewer.getState();
-          if (viewer.numPages) viewer.requestScroll(Math.max(1, viewer.currentPage - 1));
-        },
-      },
-      { key: "+", run: () => useViewer.getState().zoomBy(0.1) },
-      { key: "=", run: () => useViewer.getState().zoomBy(0.1) },
-      { key: "-", run: () => useViewer.getState().zoomBy(-0.1) },
-      { key: "0", run: () => useViewer.getState().resetZoom() },
-      { key: "d", shift: true, run: () => useViewer.getState().cycleColorMode() },
-    ],
-    [],
-  );
+      "reader.zoomIn": () => useViewer.getState().zoomBy(0.1),
+      "reader.zoomOut": () => useViewer.getState().zoomBy(-0.1),
+      "reader.zoomReset": () => useViewer.getState().resetZoom(),
+      "reader.cycleColor": () => useViewer.getState().cycleColorMode(),
+      "app.shortcuts": () => setShortcutsOpen((open) => !open),
+    };
+
+    return SHORTCUT_ACTIONS.flatMap((action) =>
+      (shortcutBindings[action.id] ?? action.defaults).map((binding) => ({
+        key: binding.key,
+        mod: binding.mod,
+        alt: binding.alt,
+        shift: binding.shift,
+        allowInInput: action.allowInInput,
+        run: runs[action.id],
+      })),
+    );
+  }, [shortcutBindings]);
 
   useHotkeys(bindings);
 
@@ -300,7 +280,14 @@ export function App() {
       <SearchOverlay />
 
       <PasswordDialog />
-      <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <SettingsDialog
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        onOpenShortcuts={() => {
+          setSettingsOpen(false);
+          setShortcutsOpen(true);
+        }}
+      />
       <ShortcutsDialog open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
 
       {toast ? (

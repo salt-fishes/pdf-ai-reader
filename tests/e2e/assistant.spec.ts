@@ -61,6 +61,16 @@ test("reads a Chinese PDF, sends context, cites and jumps", async ({ page }) => 
   await expect(cites.first()).toBeVisible();
   expect(await cites.count()).toBeGreaterThanOrEqual(2);
 
+  // The quiet badge in the top-right corner lists every source.
+  const citationBadge = panel.getByRole("button", { name: "查看引用" }).last();
+  await citationBadge.click();
+  const citationMenu = panel.getByRole("menu", { name: "引用来源" });
+  await expect(citationMenu).toBeVisible();
+  await expect(citationMenu).toContainText("p.2");
+  await page.keyboard.press("Escape");
+  await expect(citationMenu).toBeHidden();
+  await expect(panel).toBeVisible();
+
   // Context details show the provider usage buckets.
   const contextButton = panel.locator('button[aria-label="上下文详情"]');
   if ((await contextButton.getAttribute("aria-expanded")) !== "true") {
@@ -79,6 +89,61 @@ test("reads a Chinese PDF, sends context, cites and jumps", async ({ page }) => 
   });
 
   expect(errors).toEqual([]);
+});
+
+test("line-level citations jump to the quoted line and flash", async ({ page }) => {
+  await openSample(page);
+  const quote = await page.evaluate(() => {
+    const spans = [...document.querySelectorAll<HTMLElement>('[data-page="2"] .textLayer span')];
+    const span = spans.find((element) => (element.textContent ?? "").trim().length >= 8);
+    return (span?.textContent ?? "").replace(/\s+/g, " ").replace(/\]/g, "").trim().slice(0, 24);
+  });
+  expect(quote.length).toBeGreaterThan(7);
+
+  await page.route("**/api/chat", async (route) => {
+    const answer = `这段的重点是 [[p.2|${quote}]]，可以回到原文定位。`;
+    const payload = [
+      `data: ${JSON.stringify({ choices: [{ delta: { content: answer } }] })}`,
+      "",
+      `data: ${JSON.stringify({
+        choices: [],
+        usage: {
+          prompt_tokens: 120,
+          prompt_cache_hit_tokens: 20,
+          prompt_cache_miss_tokens: 100,
+          completion_tokens: 30,
+        },
+      })}`,
+      "",
+      "data: [DONE]",
+      "",
+      "",
+    ].join("\n");
+    await route.fulfill({
+      status: 200,
+      headers: { "Content-Type": "text/event-stream; charset=utf-8" },
+      body: payload,
+    });
+  });
+
+  await page.locator("[data-assistant-fab]").click();
+  const panel = page.locator("[data-assistant-panel]");
+  await expect(panel).toBeVisible();
+  await panel.locator("textarea").fill("第 2 页这句话在哪里？");
+  await panel.locator('button[aria-label="发送"]').click();
+
+  const badge = panel.getByRole("button", { name: "查看引用" }).last();
+  await expect(badge).toBeVisible({ timeout: 20_000 });
+  await badge.click();
+  const menu = panel.getByRole("menu", { name: "引用来源" });
+  await expect(menu).toBeVisible();
+  await expect(menu).toContainText(quote.slice(0, 8));
+  await expect(menu).toContainText(/\d+ 行/);
+
+  await menu.locator('[role="menuitem"]').first().click();
+  const flash = page.locator('[data-page="2"] span[class*="citationFlash"]').first();
+  await expect(flash).toBeVisible({ timeout: 10_000 });
+  await expect(flash).toBeHidden({ timeout: 6_000 });
 });
 
 test("region capture sends only the dragged area", async ({ page }) => {

@@ -141,6 +141,13 @@ export function PdfViewer() {
   const [pageSizes, setPageSizes] = useState<Array<{ width: number; height: number }>>([]);
   const pageSizesRef = useRef<Array<{ width: number; height: number }>>([]);
   const pendingShift = useRef(0);
+  const lastScrollTarget = useRef(0);
+  const wheelPointerY = useRef<number | null>(null);
+  const pendingZoomAnchor = useRef<{
+    page: number;
+    fraction: number;
+    viewportY: number;
+  } | null>(null);
   const [viewportHeight, setViewportHeight] = useState(0);
   const [scrollTop, setScrollTop] = useState(0);
 
@@ -257,6 +264,105 @@ export function PdfViewer() {
   const layoutRef = useRef(layout);
   layoutRef.current = layout;
 
+  // Remember the page point under the pointer (or the viewport centre for
+  // keyboard/header zoom) before React applies the new layout. The effect
+  // below restores that point afterwards, so zooming never scrolls the page.
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    wheelPointerY.current = null;
+    return useViewer.subscribe((state, previous) => {
+      if (state.zoom === previous.zoom || state.docHash !== previous.docHash) return;
+      const { prefix, heights } = layoutRef.current;
+      if (!heights.length) return;
+      const viewportHeightNow = viewport.clientHeight;
+      const viewportY = Math.min(
+        Math.max(wheelPointerY.current ?? viewportHeightNow / 2, 0),
+        viewportHeightNow,
+      );
+      wheelPointerY.current = null;
+      const contentY = viewport.scrollTop + viewportY;
+
+      let index = 0;
+      let low = 0;
+      let high = heights.length - 1;
+      while (low <= high) {
+        const mid = (low + high) >> 1;
+        if (PADDING_TOP + prefix[mid] <= contentY) {
+          index = mid;
+          low = mid + 1;
+        } else {
+          high = mid - 1;
+        }
+      }
+      const pageTop = PADDING_TOP + prefix[index];
+      const fraction =
+        heights[index] > 0 ? Math.max(0, Math.min(1, (contentY - pageTop) / heights[index])) : 0;
+      pendingZoomAnchor.current = { page: index + 1, fraction, viewportY };
+    });
+  }, [docHash]);
+
+  useLayoutEffect(() => {
+    const anchor = pendingZoomAnchor.current;
+    const viewport = viewportRef.current;
+    if (!anchor || !viewport) return;
+    const index = anchor.page - 1;
+    if (index < 0 || index >= layout.heights.length) {
+      pendingZoomAnchor.current = null;
+      return;
+    }
+    const top =
+      PADDING_TOP +
+      layout.prefix[index] +
+      anchor.fraction * layout.heights[index] -
+      anchor.viewportY;
+    const max = Math.max(0, viewport.scrollHeight - viewport.clientHeight);
+    viewport.scrollTop = Math.max(0, Math.min(max, top));
+    pendingZoomAnchor.current = null;
+  }, [layout]);
+
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    let frame = 0;
+    let accumulated = 0;
+
+    const apply = () => {
+      frame = 0;
+      const factor = Math.exp(accumulated);
+      accumulated = 0;
+      if (!Number.isFinite(factor) || Math.abs(factor - 1) < 0.0005) return;
+      const current = useViewer.getState().zoom;
+      const next = Math.max(0.5, Math.min(3, current * factor));
+      if (Math.abs(next - current) < 0.0005) {
+        wheelPointerY.current = null;
+        return;
+      }
+      useViewer.getState().setZoom(next, "custom");
+    };
+
+    const onWheel = (event: WheelEvent) => {
+      if (!event.ctrlKey && !event.metaKey) return;
+      event.preventDefault();
+      const rect = viewport.getBoundingClientRect();
+      const inside =
+        event.clientY >= rect.top &&
+        event.clientY <= rect.bottom &&
+        event.clientX >= rect.left &&
+        event.clientX <= rect.right;
+      wheelPointerY.current = inside ? event.clientY - rect.top : rect.height / 2;
+      const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? rect.height : 1;
+      accumulated += -event.deltaY * unit * 0.0018;
+      if (!frame) frame = requestAnimationFrame(apply);
+    };
+
+    viewport.addEventListener("wheel", onWheel, { passive: false });
+    return () => {
+      viewport.removeEventListener("wheel", onWheel);
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, [docHash]);
+
   useLayoutEffect(() => {
     const viewport = viewportRef.current;
     if (!viewport || !pendingShift.current) return;
@@ -273,7 +379,7 @@ export function PdfViewer() {
     observer.observe(viewport);
     setViewportHeight(viewport.clientHeight);
     return () => observer.disconnect();
-  }, []);
+  }, [docHash]);
 
   const fitNonce = useViewer((state) => state.fitNonce);
 
@@ -351,13 +457,20 @@ export function PdfViewer() {
   }, [numPages, docHash, setCurrentPage, savePosition]);
 
   useEffect(() => {
-    if (!scrollTarget) return;
+    if (!scrollTarget || !numPages) return;
     const viewport = viewportRef.current;
     if (!viewport) return;
     const { prefix, heights } = layoutRef.current;
+    if (!heights.length) return;
+    // Apply each request exactly once. Without this guard a later zoom (which
+    // changes the layout) re-ran the effect and scrolled back to the previous
+    // jump target.
+    if (lastScrollTarget.current === scrollTarget.at) return;
+    lastScrollTarget.current = scrollTarget.at;
+
     const index = Math.max(0, Math.min(numPages - 1, scrollTarget.page - 1));
     const pageTop = PADDING_TOP + prefix[index];
-    const pageHeight = heights[index] ?? sizeHint.height * scale;
+    const pageHeight = heights[index] ?? 1;
     const raw =
       scrollTarget.y === undefined
         ? pageTop - 8
@@ -371,7 +484,7 @@ export function PdfViewer() {
       // keep the smooth motion readers expect.
       behavior: reducedMotion() || distance > viewport.clientHeight * 3 ? "auto" : "smooth",
     });
-  }, [scrollTarget, numPages, sizeHint.height, scale]);
+  }, [scrollTarget, numPages]);
 
   useEffect(() => {
     if (restoreScrollTop == null) return;

@@ -42,12 +42,12 @@ npm run package:desktop
 
 安装包由 electron-builder 生成：
 
-- NSIS：`release/paper-reader-v0.6.2-x64.exe`，支持选择安装目录、创建桌面与开始菜单快捷方式。
+- NSIS：`release/paper-reader-v0.7.0-x64.exe`，支持选择安装目录、创建桌面与开始菜单快捷方式。
   安装向导增加“PDF 打开方式”页：
   - 默认勾选“在 PDF 的‘打开方式’中显示纸间”，只写 OpenWith 声明，不影响默认应用。
   - 可选“安装完成后打开 Windows 默认应用设置”，默认不勾选；勾选后仍需在系统设置里确认。
   - 静默安装 `/S` 不显示该页，也不会自动写声明。
-- MSI：`release/paper-reader-v0.6.2-x64.msi`，使用 `build/zh-CN.wxl` 的 GBK 代码页；中文产品名、快捷方式与卸载项正常。
+- MSI：`release/paper-reader-v0.7.0-x64.msi`，使用 `build/zh-CN.wxl` 的 GBK 代码页；中文产品名、快捷方式与卸载项正常。
   MSI 暂不提供该勾选页，安装后可在 设置 → 关于 中注册。
 - 两者都按当前用户安装到 `%LOCALAPPDATA%\Programs\PaperReader`，安装后的可执行文件为
   `PaperReader.exe`，快捷方式显示“纸间”；不包含 `node_modules` 或 OCR 组件。

@@ -86,6 +86,32 @@
   }
 }
 
+@keyframes citation-flash {
+  0% {
+    background: rgb(245 158 11 / 42%);
+    box-shadow: 0 0 0 1px rgb(245 158 11 / 55%);
+  }
+  70% {
+    background: rgb(245 158 11 / 30%);
+  }
+  100% {
+    background: rgb(245 158 11 / 0%);
+    box-shadow: 0 0 0 1px rgb(245 158 11 / 0%);
+  }
+}
+
+@keyframes citation-outline {
+  0% {
+    outline-color: rgb(245 158 11 / 65%);
+  }
+  70% {
+    outline-color: rgb(245 158 11 / 45%);
+  }
+  100% {
+    outline-color: rgb(245 158 11 / 0%);
+  }
+}
+
 /* Loading loops. */
 @keyframes skeleton {
   to {

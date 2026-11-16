@@ -19,6 +19,7 @@ import { PDF_TO_CSS_UNITS } from "../../lib/pdf/units";
 import { getColorMode } from "../../lib/reading/color";
 import { useOcr } from "../ocr/useOcrStore";
 import { OcrTextLayer } from "./OcrTextLayer";
+import { locateQuote } from "./locateQuote";
 import { emitRegionSelection } from "./region";
 import { renderPixelRatio } from "./renderRatio";
 import { usePixelRatio } from "./usePixelRatio";
@@ -178,6 +179,8 @@ function PageViewBase({ pageNumber, zoom, visible, sizeHint }: Props) {
   const searchOpen = useViewer((state) => state.searchOpen);
   const searchQuery = useViewer((state) => state.searchQuery);
   const searchFocus = useViewer((state) => state.searchFocus);
+  const citationFocus = useViewer((state) => state.citationFocus);
+  const citationFlash = useViewer((state) => state.citationFlash);
   const handledSearchFocus = useRef(0);
   const ocrPage = useOcr((state) => state.pages[pageNumber]);
   const ocrEnabled = useOcr((state) => state.enabled);
@@ -295,6 +298,32 @@ function PageViewBase({ pageNumber, zoom, visible, sizeHint }: Props) {
       align: "top",
     });
   }, [searchFocus, searchRects, pageNumber, visible]);
+
+  useEffect(() => {
+    const focus = citationFocus;
+    if (!focus || focus.page !== pageNumber || !visible) return;
+    if (!focus.quote) {
+      // No quote: the page itself pulses; there is no line to underline.
+      useViewer.getState().revealCitation(pageNumber, []);
+      return;
+    }
+    const pageElement = textRef.current?.parentElement;
+    if (!pageElement) return;
+    const located = locateQuote(pageElement, focus.quote);
+    if (located) {
+      useViewer
+        .getState()
+        .revealCitation(pageNumber, located.rects, Math.max(0, located.rects[0].y - 0.06));
+      return;
+    }
+    // The text layer may still be painting. Give it a moment, then pulse the
+    // page instead of leaving a click with no visible feedback.
+    const timer = setTimeout(() => {
+      if (useViewer.getState().citationFocus?.at !== focus.at) return;
+      useViewer.getState().revealCitation(pageNumber, []);
+    }, 1200);
+    return () => clearTimeout(timer);
+  }, [citationFocus, pageNumber, visible, layerVersion, ocrPage]);
 
   useEffect(() => {
     if (active) return;
@@ -548,7 +577,11 @@ function PageViewBase({ pageNumber, zoom, visible, sizeHint }: Props) {
 
   return (
     <div
-      className={styles.page}
+      className={`${styles.page} ${
+        citationFlash?.page === pageNumber && !citationFlash.rects.length
+          ? styles.citationPageFlash
+          : ""
+      }`}
       data-page={pageNumber}
       style={{
         width: size.width * zoom * PDF_TO_CSS_UNITS,
@@ -575,6 +608,22 @@ function PageViewBase({ pageNumber, zoom, visible, sizeHint }: Props) {
           )),
         )}
       </div>
+      {citationFlash?.page === pageNumber && citationFlash.rects.length ? (
+        <div className={styles.citationFlashes} aria-hidden="true">
+          {citationFlash.rects.map((rect, index) => (
+            <span
+              key={`${citationFlash.at}_${index}`}
+              className={styles.citationFlash}
+              style={{
+                left: `${rect.x * 100}%`,
+                top: `${rect.y * 100}%`,
+                width: `${rect.w * 100}%`,
+                height: `${rect.h * 100}%`,
+              }}
+            />
+          ))}
+        </div>
+      ) : null}
       {searchRects.length ? (
         <div className={styles.searchHits} aria-hidden="true">
           {searchRects.map((rect, index) => (

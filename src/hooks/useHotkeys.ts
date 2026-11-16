@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { normalizeShortcutKey } from "../lib/shortcuts";
 
 export type Hotkey = {
   key: string;
@@ -26,13 +27,13 @@ export function useHotkeys(bindings: Hotkey[]): void {
       if (event.repeat || event.defaultPrevented) return;
       const mod = event.ctrlKey || event.metaKey;
       const typing = isTyping();
-      const key = event.key.toLowerCase();
+      const key = normalizeShortcutKey(event.key);
 
       for (const binding of bindings) {
         if (Boolean(binding.mod) !== mod) continue;
-        if (binding.alt !== undefined && Boolean(binding.alt) !== event.altKey) continue;
-        if (binding.shift !== undefined && Boolean(binding.shift) !== event.shiftKey) continue;
-        if (binding.key.toLowerCase() !== key) continue;
+        if (Boolean(binding.alt) !== event.altKey) continue;
+        if (Boolean(binding.shift) !== event.shiftKey) continue;
+        if (normalizeShortcutKey(binding.key) !== key) continue;
         if (!binding.allowInInput && typing) continue;
         if (binding.when && !binding.when()) continue;
         event.preventDefault();

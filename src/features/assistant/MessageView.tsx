@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type MouseEvent as ReactMouseEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import ReactMarkdown, { defaultUrlTransform } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -6,7 +6,14 @@ import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
 import { Icon, StateIcon } from "../../components/icons/Icon";
 import type { ChatMessage } from "../../lib/ai/types";
-import { countInvalidCitations, extractCitedPages } from "../../lib/ai/citations";
+import {
+  countInvalidCitations,
+  extractCitations,
+  findQuoteLine,
+  mapCitations,
+  type Citation,
+} from "../../lib/ai/citations";
+import { getActiveDocument, getPageText } from "../../lib/pdf/pdf";
 import { copyText } from "../../lib/clipboard";
 import { useViewer } from "../viewer/useViewerStore";
 import { QuoteIcon } from "../../components/icons/SparkleIcon";
@@ -24,12 +31,29 @@ function markdownWithCitations(markdown: string, allowed: Set<number>): string {
   return parts
     .map((part, index) => {
       if (index % 2 === 1) return part;
-      return part.replace(/\[\[p\.(\d+)\]\]|\[p\.(\d+)\]/g, (raw, first, second) => {
-        const page = Number(first ?? second);
-        return allowed.has(page) ? `[p.${page}](cite:${page})` : raw;
+      return mapCitations(part, (citation) => {
+        if (!allowed.has(citation.page)) return citation.raw;
+        const quote = citation.quote ? `|${encodeURIComponent(citation.quote)}` : "";
+        return `[p.${citation.page}](cite:${citation.page}${quote})`;
       });
     })
     .join("");
+}
+
+function parseCiteHref(href: string): Citation | null {
+  if (!href.startsWith("cite:")) return null;
+  const [pagePart, encoded] = href.slice(5).split("|");
+  const page = Number(pagePart);
+  if (!Number.isInteger(page) || page < 1) return null;
+  let quote: string | undefined;
+  if (encoded) {
+    try {
+      quote = decodeURIComponent(encoded);
+    } catch {
+      quote = undefined;
+    }
+  }
+  return { page, quote, raw: href };
 }
 
 function normalizeMath(markdown: string): string {
@@ -48,18 +72,25 @@ function normalizeMath(markdown: string): string {
 export function MessageView({ message, onQuote, onContextMenu }: Props) {
   const [copied, setCopied] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [citationsOpen, setCitationsOpen] = useState(false);
+  const [lineHints, setLineHints] = useState<Record<string, number>>({});
+  const citationRef = useRef<HTMLDivElement>(null);
   const isQuoted = useAssistant((state) => state.isQuoted(message.id));
   const retry = useAssistant((state) => state.retry);
   const notify = useAssistant((state) => state.notify);
   const streamingId = useAssistant((state) => state.streamingId);
   const setBoostAnswer = useAssistant((state) => state.setBoostAnswer);
 
+  const citations = useMemo(() => extractCitations(message.content), [message.content]);
   const allowed = useMemo(
-    () => new Set(message.allowedPages ?? message.citedPages ?? extractCitedPages(message.content)),
-    [message.allowedPages, message.citedPages, message.content],
+    () => new Set(message.allowedPages ?? message.citedPages ?? citations.map((item) => item.page)),
+    [message.allowedPages, message.citedPages, citations],
   );
 
-  const cited = useMemo(() => extractCitedPages(message.content), [message.content]);
+  const cited = useMemo(
+    () => [...new Set(citations.map((citation) => citation.page))],
+    [citations],
+  );
   const invalid = useMemo(
     () => (message.role === "assistant" ? countInvalidCitations(message.content, allowed) : 0),
     [message.content, allowed, message.role],
@@ -71,14 +102,61 @@ export function MessageView({ message, onQuote, onContextMenu }: Props) {
     return () => clearTimeout(timer);
   }, [copied]);
 
+  useEffect(() => {
+    if (!citationsOpen) return;
+    const onPointer = (event: PointerEvent) => {
+      if (!citationRef.current?.contains(event.target as Node)) setCitationsOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.stopPropagation();
+      setCitationsOpen(false);
+    };
+    window.addEventListener("pointerdown", onPointer);
+    window.addEventListener("keydown", onKey, true);
+    return () => {
+      window.removeEventListener("pointerdown", onPointer);
+      window.removeEventListener("keydown", onKey, true);
+    };
+  }, [citationsOpen]);
+
+  useEffect(() => {
+    if (!citationsOpen || !citations.length) return;
+    const pdf = getActiveDocument();
+    if (!pdf) return;
+    let alive = true;
+    const targets = citations.filter((citation) => citation.quote);
+    if (!targets.length) return;
+    void Promise.all(
+      targets.map(async (citation) => {
+        const text = await getPageText(pdf, citation.page).catch(() => "");
+        return [
+          `${citation.page}|${citation.quote ?? ""}`,
+          findQuoteLine(text, citation.quote ?? ""),
+        ] as const;
+      }),
+    ).then((entries) => {
+      if (!alive) return;
+      const next: Record<string, number> = {};
+      for (const [key, line] of entries) {
+        if (line) next[key] = line;
+      }
+      setLineHints(next);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [citationsOpen, citations]);
+
   const handleCopy = async () => {
     const ok = await copyText(message.content);
     setCopied(ok);
     notify(ok ? "已复制" : "复制失败", ok ? "success" : "error");
   };
 
-  const jump = (page: number) => {
-    useViewer.getState().requestCitation(page);
+  const jump = (citation: Citation) => {
+    useViewer.getState().requestCitation(citation.page, citation.quote);
+    setCitationsOpen(false);
   };
 
   const markdown =
@@ -147,6 +225,45 @@ export function MessageView({ message, onQuote, onContextMenu }: Props) {
         </details>
       ) : null}
 
+      {citations.length ? (
+        <div className={styles.citationDock} ref={citationRef}>
+          <button
+            className={styles.citationBadge}
+            onClick={() => setCitationsOpen((open) => !open)}
+            aria-label="查看引用"
+            aria-expanded={citationsOpen}
+            title="查看引用来源"
+          >
+            <Icon name="page" size={10} />
+            引用 {citations.length}
+          </button>
+          {citationsOpen ? (
+            <div className={styles.citationPopover} role="menu" aria-label="引用来源">
+              {citations.map((citation, index) => {
+                const line = lineHints[`${citation.page}|${citation.quote ?? ""}`];
+                return (
+                  <button
+                    className={styles.citationItem}
+                    role="menuitem"
+                    key={`${citation.raw}_${index}`}
+                    onClick={() => jump(citation)}
+                    title={citation.quote ?? `跳到第 ${citation.page} 页`}
+                  >
+                    <span className={styles.citationWhere}>
+                      p.{citation.page}
+                      {line ? ` · 第 ${line} 行` : ""}
+                    </span>
+                    <span className={styles.citationText}>
+                      {citation.quote ? `“${citation.quote}”` : "跳到本页上次阅读位置"}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
       {message.content ? (
         <div className={`${styles.messageBody} ${showToggle && !expanded ? styles.clamped : ""}`}>
           <ReactMarkdown
@@ -158,15 +275,20 @@ export function MessageView({ message, onQuote, onContextMenu }: Props) {
             components={{
               a: ({ href, children }) => {
                 if (href?.startsWith("cite:")) {
-                  const page = Number(href.slice(5));
+                  const citation = parseCiteHref(href);
+                  if (!citation) return <>{children}</>;
                   return (
                     <button
                       className={styles.cite}
-                      onClick={() => jump(page)}
-                      title={`跳到第 ${page} 页`}
-                      aria-label={`引用第 ${page} 页`}
+                      onClick={() => jump(citation)}
+                      title={
+                        citation.quote
+                          ? `p.${citation.page} · ${citation.quote}`
+                          : `跳到第 ${citation.page} 页`
+                      }
+                      aria-label={`引用第 ${citation.page} 页`}
                     >
-                      p.{page}
+                      p.{citation.page}
                     </button>
                   );
                 }

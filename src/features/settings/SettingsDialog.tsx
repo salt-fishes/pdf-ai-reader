@@ -10,11 +10,13 @@ import { useAssistant } from "../assistant/useAssistantStore";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { ColorModeControl } from "../viewer/ColorModeControl";
 import { useViewer } from "../viewer/useViewerStore";
+import { useShortcutsStore } from "../shortcuts/useShortcutsStore";
+import { SHORTCUT_ACTIONS, formatBindings } from "../../lib/shortcuts";
 import { AboutSection } from "./sections/AboutSection";
 import { OcrSection } from "./sections/OcrSection";
 import styles from "../../components/Modal.module.css";
 
-type Props = { open: boolean; onClose: () => void };
+type Props = { open: boolean; onClose: () => void; onOpenShortcuts: () => void };
 
 const NAV = [
   { id: "model", label: "模型服务", glyph: "globe", target: "model" },
@@ -36,21 +38,6 @@ const SECTION_GROUP: Record<string, string> = {
   about: "about",
 };
 
-const SHORTCUTS: Array<[string, string]> = [
-  ["Ctrl + J", "打开 / 最小化助手"],
-  ["Alt + J", "关闭助手"],
-  ["Ctrl + K", "聚焦提问框"],
-  ["Ctrl + O", "打开 PDF"],
-  ["Ctrl + F", "全文搜索"],
-  ["PageUp / PageDown", "上一页 / 下一页"],
-  ["+ / − / 0", "放大 / 缩小 / 100%"],
-  ["Shift + D", "循环色彩模式"],
-  ["Ctrl + Alt + S", "截取当前页"],
-  ["Ctrl + Alt + R", "框选截图"],
-  ["Ctrl + Alt + Q", "把选中文字加入上下文"],
-  ["Esc", "分层关闭浮层"],
-];
-
 function splitModels(value: string): string[] {
   return [
     ...new Set(
@@ -62,7 +49,7 @@ function splitModels(value: string): string[] {
   ];
 }
 
-export function SettingsDialog({ open, onClose }: Props) {
+export function SettingsDialog({ open, onClose, onOpenShortcuts }: Props) {
   const config = useAssistant((state) => state.config);
   const configError = useAssistant((state) => state.configError);
   const model = useAssistant((state) => state.model);
@@ -95,6 +82,7 @@ export function SettingsDialog({ open, onClose }: Props) {
   const [confirmClear, setConfirmClear] = useState(false);
   const [privacyDoc, setPrivacyDoc] = useState<string | null>(null);
   const docName = useViewer((state) => state.docName);
+  const shortcutBindings = useShortcutsStore((state) => state.bindings);
   const contentRef = useRef<HTMLDivElement>(null);
   const scrollLock = useRef(0);
   const [activeNav, setActiveNav] = useState<string>("model");
@@ -484,15 +472,30 @@ export function SettingsDialog({ open, onClose }: Props) {
               <div className={styles.note}>
                 悬浮窗覆盖在阅读区上，可拖动、四边与四角缩放；侧边栏停靠右侧，阅读区自动让位，拖左缘可调宽度。窗口较窄时会自动切换为底部面板。
               </div>
+              <div className={styles.rows}>
+                <div className={styles.row}>
+                  <span className={styles.label}>快捷键</span>
+                  <button className={styles.button} onClick={onOpenShortcuts}>
+                    自定义快捷键
+                  </button>
+                </div>
+              </div>
+              <div className={styles.note}>
+                单击任意组合键即可重新录制；也可以按 <kbd>?</kbd> 打开快捷键面板。
+              </div>
               <details className={styles.details}>
                 <summary>快捷键一览</summary>
                 <div className={styles.shortcutGrid}>
-                  {SHORTCUTS.map(([keys, action]) => (
-                    <div className={styles.shortcut} key={keys}>
-                      <kbd>{keys}</kbd>
-                      <span>{action}</span>
+                  {SHORTCUT_ACTIONS.map((action) => (
+                    <div className={styles.shortcut} key={action.id}>
+                      <kbd>{formatBindings(shortcutBindings[action.id] ?? action.defaults)}</kbd>
+                      <span>{action.label}</span>
                     </div>
                   ))}
+                  <div className={styles.shortcut}>
+                    <kbd>Ctrl + 滚轮</kbd>
+                    <span>以指针为中心缩放</span>
+                  </div>
                 </div>
               </details>
             </section>

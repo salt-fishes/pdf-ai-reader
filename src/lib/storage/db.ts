@@ -1,6 +1,7 @@
 import { clear, get, set } from "idb-keyval";
 import type { ColorMode } from "../reading/color";
 import type { OcrModelId } from "../ocr/client";
+import type { ShortcutBinding } from "../shortcuts";
 
 export type DocumentRecord = {
   hash: string;
@@ -297,6 +298,7 @@ export type StoredSettings = {
   contextBudget?: number;
   historyLimit?: number;
   pricing?: { inputMiss: number; inputHit: number; output: number };
+  shortcuts?: Partial<Record<string, ShortcutBinding[]>>;
   showShortcuts?: boolean;
   ocrTextLayer?: boolean;
   ocrModel?: OcrModelId;

@@ -1,70 +1,90 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Icon } from "../../components/icons/Icon";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
+import {
+  SHORTCUT_ACTIONS,
+  bindingFromKeyboardEvent,
+  bindingParts,
+  findShortcutConflict,
+  formatBinding,
+  isModifierKey,
+  sameBindingList,
+  type ShortcutAction,
+  type ShortcutBinding,
+  type ShortcutId,
+} from "../../lib/shortcuts";
 import styles from "../../components/Modal.module.css";
+import { useShortcutsStore } from "./useShortcutsStore";
 
 type Props = { open: boolean; onClose: () => void };
 
-const isMac = typeof navigator !== "undefined" && /Mac/i.test(navigator.platform);
-const MOD = isMac ? "⌘" : "Ctrl";
-
-const GROUPS: Array<{ title: string; items: Array<{ keys: string[]; label: string }> }> = [
-  {
-    title: "助手",
-    items: [
-      { keys: [MOD, "J"], label: "打开 / 最小化面板" },
-      { keys: ["Alt", "J"], label: "关闭（面板与呼吸灯一起隐藏）" },
-      { keys: [MOD, "K"], label: "打开并聚焦提问框" },
-      { keys: ["?"], label: "快捷键面板" },
-    ],
-  },
-  {
-    title: "全局",
-    items: [
-      { keys: ["Esc"], label: "按层级关闭浮层 / 最小化" },
-      { keys: [MOD, "O"], label: "打开 PDF" },
-    ],
-  },
-  {
-    title: "阅读",
-    items: [
-      { keys: [MOD, "F"], label: "全文搜索" },
-      { keys: ["PageUp"], label: "上一页" },
-      { keys: ["PageDown"], label: "下一页" },
-      { keys: ["+", "−"], label: "放大 / 缩小" },
-      { keys: ["0"], label: "重置为 100%" },
-      { keys: ["Shift", "D"], label: "循环色彩模式" },
-      { keys: [MOD, "Alt", "S"], label: "截图当前页" },
-      { keys: [MOD, "Alt", "R"], label: "框选截图" },
-    ],
-  },
-  {
-    title: "对话",
-    items: [
-      { keys: ["Enter"], label: "发送" },
-      { keys: ["Shift", "Enter"], label: "换行" },
-      { keys: [MOD, "Enter"], label: "发送（多行时）" },
-      { keys: [MOD, "Alt", "Q"], label: "引用选中文字" },
-    ],
-  },
-];
-
 export function ShortcutsDialog({ open, onClose }: Props) {
   const cardRef = useRef<HTMLDivElement>(null);
+  const bindings = useShortcutsStore((state) => state.bindings);
+  const setBinding = useShortcutsStore((state) => state.setBinding);
+  const resetBinding = useShortcutsStore((state) => state.resetBinding);
+  const resetAll = useShortcutsStore((state) => state.resetAll);
+  const [recordingId, setRecordingId] = useState<ShortcutId | null>(null);
+  const [error, setError] = useState("");
+
   useFocusTrap(cardRef, open);
+
+  useEffect(() => {
+    if (open) return;
+    setRecordingId(null);
+    setError("");
+  }, [open]);
+
   useEffect(() => {
     if (!open) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.stopPropagation();
-        onClose();
-      }
+      if (event.key !== "Escape") return;
+      if (recordingId) return;
+      event.stopPropagation();
+      onClose();
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, [open, onClose]);
+  }, [open, onClose, recordingId]);
+
+  useEffect(() => {
+    if (!open || !recordingId) return;
+    const onKey = (event: KeyboardEvent) => {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      if (event.key === "Escape") {
+        setRecordingId(null);
+        setError("");
+        return;
+      }
+      if (event.key === "Backspace" || event.key === "Delete") {
+        setBinding(recordingId, []);
+        setRecordingId(null);
+        setError("");
+        return;
+      }
+      if (isModifierKey(event.key)) return;
+      const binding = bindingFromKeyboardEvent(event);
+      if (!binding) {
+        setError("这个按键不能单独使用，请加上 Ctrl、Alt 或 Shift。");
+        return;
+      }
+      const conflict = findShortcutConflict(bindings, recordingId, binding);
+      if (conflict) {
+        setError(`已被“${conflict.label}”使用，请换一个组合。`);
+        return;
+      }
+      setBinding(recordingId, [binding]);
+      setRecordingId(null);
+      setError("");
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [open, recordingId, bindings, setBinding]);
 
   if (!open) return null;
+
+  const groups = [...new Set(SHORTCUT_ACTIONS.map((action) => action.group))];
 
   return (
     <div
@@ -86,23 +106,108 @@ export function ShortcutsDialog({ open, onClose }: Props) {
           </button>
         </div>
         <div className={styles.body} style={{ gap: 0 }}>
-          {GROUPS.map((group) => (
-            <div className={styles.hotkeyGroup} key={group.title}>
-              <div className={styles.hotkeyTitle}>{group.title}</div>
-              {group.items.map((item) => (
-                <div className={styles.hotkeyRow} key={item.label}>
-                  <span>{item.label}</span>
+          {groups.map((group) => (
+            <div className={styles.hotkeyGroup} key={group}>
+              <div className={styles.hotkeyTitle}>{group}</div>
+              {SHORTCUT_ACTIONS.filter((action) => action.group === group).map((action) => (
+                <ShortcutRow
+                  key={action.id}
+                  action={action}
+                  bindings={bindings[action.id] ?? action.defaults}
+                  recording={recordingId === action.id}
+                  onRecord={() => {
+                    setRecordingId(action.id);
+                    setError("");
+                  }}
+                  onReset={() => {
+                    resetBinding(action.id);
+                    setError("");
+                  }}
+                />
+              ))}
+              {group === "阅读" ? (
+                <div className={styles.hotkeyRow}>
+                  <span>按住 Ctrl 滚动滚轮</span>
                   <span className={styles.keys}>
-                    {item.keys.map((key) => (
-                      <kbd key={key}>{key}</kbd>
-                    ))}
+                    <kbd>Ctrl</kbd>
+                    <kbd>滚轮</kbd>
                   </span>
                 </div>
-              ))}
+              ) : null}
             </div>
           ))}
+          {error ? (
+            <div className={styles.hotkeyError} role="alert">
+              {error}
+            </div>
+          ) : null}
+          <div className={styles.hotkeyFoot}>
+            <span>点击快捷键后按下新组合；Esc 取消，Backspace 清除。</span>
+            <button className={styles.hotkeyResetAll} onClick={resetAll}>
+              全部恢复默认
+            </button>
+          </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function ShortcutRow({
+  action,
+  bindings,
+  recording,
+  onRecord,
+  onReset,
+}: {
+  action: ShortcutAction;
+  bindings: ShortcutBinding[];
+  recording: boolean;
+  onRecord: () => void;
+  onReset: () => void;
+}) {
+  const custom = !sameBindingList(bindings, action.defaults);
+  return (
+    <div className={styles.hotkeyRow}>
+      <span>{action.label}</span>
+      <span className={styles.hotkeyControls}>
+        <button
+          className={`${styles.hotkeyKeys} ${recording ? styles.hotkeyRecording : ""}`}
+          onClick={onRecord}
+          aria-label={`修改快捷键：${action.label}`}
+          title="点击后按下新的组合键"
+        >
+          {recording ? (
+            <span className={styles.hotkeyPrompt}>按下新组合…</span>
+          ) : bindings.length ? (
+            bindings
+              .filter(
+                (binding, index, list) =>
+                  list.findIndex((item) => formatBinding(item) === formatBinding(binding)) ===
+                  index,
+              )
+              .map((binding, index) => (
+                <span className={styles.hotkeyChord} key={`${binding.key}_${index}`}>
+                  {bindingParts(binding).map((part) => (
+                    <kbd key={part}>{part}</kbd>
+                  ))}
+                </span>
+              ))
+          ) : (
+            <span className={styles.hotkeyPrompt}>未设置</span>
+          )}
+        </button>
+        {custom ? (
+          <button
+            className={styles.hotkeyReset}
+            onClick={onReset}
+            title="恢复默认"
+            aria-label={`恢复默认：${action.label}`}
+          >
+            <Icon name="retry" size={12} />
+          </button>
+        ) : null}
+      </span>
     </div>
   );
 }

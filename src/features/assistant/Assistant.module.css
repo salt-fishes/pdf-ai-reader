@@ -824,24 +824,123 @@
 }
 
 .cite {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  height: 20px;
-  padding: 0 6px;
-  margin: 0 2px;
-  border-radius: 5px;
-  background: var(--brand-a12);
-  color: var(--accent-deep);
-  font-size: var(--text-xs);
+  display: inline;
+  height: auto;
+  padding: 0 2px;
+  margin: 0 1px;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 10px;
   font-weight: 500;
-  vertical-align: 1px;
+  line-height: 1;
+  vertical-align: super;
   white-space: nowrap;
-  transition: background var(--motion-fast) var(--ease-standard);
+  opacity: 0.72;
+  transition:
+    background var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard),
+    opacity var(--motion-fast) var(--ease-standard);
 }
 
-.cite:hover {
-  background: var(--brand-a22);
+.cite:hover,
+.cite:focus-visible {
+  background: rgb(24 32 47 / 6%);
+  color: var(--ink);
+  opacity: 1;
+}
+
+.citationDock {
+  position: relative;
+  float: right;
+  margin: -1px 0 4px 8px;
+  z-index: 4;
+}
+
+.citationBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 19px;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1;
+  opacity: 0.62;
+  transition:
+    background var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard),
+    opacity var(--motion-fast) var(--ease-standard);
+}
+
+.assistantMessage:hover .citationBadge,
+.citationBadge[aria-expanded="true"] {
+  opacity: 1;
+}
+
+.citationBadge:hover,
+.citationBadge[aria-expanded="true"] {
+  background: rgb(24 32 47 / 5%);
+  color: var(--ink);
+}
+
+.citationPopover {
+  position: absolute;
+  top: calc(100% + 5px);
+  right: 0;
+  width: min(286px, 70vw);
+  max-height: 250px;
+  overflow: auto;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  box-shadow: 0 18px 44px -20px rgb(23 32 52 / 38%);
+  z-index: 10;
+  animation: fade-in var(--motion-fast) var(--ease-out);
+}
+
+.citationItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 5px 6px;
+  border-radius: 5px;
+  text-align: left;
+}
+
+.citationItem:hover,
+.citationItem:focus-visible {
+  background: rgb(24 32 47 / 5%);
+}
+
+.citationWhere {
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.01em;
+}
+
+.citationText {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+:global([data-theme="night"]) .cite:hover,
+:global([data-theme="night"]) .cite:focus-visible,
+:global([data-theme="night"]) .citationBadge:hover,
+:global([data-theme="night"]) .citationBadge[aria-expanded="true"],
+:global([data-theme="night"]) .citationItem:hover,
+:global([data-theme="night"]) .citationItem:focus-visible {
+  background: rgb(255 255 255 / 7%);
 }
 
 .streamingCaret {

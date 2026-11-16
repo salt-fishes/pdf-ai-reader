@@ -9,7 +9,7 @@ A local-first PDF reader with an AI reading assistant. The PDF itself stays on y
 ## Why Paper Reader
 
 - **The PDF never leaves the browser.** pdf.js parses locally; the model only receives the context you select.
-- **Citations jump back.** Click `[[p.12]]` to return to that page's reading position.
+- **Citations jump to the line.** Each citation carries a short quote and returns to the exact line with a brief highlight.
 - **Scanned pages work too.** Local OCR builds a line-level text layer for selection, search, highlights and questions.
 - **Long documents stay cheap.** Local BM25 sends only relevant chunks; whole-document summaries run map-reduce.
 
@@ -26,12 +26,14 @@ A local-first PDF reader with an AI reading assistant. The PDF itself stays on y
 ## Features
 
 - Virtualized pages, true-DPR canvas, 100% = 96dpi, fit width / fit page.
+- Ctrl + wheel zooms around the pointer without moving the current reading position.
+- Every shortcut can be re-recorded in the shortcuts panel with conflict checks and reset-to-default.
 - Color modes: original / invert / smart dark / grayscale / eye-care with intensity.
 - Password PDFs, recent documents, thumbnails, outline, internal and external links.
 - Full-text search with text-layer highlights, persistent highlights and Markdown/JSON export.
 - Context: current page, all pages, ranges, TOC chapters, selection, page/region screenshots, attachments and quoted messages.
 - Local BM25 filtering and map-reduce summaries with progress and cancellation.
-- Streaming answers, reasoning stream, clickable citations, Markdown + KaTeX, token meter and configurable pricing.
+- Streaming answers, reasoning stream, line-level citations with jump-and-flash, Markdown + KaTeX, token meter and configurable pricing.
 - Multiple chat sessions, history window, per-message quote/exclude.
 - Local PP-OCRv6 tiny/small/medium with a line-level text layer; custom mirror root supported.
 - Electron shell, local proxy, manual update check, no telemetry.

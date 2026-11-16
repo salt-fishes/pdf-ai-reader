@@ -362,6 +362,97 @@
   flex: none;
 }
 
+.hotkeyControls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 3px;
+  flex: none;
+  max-width: 66%;
+}
+
+.hotkeyKeys {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 3px 5px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  text-align: right;
+  cursor: pointer;
+  transition:
+    background var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard);
+}
+
+.hotkeyKeys:hover {
+  background: var(--brand-a05);
+  border-color: var(--line);
+}
+
+.hotkeyRecording {
+  background: var(--brand-a07);
+  border-color: var(--brand-a35);
+  box-shadow: 0 0 0 2px var(--brand-a07);
+}
+
+.hotkeyChord {
+  display: flex;
+  gap: 3px;
+}
+
+.hotkeyPrompt {
+  padding: 0 4px;
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+.hotkeyReset {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  flex: none;
+  border-radius: 5px;
+  color: var(--muted);
+}
+
+.hotkeyReset:hover {
+  background: var(--brand-a07);
+  color: var(--ink);
+}
+
+.hotkeyError {
+  padding: 8px 2px 0;
+  color: var(--danger);
+  font-size: var(--text-xs);
+}
+
+.hotkeyFoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 12px 2px 0;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+.hotkeyResetAll {
+  flex: none;
+  color: var(--accent);
+  font-size: var(--text-xs);
+}
+
+.hotkeyResetAll:hover {
+  text-decoration: underline;
+}
+
 kbd {
   font-family: var(--font-ui);
   font-size: var(--text-xs);
