@@ -641,7 +641,7 @@ app.notFound((c) => {
   return c.text("Not found", 404);
 });
 
-app.onError((error, c) => {
+app.onError((error) => {
   const message = error instanceof Error ? error.message : "unknown";
   return jsonError(500, "internal_error", "服务端错误", message.slice(0, 300));
 });

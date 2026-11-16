@@ -39,7 +39,16 @@
     "smoke:smart": "node scripts/smoke-real-smart.mjs",
     "smoke:region": "node scripts/smoke-real-region.mjs",
     "smoke:vision": "node scripts/smoke-real-vision.mjs",
-    "typecheck": "tsc -b --pretty false"
+    "typecheck": "tsc -b --pretty false",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check:docs": "node scripts/check-docs.mjs",
+    "check:motion": "node scripts/check-motion.mjs",
+    "check:version": "node scripts/check-version.mjs",
+    "release:notes": "node scripts/release-notes.mjs",
+    "icons": "node scripts/build-icons.mjs"
   },
   "dependencies": {
     "@hono/node-server": "2.1.8",
@@ -63,16 +72,29 @@
     "zustand": "5.1.0"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
+    "@eslint/js": "^9.39.5",
     "@playwright/test": "1.65.1",
     "@types/node": "24.10.1",
     "@types/react": "19.2.13",
     "@types/react-dom": "19.2.4",
+    "@types/semver": "^7.8.0",
     "@vitejs/plugin-react": "6.3.0",
     "concurrently": "9.2.1",
     "electron": "^45.3.2",
     "electron-builder": "^26.18.0",
     "esbuild": "^0.28.2",
+    "eslint": "^9.39.4",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.14.0",
+    "png-to-ico": "^3.0.2",
+    "prettier": "^3.10.1",
+    "semver": "^7.8.6",
+    "sharp": "^0.35.5",
     "typescript": "5.9.3",
+    "typescript-eslint": "^8.72.2",
     "vite": "8.3.8",
     "vitest": "5.1.0"
   },
@@ -81,7 +103,10 @@
     "productName": "纸间",
     "artifactName": "paper-reader-${version}-${arch}.${ext}",
     "asar": false,
-    "electronLanguages": ["zh-CN", "en-US"],
+    "electronLanguages": [
+      "zh-CN",
+      "en-US"
+    ],
     "directories": {
       "output": "release",
       "buildResources": "build"

@@ -240,6 +240,9 @@ export function PdfViewer() {
     return () => {
       alive = false;
     };
+    // sizeHint is only the first-paint placeholder; depending on it would restart
+    // the whole measurement loop after setSizeHint(first).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [docHash, numPages, applyPageSizes]);
 
   const scale = zoom * PDF_TO_CSS_UNITS;

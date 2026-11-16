@@ -75,6 +75,8 @@ async function getService(modelId: string, model: InitMessage["model"]): Promise
 function cleanText(value: unknown): string {
   return String(value ?? "")
     .replace(/\uFFFD+/g, "")
+    // Strip C0 control characters except tab/newline; OCR output occasionally emits them.
+    // eslint-disable-next-line no-control-regex
     .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, "")
     .trim();
 }

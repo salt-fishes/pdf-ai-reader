@@ -657,7 +657,7 @@ test("canvas re-renders at the new device pixel ratio after browser zoom", async
   );
 
   const ratio = await canvas.evaluate(
-    (element) => element.width / element.getBoundingClientRect().width,
+    (element) => (element as HTMLCanvasElement).width / element.getBoundingClientRect().width,
   );
   expect(ratio).toBeGreaterThan(2.8);
   expect(ratio).toBeLessThan(3.2);

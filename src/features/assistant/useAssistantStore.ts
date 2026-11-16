@@ -1668,12 +1668,13 @@ export const useAssistant = create<AssistantState>((set, get) => {
           patchMessage(assistantId, { status: "stopped" });
         }
       } finally {
-        if (!isForegroundCurrent(run)) return;
-        endForeground(run);
-        streamAbort = null;
-        set({ streamingId: null });
-        persistChat(get());
-        recalc();
+        if (isForegroundCurrent(run)) {
+          endForeground(run);
+          streamAbort = null;
+          set({ streamingId: null });
+          persistChat(get());
+          recalc();
+        }
       }
     },
 
@@ -2129,10 +2130,11 @@ export const useAssistant = create<AssistantState>((set, get) => {
         set({ summary: null, streamingId: null });
         saveChatNow(get());
       } finally {
-        if (!isForegroundCurrent(run)) return;
-        endForeground(run);
-        summaryAbort = null;
-        if (get().summary) set({ summary: null });
+        if (isForegroundCurrent(run)) {
+          endForeground(run);
+          summaryAbort = null;
+          if (get().summary) set({ summary: null });
+        }
       }
     },
 

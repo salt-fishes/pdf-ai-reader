@@ -740,7 +740,7 @@ export function AssistantPanel() {
                 <button className={styles.confirmCancel} onClick={() => setClearConfirm(false)}>
                   取消
                 </button>
-                <button className={styles.confirmClear} onClick={() => clearAll()} autoFocus>
+                <button className={styles.confirmClear} onClick={() => clearAll()}>
                   清空
                 </button>
               </div>

@@ -120,6 +120,8 @@ export async function getPageSize(
 
 function normalizeText(raw: string): string {
   return raw
+    // PDF text objects legitimately contain NUL padding.
+    // eslint-disable-next-line no-control-regex
     .replace(/\u0000/g, "")
     .replace(/[ \t]+\n/g, "\n")
     .replace(/\n{3,}/g, "\n\n")

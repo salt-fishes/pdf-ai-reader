@@ -52,10 +52,8 @@ await panel.locator('button[aria-label="发送"]').click();
 mark("已发送");
 
 // 思考阶段：等「思考过程」出现，证明 reasoning 流已被接收。
-let sawThinking = false;
 try {
   await panel.getByText(/思考过程/).first().waitFor({ timeout: 20_000 });
-  sawThinking = true;
   mark("收到 reasoning 流（思考过程）");
   await page.screenshot({ path: path.join(outDir, "real-thinking.png") });
 } catch {
