@@ -26,6 +26,13 @@
 - 73 个单元测试 / 40 个 Playwright E2E。
 - `npm run check:docs` / `check:motion` / release 门禁保持不变。
 
+### 已知问题
+
+- 桌面版未做代码签名与自动更新安装；Windows SmartScreen 会提示未知发布者。
+- OCR 行框对倾斜或双栏页面可能略宽，词级命中框尚未实现。
+- 仅提供 Windows x64 可移植包；macOS / Linux 打包未验证。
+- IndexedDB 未加密，共用电脑时请使用“清空所有本地数据”。
+
 ## [0.2.0] — 2026-11-16
 
 ### 新增
