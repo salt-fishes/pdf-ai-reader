@@ -128,6 +128,7 @@ if (existsSync(join(out, "electron.exe"))) {
 }
 
 const rceditCandidates = [
+  join(root, "node_modules", "rcedit", "bin", "rcedit-x64.exe"),
   join(
     homedir(),
     "AppData",
