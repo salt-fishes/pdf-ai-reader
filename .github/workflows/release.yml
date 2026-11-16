@@ -20,7 +20,6 @@ jobs:
     timeout-minutes: 60
     env:
       MOCK_AI: "1"
-      ELECTRON_SKIP_BINARY_DOWNLOAD: "0"
     steps:
       - uses: actions/checkout@v4
         with:
