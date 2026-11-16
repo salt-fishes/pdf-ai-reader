@@ -1,5 +1,7 @@
 # 纸间 · PDF × AI 阅读器
 
+[![CI](https://github.com/salt-fishes/pdf-ai-reader/actions/workflows/ci.yml/badge.svg)](https://github.com/salt-fishes/pdf-ai-reader/actions/workflows/ci.yml)
+
 本地优先的 PDF 阅读器，右下角一枚呼吸灯，点开后变成毛玻璃对话面板。AI 界面支持**悬浮窗**与**侧边栏**两种形态；阅读、选中、整页/框选截图、页码范围与引用回跳共用同一套上下文状态。主 PDF 不上传，只有你明确选中的内容才会发给模型。
 
 ![阅读态](docs/app-reading.png)
