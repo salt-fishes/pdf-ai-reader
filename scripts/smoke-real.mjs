@@ -112,7 +112,7 @@ report("文本 + 引用格式", text);
 const hasCitation = /\[\[p\.\d+\]\]/.test(text.text);
 console.log(`引用标记: ${hasCitation ? "OK" : "MISSING"}`);
 
-const imagePath = path.join(root, "docs", "app-panel.png");
+const imagePath = path.join(root, "docs", "screenshots", "assistant.png");
 const image = await readFile(imagePath);
 const vision = await streamChat(
   [

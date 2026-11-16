@@ -649,10 +649,9 @@ MIT
 
 规范：
 
-- 图片统一放 `docs/screenshots/`，kebab-case 命名；现有 27 张图迁移并更新链接。
-- 已确认 README 只保留 6–8 张图；其余进 `docs/gallery.md` 或删除。
+- 图片统一放 `docs/screenshots/`，kebab-case 命名；README 只保留 8 张当前截图，旧版散落单图已清理。
 - 截图标准：1440×900 视口、2× DPR、浅色主题、`sample-cn.pdf`、无真实数据、无光标；输出宽 1200px、<300KB。
-- 扩展 `scripts/capture.mjs`，按场景命名输出；用 ImageMagick/sharp 压缩。
+- `scripts/capture-readme.mjs` 按场景生成截图；用 ImageMagick/sharp 压缩。
 - 所有图片有中文 alt；装饰性图片 alt 为空。
 - 英文 README 修坏链，同步功能/隐私/命令；注明中文 README 为准。
 - README 架构段和 About 第三方声明统一改为 Lucide + lobe-icons + 自制 BrandMark，不再提 Segoe/Morphicons。
