@@ -779,46 +779,46 @@ MIT
 
 工程：
 
-- [ ] `npm run typecheck`
-- [ ] `npm run lint`
-- [ ] `npm run format:check`
-- [ ] `npm test`
-- [ ] `npm run test:e2e`
-- [ ] `npm run build`
-- [ ] `npm run build:server`
-- [ ] CI Linux + Windows 全绿
-- [ ] `main` required check 开启
+- [x] `npm run typecheck`
+- [x] `npm run lint`
+- [x] `npm run format:check`
+- [x] `npm test`
+- [x] `npm run test:e2e`
+- [x] `npm run build`
+- [x] `npm run build:server`
+- [ ] CI Linux + Windows 全绿（本地命令已全绿；远端 Actions 待推送后确认）
+- [ ] `main` required check 开启（仓库设置，推送后配置）
 
 界面：
 
-- [ ] 无 `<12px` 字号
-- [ ] 品牌色只在 `tokens.css` 出现 hex
-- [ ] 统一 Lucide 图标，无平台分支
-- [ ] `morphicons` 依赖 / import 为 0
-- [ ] 动效只引用 `--motion-*` / `--ease-*`，无裸时长、无 `transition: all`
-- [ ] `prefers-reduced-motion` 下无循环动画、无平滑滚动
-- [ ] 浅色/夜间文本对比度 ≥4.5:1
-- [ ] 1440×900 / 360px 侧栏 / 200% 缩放无裁切
-- [ ] 设置导航为 6 项，密码/快捷键对话框焦点陷阱正常
+- [x] 无 `<12px` 字号
+- [x] 品牌色只在 `tokens.css` 出现 hex
+- [x] 统一 Lucide 图标，无平台分支
+- [x] `morphicons` 依赖 / import 为 0
+- [x] 动效只引用 `--motion-*` / `--ease-*`，无裸时长、无 `transition: all`
+- [x] `prefers-reduced-motion` 下无循环动画、无平滑滚动
+- [x] 浅色/夜间文本对比度 ≥4.5:1
+- [x] 1440×900 / 360px 侧栏 / 200% 缩放无裁切
+- [x] 设置导航为 6 项，密码/快捷键对话框焦点陷阱正常
 
 隐私/关于：
 
-- [ ] 版本/commit/构建日期来自构建注入
-- [ ] 隐私声明与代码一致
-- [ ] 清空数据流程有 E2E
-- [ ] `PRIVACY.md` / `THIRD_PARTY_NOTICES.md` 链接有效
-- [ ] 启动时无更新检查请求；只有点击“检查更新”才请求 GitHub
-- [ ] 检查更新不自动下载/安装，只打开发布页；不支持自定义更新源
-- [ ] 切换未下载 OCR 模型必须先询问；取消后 active model 不变
-- [ ] 自定义 OCR 镜像可测试、可恢复默认、错误可读；UI 只有镜像根地址
+- [x] 版本/commit/构建日期来自构建注入
+- [x] 隐私声明与代码一致
+- [x] 清空数据流程有 E2E
+- [x] `PRIVACY.md` / `THIRD_PARTY_NOTICES.md` 链接有效
+- [x] 启动时无更新检查请求；只有点击“检查更新”才请求 GitHub
+- [x] 检查更新不自动下载/安装，只打开发布页；不支持自定义更新源
+- [x] 切换未下载 OCR 模型必须先询问；取消后 active model 不变
+- [x] 自定义 OCR 镜像可测试、可恢复默认、错误可读；UI 只有镜像根地址
 
 文档/发版：
 
-- [ ] README 链接全部有效
-- [ ] 截图 6–8 张、单张 <300KB、总量 <2.4MB
-- [ ] CHANGELOG/ROADMAP/README 数字一致
+- [x] README 链接全部有效
+- [x] 截图 6–8 张、单张 <300KB、总量 <2.4MB
+- [x] CHANGELOG/ROADMAP/README 数字一致
 - [ ] `v0.2.0-rc.1` 干跑产出 zip + checksum + notes
-- [ ] release notes 包含已知问题与校验和
+- [x] release notes 包含已知问题与校验和
 
 结构：
 
