@@ -1,7 +1,7 @@
 {
   "name": "pdf-ai-reader",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "description": "Local-first PDF reader with an AI reading assistant",
   "main": "electron/main.mjs",
@@ -68,6 +68,7 @@
     "remark-gfm": "4.0.1",
     "remark-math": "^6.0.0",
     "tsx": "4.23.15",
+    "zod": "^4.6.7",
     "zustand": "5.1.0"
   },
   "devDependencies": {
@@ -113,6 +114,7 @@
     },
     "files": [
       "dist/**/*",
+      "!dist/samples/**",
       "server/dist/**/*",
       "electron/**/*",
       "package.json"

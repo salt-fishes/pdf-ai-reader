@@ -259,6 +259,30 @@ export async function hashBytes(bytes: ArrayBuffer): Promise<string> {
 }
 
 const SETTINGS_KEY = "pdf-ai-reader:settings:v1";
+export const DB_VERSION = 2;
+const DB_META_KEY = "meta:db";
+
+export type DbMeta = { version: number; updatedAt: number };
+
+export async function loadDbMeta(): Promise<DbMeta | null> {
+  return (await get<DbMeta>(DB_META_KEY)) ?? null;
+}
+
+export async function saveDbMeta(meta: DbMeta): Promise<void> {
+  await set(DB_META_KEY, meta);
+}
+
+/**
+ * Bump-only migration. Version 2 trims the recent-document cache to the 64MB
+ * budget and records the schema version; version 1 had no metadata key.
+ */
+export async function migrateLocalData(): Promise<void> {
+  const meta = await loadDbMeta();
+  if (meta && meta.version >= DB_VERSION) return;
+  const recent = await loadRecentDocuments();
+  await saveRecentDocuments(fitRecentBudget(recent));
+  await saveDbMeta({ version: DB_VERSION, updatedAt: Date.now() });
+}
 
 export type StoredSettings = {
   assistantStatus?: "minimized" | "closed";

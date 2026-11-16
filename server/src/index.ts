@@ -1,4 +1,3 @@
-import { config as loadEnv } from "dotenv";
 import { fileURLToPath } from "node:url";
 import { Hono } from "hono";
 import { serve } from "@hono/node-server";
@@ -6,6 +5,17 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import { readFile, mkdir, writeFile } from "node:fs/promises";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { config } from "./config";
+import {
+  chatSchema,
+  ocrConfigSchema,
+  ocrImageSchema,
+  ocrInstallSchema,
+  ocrSourceSchema,
+  ocrSourceTestSchema,
+  providerConfigSchema,
+  type ChatInput,
+} from "./schemas";
 import {
   customOcrSource,
   installModels,
@@ -21,16 +31,12 @@ import {
   type OcrPriority,
 } from "./ocr";
 
-// Load server/.env first; a root .env remains a fallback. Existing env wins.
-loadEnv({ path: fileURLToPath(new URL("../.env", import.meta.url)) });
-loadEnv();
-
-const PORT = Number(process.env.PORT ?? 8787);
-const HOST = process.env.HOST ?? "127.0.0.1";
-const APP_ORIGIN = process.env.APP_ORIGIN ?? "http://127.0.0.1:5173";
-const MOCK_AI = process.env.MOCK_AI === "1";
+const PORT = config.port;
+const HOST = config.host;
+const APP_ORIGIN = config.appOrigin;
+const MOCK_AI = config.mockAi;
 const MOCK_MODELS = ["deepseek-flash", "deepseek-v4.1-flash", "qwen-vl-max", "glm-4v-plus"];
-const DATA_DIR = process.env.PDF_AI_DATA_DIR ?? fileURLToPath(new URL("../data", import.meta.url));
+const DATA_DIR = config.dataDir;
 const PROVIDER_FILE = join(DATA_DIR, "provider.json");
 
 type ProviderState = {
@@ -51,10 +57,10 @@ function normalizeAllow(value: unknown): string[] {
 
 function envProvider(): ProviderState {
   return {
-    baseUrl: normalizeBaseUrl(process.env.AI_BASE_URL ?? "https://api.deepseek.com"),
-    apiKey: process.env.AI_API_KEY ?? "",
-    model: process.env.AI_MODEL ?? "deepseek-flash",
-    modelAllow: normalizeAllow(process.env.AI_MODEL_ALLOW ?? ""),
+    baseUrl: normalizeBaseUrl(config.ai.baseUrl),
+    apiKey: config.ai.apiKey,
+    model: config.ai.model,
+    modelAllow: normalizeAllow(config.ai.modelAllow),
   };
 }
 
@@ -300,7 +306,11 @@ app.post("/api/provider", async (c) => {
   }
   let body: Record<string, unknown>;
   try {
-    body = (await c.req.json()) as Record<string, unknown>;
+    const parsed = providerConfigSchema.safeParse(await c.req.json());
+    if (!parsed.success) {
+      return jsonError(400, "invalid_request", "配置字段不合法", parsed.error.issues[0]?.message);
+    }
+    body = parsed.data;
   } catch {
     return jsonError(400, "invalid_json", "请求体不是合法 JSON");
   }
@@ -430,12 +440,17 @@ app.post("/api/ocr/source", async (c) => {
   if (Number(c.req.header("content-length") ?? 0) > 4 * 1024) {
     return jsonError(413, "body_too_large", "配置请求体过大");
   }
-  const body = (await c.req.json().catch(() => null)) as { baseUrl?: unknown } | null;
-  if (!body || typeof body.baseUrl !== "string") {
-    return jsonError(400, "invalid_source", "缺少 baseUrl");
+  const parsed = ocrSourceSchema.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) {
+    return jsonError(
+      400,
+      "invalid_source",
+      "缺少或无效的 baseUrl",
+      parsed.error.issues[0]?.message,
+    );
   }
   try {
-    await saveOcrSource(body.baseUrl);
+    await saveOcrSource(parsed.data.baseUrl);
   } catch (error) {
     return jsonError(400, "invalid_source", error instanceof Error ? error.message : "下载源无效");
   }
@@ -446,13 +461,13 @@ app.post("/api/ocr/source/test", async (c) => {
   if (!isJsonRequest(c)) {
     return jsonError(415, "invalid_content_type", "请求必须使用 application/json");
   }
-  const body = (await c.req.json().catch(() => null)) as {
-    baseUrl?: unknown;
-    model?: unknown;
-  } | null;
-  const baseUrl = typeof body?.baseUrl === "string" ? body.baseUrl : customOcrSource();
+  const parsed = ocrSourceTestSchema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) {
+    return jsonError(400, "invalid_source", "下载源参数不合法", parsed.error.issues[0]?.message);
+  }
+  const baseUrl = parsed.data.baseUrl ?? customOcrSource();
   if (!baseUrl) return jsonError(400, "invalid_source", "缺少 baseUrl");
-  const model = isOcrModelId(body?.model) ? body.model : "v6-tiny";
+  const model = parsed.data.model ?? "v6-tiny";
   try {
     normalizeOcrSourceUrl(baseUrl);
     const result = await testOcrSource(baseUrl, model);
@@ -470,8 +485,11 @@ app.post("/api/ocr/source/reset", async (c) => {
 app.post("/api/ocr/install", async (c) => {
   let requested: unknown;
   if (isJsonRequest(c)) {
-    const body = (await c.req.json().catch(() => ({}))) as { model?: unknown };
-    requested = body.model;
+    const parsed = ocrInstallSchema.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success) {
+      return jsonError(400, "invalid_model", "未知的 OCR 模型", parsed.error.issues[0]?.message);
+    }
+    requested = parsed.data.model;
   }
   if (requested !== undefined && !isOcrModelId(requested)) {
     return jsonError(400, "invalid_model", "未知的 OCR 模型");
@@ -497,11 +515,11 @@ app.post("/api/ocr/config", async (c) => {
   if (Number(c.req.header("content-length") ?? 0) > 16 * 1024) {
     return jsonError(413, "body_too_large", "配置请求体过大");
   }
-  const body = (await c.req.json().catch(() => null)) as { model?: unknown } | null;
-  if (!body || !isOcrModelId(body.model)) {
-    return jsonError(400, "invalid_model", "未知的 OCR 模型");
+  const parsed = ocrConfigSchema.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) {
+    return jsonError(400, "invalid_model", "未知的 OCR 模型", parsed.error.issues[0]?.message);
   }
-  const status = await setActiveOcrModel(body.model);
+  const status = await setActiveOcrModel(parsed.data.model);
   return c.json({ ok: true, config: status });
 });
 
@@ -518,14 +536,15 @@ app.post("/api/ocr", async (c) => {
   let bytes: Buffer;
   const contentType = c.req.header("content-type") ?? "";
   if (isJsonRequest(c)) {
-    let body: { image?: unknown };
+    let body: { image: string };
     try {
-      body = (await c.req.json()) as { image?: unknown };
+      const parsed = ocrImageSchema.safeParse(await c.req.json());
+      if (!parsed.success) {
+        return jsonError(400, "invalid_image", "缺少 image 数据", parsed.error.issues[0]?.message);
+      }
+      body = parsed.data;
     } catch {
       return jsonError(400, "invalid_json", "请求体不是合法 JSON");
-    }
-    if (typeof body.image !== "string") {
-      return jsonError(400, "invalid_image", "缺少 image 数据");
     }
     const match = /^data:image\/(?:png|jpeg|webp);base64,([A-Za-z0-9+/=\s]+)$/.exec(body.image);
     if (!match) {
@@ -586,9 +605,13 @@ app.post("/api/chat", async (c) => {
     return jsonError(413, "body_too_large", "请求体超过 25MB", "减少截图数量或降低图片尺寸");
   }
 
-  let body: Record<string, unknown>;
+  let body: ChatInput;
   try {
-    body = (await c.req.json()) as Record<string, unknown>;
+    const parsed = chatSchema.safeParse(await c.req.json());
+    if (!parsed.success) {
+      return jsonError(400, "invalid_request", "请求字段不合法", parsed.error.issues[0]?.message);
+    }
+    body = parsed.data;
   } catch {
     return jsonError(400, "invalid_json", "请求体不是合法 JSON");
   }
