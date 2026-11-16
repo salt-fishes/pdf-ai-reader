@@ -1493,10 +1493,10 @@ test("document switch keeps the old answer and does not leak it into the new doc
   await expect(panel).toContainText("本地 mock 模型", { timeout: 20_000 });
   await expect(panel.locator('button[aria-label="发送"]')).toBeVisible({ timeout: 20_000 });
 
-  // Switching back restores the first document's partial answer.
+  // Switching back restores the first document's answer.
   await dropSample(page, "sample-cn.pdf");
   await expect(panel).toContainText(question, { timeout: 20_000 });
-  await expect(panel).toContainText("已停止生成", { timeout: 20_000 });
+  await expect(panel).toContainText("本地 mock 模型", { timeout: 20_000 });
   await expect(panel).not.toContainText("第二个文档的问题");
 });
 
