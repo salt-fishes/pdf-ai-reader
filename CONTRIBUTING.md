@@ -33,7 +33,7 @@ npm run package:desktop # 可移植桌面目录
 
 发布流程、tag 与校验和见 [`docs/RELEASE.md`](docs/RELEASE.md)。
 
-E2E 默认会启动 mock 代理。**不要**在真实密钥模式下跑 E2E，`tests/e2e/reader.spec.ts` 会在启动时检查 `mock`。
+E2E 按域拆分在 `tests/e2e/*.spec.ts`（viewer / rendering / assistant / panel / ocr / app），公共注入与 mock 守卫在 `tests/e2e/helpers.ts`。PDF 样本放在 `tests/fixtures/pdf/`，通过 `page.evaluate` + `DataTransfer` 注入，不依赖 `public/` 静态目录。默认 2 个 worker。
 
 ## 代码约定
 

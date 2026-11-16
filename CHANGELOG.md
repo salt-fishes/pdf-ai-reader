@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.3.0] — 2026-11-16
+
+### 新增
+
+- 所有 JSON 端点使用 zod schema：provider / OCR install / OCR config / OCR source / source test / OCR image / chat；非法字段统一返回 `invalid_request`。
+- 新增 `server/src/config.ts`：启动时校验 `PORT` / `HOST` / `APP_ORIGIN` / `MOCK_AI` / provider 变量，配置错误直接退出并给出可读原因。
+- IndexedDB schema 版本（`meta:db` = 2），启动时迁移最近文档缓存并写入版本。
+- Electron 启动页：窗口先显示品牌启动页，本地代理并行启动，再切换到应用。
+
+### 变更
+
+- E2E 按域拆为 viewer / rendering / assistant / panel / ocr / app 六个文件，公共注入与 mock 守卫集中到 `helpers.ts`；默认 2 worker。
+- PDF 测试样本移到 `tests/fixtures/pdf/`，通过 `DataTransfer` 注入，不再进入 `public/` 与 `dist/`。
+- 桌面包裁剪：移除 `@napi-rs/canvas` 的 ICU 数据、OpenCV 的 TypeScript 源码/声明与 Electron 默认应用；本地 zip 183MB → 177.8MB。
+- 启动健康检查轮询 250ms → 100ms；Chromium 关闭后台网络、组件更新与媒体会话服务。
+
+### 性能
+
+- 本地 Electron：窗口出现约 **0.49s**（原约 1.70s），应用就绪约 **1.37s**（原约 1.85s）。
+- E2E：6 文件 + 2 worker，40 个用例约 1.5 分钟（原串行约 2.1 分钟）。
+
+### 工程
+
+- 73 个单元测试 / 40 个 Playwright E2E。
+- `npm run check:docs` / `check:motion` / release 门禁保持不变。
+
 ## [0.2.0] — 2026-11-16
 
 ### 新增

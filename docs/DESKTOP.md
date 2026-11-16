@@ -10,6 +10,12 @@ npm run desktop:dev
 
 脚本会启动 `npm run dev:all`，等 Vite 就绪后打开 Electron，加载 <http://127.0.0.1:5173>。关闭 Electron 会尝试结束 Vite/API 子进程。
 
+## 启动
+
+桌面版先显示品牌启动页，同时并行启动本地代理；代理健康检查通过后切换到应用。健康检查每
+100ms 轮询一次。本机实测：窗口约 **0.5s** 出现，应用约 **1.4s** 就绪（冷启动首次约 4s，
+之后走系统文件缓存）。启动页尊重 `prefers-reduced-motion`。
+
 ## 本地生产运行
 
 ```bash
@@ -26,7 +32,7 @@ npm run build:desktop:dir   # 只产出 release/win-unpacked，便于快速验�
 npm run build:desktop       # NSIS 安装包 + portable exe
 ```
 
-`package:desktop` 直接复制 Electron 运行时、前端 `dist`、`server/dist` 与 OCR 运行时依赖，生成可直接双击的 `PaperReader.exe`。如果 `release/` 所在目录被 Windows 受控文件夹/杀毒软件拦截，可指定输出目录：
+`package:desktop` 直接复制 Electron 运行时、前端 `dist`、`server/dist` 与 OCR 运行时依赖，生成可直接双击的 `PaperReader.exe`。打包时会移除其它平台的 ONNX Runtime、DirectML/dxcompiler、`@napi-rs/canvas` 的 ICU 表、OpenCV 的 TypeScript 源码/声明与 Electron 默认应用；本地 zip 约 **177.8MB**（原 183MB）。如果 `release/` 所在目录被 Windows 受控文件夹/杀毒软件拦截，可指定输出目录：
 
 ```powershell
 $env:PDF_AI_RELEASE_DIR="$env:TEMP\PaperReader"
@@ -61,5 +67,5 @@ npm run package:desktop
 ## 已知限制
 
 - 未做自动更新安装与代码签名；公开分发前需要配置证书。
-- 安装包体积较大（Electron + Node 依赖 + ONNX Runtime）；打包脚本已保留 zh-CN/en-US、移除 DirectML/dxcompiler 与跨平台 ONNX Runtime，实测 zip 约 183MB。
+- 安装包体积较大（Electron + Node 依赖 + ONNX Runtime）；打包脚本已保留 zh-CN/en-US、移除 DirectML/dxcompiler、跨平台 ONNX Runtime、canvas ICU 表与 OpenCV 类型文件，实测 zip 约 177.8MB。
 - tiny OCR 模型存在时随包分发；small/medium 或缺少 tiny 时需要联网下载，也可以手动放到 `<userData>/ocr-models`。

@@ -3,7 +3,7 @@
 > 目标：让界面更清爽、品牌与动效更统一、隐私与发版更可信，同时把工程门禁补齐。
 > 原则：先收口，再改样式；先有测试/门禁，再做结构拆分；不为“规范”而规范。
 >
-> **执行状态（2026-11-16）**：Phase 0–3 已完成；CI Linux/Windows 与 release 干跑均通过，`v0.2.0` 已发布。Phase 4（API schema、IndexedDB 版本、E2E 拆分、fixtures 移出 public）与 Phase 5 留待下一轮。
+> **执行状态（2026-11-16）**：Phase 0–4 已完成；Phase 5 完成了 Electron 启动与包体积优化，其余大文件拆分/覆盖率/包体积预算留待下一轮。CI Linux/Windows 与 release 干跑均通过，`v0.2.0` 已发布，`v0.3.0` 准备发布。
 
 ## 1. 现状结论
 
@@ -822,10 +822,10 @@ MIT
 
 结构：
 
-- [ ] 所有 JSON 端点有 schema（含 OCR source/test/reset）
-- [ ] IndexedDB 有版本与迁移
-- [ ] E2E 按域拆分，单文件 <400 行
-- [ ] `dist/` 无测试 PDF
+- [x] 所有 JSON 端点有 schema（含 OCR source/test/reset）
+- [x] IndexedDB 有版本与迁移
+- [x] E2E 按域拆分，单文件 <400 行
+- [x] `dist/` 无测试 PDF
 
 ---
 

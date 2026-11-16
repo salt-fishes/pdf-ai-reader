@@ -9,6 +9,35 @@ const APP_ORIGIN = `http://127.0.0.1:${APP_PORT}`;
 const RELEASES_API = "https://api.github.com/repos/salt-fishes/pdf-ai-reader/releases/latest";
 const isDev = Boolean(DEV_URL);
 
+// Trim Chromium background work that this single-window reader never uses.
+app.commandLine.appendSwitch("disable-background-networking");
+app.commandLine.appendSwitch("disable-component-update");
+app.commandLine.appendSwitch("disable-features", "MediaSessionService,HardwareMediaKeyHandling");
+
+const SPLASH_HTML = `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="color-scheme" content="light"><title>纸间</title>
+<style>
+*{box-sizing:border-box}html,body{height:100%}body{margin:0;display:grid;place-items:center;
+background:#f6f5f2;color:#18202f;font-family:"Segoe UI Variable Text","Segoe UI","Microsoft YaHei UI",sans-serif}
+main{display:flex;flex-direction:column;align-items:center;gap:14px;transform:translateY(-12px)}
+.mark{width:64px;height:64px;border-radius:18px;background:#5b5bd6;display:grid;place-items:center;
+box-shadow:0 18px 40px -18px rgb(91 91 214 / 65%)}
+h1{margin:0;font-size:24px;font-weight:600;letter-spacing:.04em}
+p{margin:0;color:#5f6675;font-size:13px}
+.dots{display:flex;gap:6px;margin-top:6px}
+.dots i{width:6px;height:6px;border-radius:50%;background:#5b5bd6;opacity:.25;animation:pulse 1.2s ease-in-out infinite}
+.dots i:nth-child(2){animation-delay:.15s}.dots i:nth-child(3){animation-delay:.3s}
+@keyframes pulse{50%{opacity:.9;transform:scale(1.15)}}
+@media (prefers-reduced-motion:reduce){.dots i{animation:none;opacity:.55}}
+</style></head><body><main>
+<div class="mark"><svg width="38" height="38" viewBox="0 0 24 24" fill="none">
+<rect x="3.2" y="2.4" width="17.6" height="19.2" rx="4.2" fill="#fff" opacity=".16"/>
+<path d="M7.4 7.4h6.1M7.4 11h9.2M7.4 14.6h5.2" stroke="#fff" stroke-width="1.7" stroke-linecap="round"/>
+<path d="M16.5 13.2c.2 2.2 1.3 3.3 3.5 3.5-2.2.2-3.3 1.3-3.5 3.5-.2-2.2-1.3-3.3-3.5-3.5 2.2-.2 3.3-1.3 3.5-3.5Z" fill="#fff"/>
+</svg></div><h1>纸间</h1><p>正在启动本地阅读环境…</p><div class="dots"><i></i><i></i><i></i></div>
+</main></body></html>`;
+const SPLASH_URL = `data:text/html;charset=utf-8,${encodeURIComponent(SPLASH_HTML)}`;
+
 function parseVersion(value) {
   const match = /^v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?$/.exec(value.trim());
   if (!match) return null;
@@ -85,7 +114,7 @@ async function waitForHealth(url, timeoutMs = 20_000) {
     } catch {
       // not ready yet
     }
-    await new Promise((resolve) => setTimeout(resolve, 250));
+    await new Promise((resolve) => setTimeout(resolve, 100));
   }
   return false;
 }
@@ -125,14 +154,14 @@ async function startServer() {
 }
 
 async function createWindow() {
-  const origin = await startServer();
+  const started = Date.now();
   window = new BrowserWindow({
     width: 1440,
     height: 920,
     minWidth: 1024,
     minHeight: 700,
     show: false,
-    backgroundColor: "#f4f2ec",
+    backgroundColor: "#f6f5f2",
     autoHideMenuBar: true,
     title: "纸间 · PDF × AI 阅读器",
     webPreferences: {
@@ -140,6 +169,7 @@ async function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      spellcheck: false,
     },
   });
 
@@ -148,20 +178,29 @@ async function createWindow() {
     window = null;
   });
 
-  const allowedOrigin = new URL(origin).origin;
   window.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https?:/i.test(url)) void shell.openExternal(url);
     return { action: "deny" };
   });
   window.webContents.on("will-navigate", (event, url) => {
     try {
-      if (new URL(url).origin !== allowedOrigin) event.preventDefault();
+      const allowed = new URL(DEV_URL ?? APP_ORIGIN).origin;
+      if (new URL(url).origin !== allowed) event.preventDefault();
     } catch {
       event.preventDefault();
     }
   });
 
+  // Show the branded shell immediately; the local proxy starts in parallel.
+  const serverReady = startServer();
+  await window.loadURL(SPLASH_URL);
+  const splashAt = Date.now() - started;
+  const origin = await serverReady;
+  const serverAt = Date.now() - started;
   await window.loadURL(origin);
+  console.log(
+    `[startup] splash ${splashAt}ms · proxy ${serverAt}ms · app ${Date.now() - started}ms`,
+  );
 }
 
 const gotLock = app.requestSingleInstanceLock();

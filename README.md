@@ -68,6 +68,7 @@
 **桌面与隐私**
 
 - Electron 壳自动启动本机代理，provider 配置、OCR 模型与 IndexedDB 写入 `userData`。
+- 启动页先显示品牌壳，本地代理并行启动；本机实测窗口约 0.5s 出现、应用约 1.4s 就绪。
 - 手动检查更新，只打开发布页；不后台轮询、不自动下载。
 - 无遥测、无统计上报；代理默认只监听 `127.0.0.1`。
 
@@ -142,7 +143,7 @@ npm run package:desktop   # 可移植目录，输出到 release/
 npm run typecheck
 npm run lint
 npm run format:check
-npm test              # 69 个单元测试
+npm test              # 73 个单元测试
 npm run test:e2e      # 40 个 Playwright 用例（Edge；Linux 用 PW_CHANNEL=chromium）
 npm run build
 npm run build:server

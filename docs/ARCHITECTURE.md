@@ -43,9 +43,11 @@ Electron 主进程 ── 启动/停止 ──> 本地代理 (Hono, 127.0.0.1:87
 | `metrics:<hash>`                           | 页面尺寸                                      |
 | `summary:<hash>`                           | 分段摘要缓存                                  |
 | `recent:documents:v1`                      | 最近文档（≤8 条，单文件 ≤24MB，总缓存 ≤64MB） |
+| `meta:db`                                  | IndexedDB schema 版本；当前为 2               |
 | `pdf-ai-reader:settings:v1` (localStorage) | 界面偏好                                      |
 
 旧版单会话/主题字段在读取时迁移；清空所有本地数据会删除全部 key 并刷新页面。
+`migrateLocalData()` 在渲染进程启动时执行一次，版本落后时裁剪最近文档缓存并写入 `meta:db`。
 
 ## OCR
 

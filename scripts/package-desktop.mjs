@@ -11,6 +11,14 @@ const release = process.env.PDF_AI_RELEASE_DIR
 const out = join(release, "win-unpacked");
 const electronDist = join(root, "node_modules", "electron", "dist");
 
+function psRemove(target) {
+  execFileSync("powershell", [
+    "-NoProfile",
+    "-Command",
+    `if (Test-Path -LiteralPath '${target.replace(/'/g, "''")}') { Remove-Item -LiteralPath '${target.replace(/'/g, "''")}' -Recurse -Force }`,
+  ]);
+}
+
 if (!existsSync(electronDist)) {
   throw new Error(
     "Electron 二进制未安装；先运行 npm install / node node_modules/electron/install.js",
@@ -110,12 +118,16 @@ for (const file of ["DirectML.dll", "dxcompiler.dll"]) {
     "x64",
     file,
   );
-  execFileSync("powershell", [
-    "-NoProfile",
-    "-Command",
-    `if (Test-Path -LiteralPath '${target.replace(/'/g, "''")}') { Remove-Item -LiteralPath '${target.replace(/'/g, "''")}' -Force }`,
-  ]);
+  psRemove(target);
 }
+
+// TypeScript sources and declarations are not loaded at runtime.
+psRemove(join(appDir, "node_modules", "@techstark", "opencv-js", "src"));
+psRemove(join(appDir, "node_modules", "@techstark", "opencv-js", "dist", "src"));
+// OCR only rasterises page images; the canvas text/ICU tables are unused.
+psRemove(join(appDir, "node_modules", "@napi-rs", "canvas-win32-x64-msvc", "icudtl.dat"));
+// Electron's bundled default app is unused once resources/app is present.
+psRemove(join(out, "resources", "default_app.asar"));
 
 const exe = join(out, "PaperReader.exe");
 if (existsSync(join(out, "electron.exe"))) {

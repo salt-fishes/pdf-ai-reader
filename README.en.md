@@ -35,6 +35,7 @@ A local-first PDF reader with an AI reading assistant. The PDF itself stays on y
 - Multiple chat sessions, history window, per-message quote/exclude.
 - Local PP-OCRv6 tiny/small/medium with a line-level text layer; custom mirror root supported.
 - Electron shell, local proxy, manual update check, no telemetry.
+- Branded startup shell appears at ~0.5s; the reader is ready at ~1.4s locally.
 
 ## Quick start
 
@@ -76,7 +77,7 @@ See [docs/PRIVACY.md](docs/PRIVACY.md) for details.
 npm run typecheck
 npm run lint
 npm run format:check
-npm test              # 69 unit tests
+npm test              # 73 unit tests
 npm run test:e2e      # 40 Playwright tests (PW_CHANNEL=chromium on Linux)
 npm run build
 npm run build:server
