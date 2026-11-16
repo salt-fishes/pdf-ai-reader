@@ -29,6 +29,10 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - name: Install Electron and ONNX Runtime binaries
+        run: |
+          node node_modules/electron/install.js
+          node node_modules/onnxruntime-node/script/install.js
       - name: Check tag matches package.json
         if: github.event_name == 'push'
         run: node scripts/check-version.mjs ${{ github.ref_name }}
