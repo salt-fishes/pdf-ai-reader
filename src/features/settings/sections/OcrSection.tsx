@@ -18,6 +18,14 @@ function mb(bytes: number): string {
 
 export function OcrSection() {
   const status = useOcr((state) => state.status);
+  const runtime = status?.runtime;
+  // Older mocks and pre-runtime status payloads omit this field; treat those
+  // as already installed so only the model download path is exercised.
+  const runtimeReady = runtime?.installed ?? true;
+  const runtimeDownloading = runtime?.downloading ?? false;
+  const runtimeBusy =
+    runtimeDownloading || (status?.phase === "runtime" && Boolean(status.downloading));
+  const runtimeSize = runtime?.total || runtime?.approxBytes || 27_000_000;
   const error = useOcr((state) => state.error);
   const installing = useOcr((state) => state.installing);
   const enabled = useOcr((state) => state.enabled);
@@ -158,16 +166,26 @@ export function OcrSection() {
           <span className={styles.label}>状态</span>
           <span
             className={`${styles.value} ${
-              status?.installed ? styles.ok : status?.downloading ? styles.warn : ""
+              !runtimeReady
+                ? styles.warn
+                : status?.installed
+                  ? styles.ok
+                  : status?.downloading
+                    ? styles.warn
+                    : ""
             }`}
           >
-            {status?.downloading
-              ? `下载中 ${Math.round((status.progress ?? 0) * 100)}%`
-              : status?.installed
-                ? "已安装"
-                : status
-                  ? "未下载"
-                  : "正在检查…"}
+            {runtimeBusy
+              ? `下载组件 ${Math.round((runtime?.progress ?? 0) * 100)}%`
+              : !runtimeReady
+                ? "组件未安装"
+                : status?.downloading
+                  ? `下载中 ${Math.round((status.progress ?? 0) * 100)}%`
+                  : status?.installed
+                    ? "已安装"
+                    : status
+                      ? "未下载"
+                      : "正在检查…"}
           </span>
         </div>
         <div className={styles.row}>
@@ -183,14 +201,16 @@ export function OcrSection() {
         </div>
       </div>
       <div className={styles.note}>
-        当前：
-        {(() => {
-          const active = status?.availableModels?.find((item) => item.id === status.activeModel);
-          return active
-            ? `${active.label} · ${active.installed ? "已安装" : "未下载"}`
-            : (status?.model ?? "正在检查…");
-        })()}
-        。切换未下载的模型会先询问，不会自动开始下载。
+        {!runtimeReady
+          ? `扫描件 OCR 需要先下载约 ${mb(runtimeSize)} 的运行组件（解压约 71MB，含 ONNX Runtime、OpenCV 与画布库），之后才能选择模型。`
+          : `当前：${(() => {
+              const active = status?.availableModels?.find(
+                (item) => item.id === status.activeModel,
+              );
+              return active
+                ? `${active.label} · ${active.installed ? "已安装" : "未下载"}`
+                : (status?.model ?? "正在检查…");
+            })()}。切换未下载的模型会先询问，不会自动开始下载。`}
       </div>
       <div className={styles.segmented} style={{ margin: "10px 0 2px" }}>
         {(status?.availableModels ?? []).map((item) => (
@@ -200,7 +220,7 @@ export function OcrSection() {
               status?.activeModel === item.id ? styles.segmentActive : ""
             }`}
             onClick={() => void chooseModel(item.id)}
-            disabled={installing || item.downloading}
+            disabled={installing || runtimeBusy || !runtimeReady || item.downloading}
             title={`${item.note} 约 ${mb(item.approxBytes)}`}
           >
             {item.label.replace("PP-OCRv6 ", "")}
@@ -225,12 +245,24 @@ export function OcrSection() {
         文本可拖选、复制、高亮、引用和搜索；识别在本机代理的 worker 线程完成，图片不上传云端。
       </div>
       <div className={styles.actions}>
-        {!status?.installed ? (
+        {!runtimeReady ? (
           <button
             className={`${styles.button} ${styles.primary}`}
             onClick={() => {
               // The store exposes the failure through `error`; do not let a
               // rejected install become an unhandled rejection.
+              void install(status?.activeModel).catch(() => undefined);
+            }}
+            disabled={runtimeBusy || installing || runtime?.downloadable === false}
+          >
+            {runtimeBusy || installing
+              ? `正在下载组件 ${Math.round((runtime?.progress ?? 0) * 100)}%`
+              : `下载 OCR 组件（${mb(runtimeSize)}）`}
+          </button>
+        ) : !status?.installed ? (
+          <button
+            className={`${styles.button} ${styles.primary}`}
+            onClick={() => {
               void install(status?.activeModel).catch(() => undefined);
             }}
             disabled={Boolean(status?.downloading) || installing}
@@ -243,6 +275,11 @@ export function OcrSection() {
           </button>
         )}
       </div>
+      {runtime?.downloadable === false && !runtimeReady ? (
+        <div className={styles.note}>
+          此构建没有配置 OCR 组件下载源，请重新安装完整发布包或设置 OCR_PACK_URL。
+        </div>
+      ) : null}
       {error ? <div className={styles.result}>{error}</div> : null}
 
       <div className={styles.rows} style={{ marginTop: 14 }}>

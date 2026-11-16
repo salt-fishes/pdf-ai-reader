@@ -11,6 +11,17 @@ export type OcrModelInfo = {
   progress: number;
 };
 
+export type OcrRuntimeStatus = {
+  installed: boolean;
+  downloading: boolean;
+  downloaded: number;
+  total: number;
+  progress: number;
+  approxBytes: number;
+  downloadable: boolean;
+  error: string | null;
+};
+
 export type OcrStatus = {
   installed: boolean;
   ready: boolean;
@@ -26,6 +37,9 @@ export type OcrStatus = {
   dir: string;
   busy?: boolean;
   queued?: number;
+  /** Absent in older mocks; treat as installed then. */
+  runtime?: OcrRuntimeStatus;
+  phase?: "runtime" | "model" | null;
 };
 
 export type OcrLineBox = { x: number; y: number; width: number; height: number };

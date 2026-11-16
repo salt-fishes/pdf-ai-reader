@@ -100,10 +100,11 @@ export function registerOcrRoutes(app: Hono): void {
       const status = await ocrStatus();
       const model = isOcrModelId(requested) ? requested : status.activeModel;
       const info = status.availableModels.find((item) => item.id === model);
-      if (!info?.installed) {
+      if (!info?.installed || !status.runtime.installed) {
+        // One click installs the runtime pack first, then the selected model.
         void installModels(model).catch(() => undefined);
       }
-      return c.json({ ok: true, model }, 202);
+      return c.json({ ok: true, model, runtime: !status.runtime.installed }, 202);
     } catch (error) {
       const message = error instanceof Error ? error.message : "无法启动模型下载";
       return jsonError(500, "ocr_install_failed", message, "检查网络或 OCR_MODELS_ROOT");
@@ -131,6 +132,14 @@ export function registerOcrRoutes(app: Hono): void {
       return jsonError(413, "body_too_large", "图片超过 12MB", "降低页面渲染分辨率");
     }
     const status = await ocrStatus();
+    if (!status.runtime.installed) {
+      return jsonError(
+        409,
+        "ocr_runtime_not_installed",
+        "OCR 组件尚未下载",
+        "在设置 → 扫描件 OCR 中下载组件",
+      );
+    }
     if (!status.installed) {
       return jsonError(409, "ocr_not_installed", "OCR 模型尚未下载", "在设置中下载 OCR 模型");
     }
@@ -189,6 +198,14 @@ export function registerOcrRoutes(app: Hono): void {
       return c.json(result);
     } catch (error) {
       const message = error instanceof Error ? error.message : "OCR 失败";
+      if (message.includes("组件尚未下载")) {
+        return jsonError(
+          409,
+          "ocr_runtime_not_installed",
+          message,
+          "在设置 → 扫描件 OCR 中下载组件",
+        );
+      }
       if (message.includes("尚未下载")) {
         return jsonError(409, "ocr_not_installed", message, "在设置中下载 OCR 模型");
       }

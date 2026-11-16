@@ -1,3 +1,6 @@
+import { createRequire } from "node:module";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { parentPort } from "node:worker_threads";
 
 type OcrService = import("ppu-paddle-ocr").PaddleOcrService;
@@ -13,6 +16,8 @@ export type OcrLine = {
 type InitMessage = {
   type: "init";
   modelId: string;
+  /** Installed OCR runtime root, or null when running from node_modules. */
+  runtimeRoot?: string | null;
   model: {
     detection: string;
     recognition: string;
@@ -34,6 +39,7 @@ if (!port) throw new Error("OCR worker must run inside a worker thread");
 let servicePromise: Promise<OcrService> | null = null;
 let serviceModel = "";
 let activeModel: InitMessage["model"] | null = null;
+let activeRuntimeRoot: string | null = null;
 let chain: Promise<void> = Promise.resolve();
 
 function clampBox(value: unknown): OcrLineBox {
@@ -51,10 +57,22 @@ function clampBox(value: unknown): OcrLineBox {
   };
 }
 
+/**
+ * Packaged builds keep the OCR runtime outside the app directory and pass its
+ * root in `OCR_RUNTIME_DIR`. Resolve the package from that root so its own
+ * bare imports (onnxruntime-node, ppu-ocv, …) resolve against the pack.
+ */
+async function loadPaddleOcr(runtimeRoot: string | null): Promise<typeof import("ppu-paddle-ocr")> {
+  if (!runtimeRoot) return import("ppu-paddle-ocr");
+  const runtimeRequire = createRequire(path.join(runtimeRoot, "package.json"));
+  const entry = runtimeRequire.resolve("ppu-paddle-ocr");
+  return import(pathToFileURL(entry).href);
+}
+
 async function getService(modelId: string, model: InitMessage["model"]): Promise<OcrService> {
   if (servicePromise && serviceModel === modelId) return servicePromise;
   servicePromise = (async () => {
-    const { PaddleOcrService } = await import("ppu-paddle-ocr");
+    const { PaddleOcrService } = await loadPaddleOcr(activeRuntimeRoot);
     const service = new PaddleOcrService({
       model: {
         detection: model.detection,
@@ -114,6 +132,7 @@ async function recognize(
 port.on("message", (message: Message) => {
   if (message.type === "init") {
     activeModel = message.model;
+    activeRuntimeRoot = message.runtimeRoot ?? null;
     getService(message.modelId, message.model).then(
       () => port.postMessage({ type: "ready", modelId: message.modelId }),
       (error: unknown) =>

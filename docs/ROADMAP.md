@@ -6,6 +6,7 @@
 - P1：搜索高亮、目录、缩略图、BM25 智能筛选、框选截图、色彩模式、多会话、PP-OCRv6 OCR。
 - 0.1 扩展：真实 DPR / 96dpi、KaTeX、截图 portal 预览、页面选择器、整本总结（map-reduce + 缓存）、高亮持久化/导出、跨页选择、正文链接、历史窗口、1M 软预算、模型服务 UI、费用单价、Electron 桌面壳。
 - 0.2：虚拟化页面列表、密码 PDF、最近文档、引用回跳锚点、本地 OCR worker 与行级文本层、tiny/small/medium 模型、焦点陷阱。
+- 0.4：OCR 运行时与模型改为按需下载，基础包不再携带 ONNX Runtime/OpenCV/canvas；组件包 SHA-256 校验与安全软件回退。
 
 ## 下一步
 

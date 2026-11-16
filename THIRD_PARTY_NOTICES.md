@@ -18,6 +18,7 @@
 | react-markdown / remark / rehype | MIT          | Markdown 渲染          |
 | dotenv                           | BSD-2-Clause | 环境变量               |
 | semver                           | ISC          | 版本比较               |
+| adm-zip                          | MIT          | 解压 OCR 组件包        |
 
 ## 图标与品牌
 
@@ -28,6 +29,8 @@
 | 纸间 BrandMark                           | 自制   | 应用图标与品牌标记 |
 
 ## OCR
+
+OCR 运行时与模型是可选组件，首次在设置中开启时下载。
 
 | 项目                              | 许可证     | 用途           |
 | --------------------------------- | ---------- | -------------- |

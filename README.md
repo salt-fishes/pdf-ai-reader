@@ -62,12 +62,13 @@
 **OCR**
 
 - PP-OCRv6 tiny / small / medium，本机 worker 推理，图片不上传。
-- tiny 随桌面版分发；small / medium 按需下载，可配置镜像根地址。
+- 桌面版不内置 OCR：首次在设置中开启时下载约 26MB 的运行时组件（解压约 71MB），
+  再按需下载 tiny / small / medium 模型；可配置模型镜像根地址。
 - 切换未下载模型先询问，下载成功后才切换。
 
 **桌面与隐私**
 
-- Electron 壳自动启动本机代理，provider 配置、OCR 模型与 IndexedDB 写入 `userData`。
+- Electron 壳自动启动本机代理，provider 配置、OCR 组件与模型、IndexedDB 写入 `userData`。
 - 启动页先显示品牌壳，本地代理并行启动；本机实测窗口约 0.5s 出现、应用约 1.4s 就绪。
 - 手动检查更新，只打开发布页；不后台轮询、不自动下载。
 - 无遥测、无统计上报；代理默认只监听 `127.0.0.1`。
@@ -109,6 +110,10 @@ npm run package:desktop   # 可移植目录，输出到 release/
 | `MOCK_AI`            | `1` 时使用本地 mock 流                              |
 | `PORT` / `HOST`      | 默认 `8787` / `127.0.0.1`                           |
 | `OCR_MODEL_DIR`      | 可写 OCR 模型根目录                                 |
+| `OCR_RUNTIME_DIR`    | 可写 OCR 运行时目录（桌面版自动设置）               |
+| `OCR_PACK_VERSION`   | 组件包版本；默认跟随桌面版                          |
+| `OCR_PACK_URL`       | 覆盖组件包地址（镜像/离线测试）                     |
+| `OCR_PACK_SHA_URL`   | 覆盖组件校验和地址                                  |
 | `OCR_MODEL_BASE_URL` | tiny 模型默认下载镜像                               |
 | `OCR_MODEL`          | 默认 OCR 模型：`v6-tiny` / `v6-small` / `v6-medium` |
 
@@ -143,9 +148,9 @@ npm run package:desktop   # 可移植目录，输出到 release/
 npm run typecheck
 npm run lint
 npm run format:check
-npm test              # 76 个单元测试
+npm test              # 79 个单元测试
 npm run test:coverage # 覆盖率与 src/lib 阈值
-npm run test:e2e      # 40 个 Playwright 用例（Edge；Linux 用 PW_CHANNEL=chromium）
+npm run test:e2e      # 41 个 Playwright 用例（Edge；Linux 用 PW_CHANNEL=chromium）
 npm run build
 npm run build:server
 ```

@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.4.0] — 2026-11-16
+
+### 变更
+
+- 桌面版不再内置 OCR 运行时：ONNX Runtime、OpenCV、canvas 与模型移出基础包，
+  首次在设置 → 扫描件 OCR 中开启时下载约 26MB 的组件包（解压约 71MB）。
+- 基础 zip 从 172.4MB 降到 146.5MB；组件包单独上传为
+  `paper-reader-ocr-v0.4.0-win-x64.zip`，两者合计仍受 185MB 预算约束。
+- 组件包下载后按发布页 `SHA256SUMS.txt` 校验 SHA-256，校验失败拒绝安装。
+- 360 等安全软件拦截用户目录 DLL 写入时，运行时自动回退到
+  `%TEMP%/paper-reader-ocr/<version>`；基础包与回退路径都能继续识别。
+- 打开扫描件不再静默下载大组件：后台 OCR 在组件缺失时停下，设置页提供一次点击安装。
+- OCR worker 从安装目录解析 `ppu-paddle-ocr`，不再依赖应用目录下的 `node_modules`。
+- `package:ocr-pack` 与 release workflow 增加组件包构建、压缩、校验和体积门禁。
+
+### 工程
+
+- 79 个单元测试 / 41 个 Playwright E2E。
+- 新增组件包校验和解析与 SHA-256 文件哈希测试，以及“组件未安装时只显式下载”的 E2E。
+
+### 已知问题
+
+- 安全软件回退到 `%TEMP%` 后，若临时目录被清理，需要重新下载组件。
+- OCR 组件包当前只提供 Windows x64；macOS / Linux 打包未验证。
+- 桌面版仍未做代码签名与自动更新安装。
+
 ## [0.3.1] — 2026-11-16
 
 ### 变更

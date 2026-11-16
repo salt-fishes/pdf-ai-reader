@@ -74,6 +74,11 @@ function priorityRank(priority: OcrPriority): number {
   return priority === "high" ? 0 : priority === "low" ? 2 : 1;
 }
 
+function runtimeReady(status: OcrStatus | null): boolean {
+  // Older mocks and status payloads omit `runtime`; treat those as installed.
+  return status?.runtime?.installed ?? true;
+}
+
 function currentHash(): string {
   return useViewer.getState().docHash;
 }
@@ -112,6 +117,12 @@ export const useOcr = create<OcrState>((set, get) => {
           } catch {
             // The install path below will surface a useful error.
           }
+        }
+        if (!runtimeReady(get().status)) {
+          // Background recognition must never trigger a ~26MB component
+          // download. Installation stays an explicit action in Settings.
+          set({ phase: "idle", error: "OCR 组件尚未下载，请在设置 → 扫描件 OCR 中安装。" });
+          break;
         }
         if (!get().status?.installed) {
           set({ phase: "preparing" });
@@ -191,7 +202,12 @@ export const useOcr = create<OcrState>((set, get) => {
       }
     } finally {
       pumping = false;
-      if (get().queue.length && get().status?.installed && !get().error) {
+      if (
+        get().queue.length &&
+        get().status?.installed &&
+        runtimeReady(get().status) &&
+        !get().error
+      ) {
         void pump();
       }
     }
@@ -332,13 +348,13 @@ export const useOcr = create<OcrState>((set, get) => {
       if (installPromise) return installPromise;
       const target = model ?? get().status?.activeModel ?? "v6-tiny";
       if (failedInstallModel === target && !model) {
-        throw new Error("OCR 模型下载失败，请在设置中重试");
+        throw new Error("OCR 组件或模型下载失败，请在设置中重试");
       }
       installPromise = (async () => {
         set({ installing: true, phase: "preparing", error: null });
         try {
           await startOcrInstall(target);
-          const deadline = Date.now() + 8 * 60 * 1000;
+          const deadline = Date.now() + 20 * 60 * 1000;
           while (Date.now() < deadline) {
             await new Promise((resolve) => setTimeout(resolve, 700));
             const status = await fetchOcrStatus();
@@ -357,15 +373,17 @@ export const useOcr = create<OcrState>((set, get) => {
             }
           }
           failedInstallModel = target;
-          throw new Error("模型下载超时");
+          throw new Error("OCR 组件或模型下载超时");
         } catch (error) {
-          const message = error instanceof Error ? error.message : "模型下载失败";
+          const message = error instanceof Error ? error.message : "OCR 组件或模型下载失败";
           set({ phase: "error", error: message });
           throw error;
         } finally {
           set({ installing: false });
           installPromise = null;
-          if (get().status?.installed && get().queue.length) void pump();
+          if (get().status?.installed && runtimeReady(get().status) && get().queue.length) {
+            void pump();
+          }
         }
       })();
       return installPromise;
@@ -376,7 +394,7 @@ export const useOcr = create<OcrState>((set, get) => {
       saveSettings({ ocrModel: model });
       failedInstallModel = null;
       set({ status, error: status.error ?? null });
-      if (status.installed && get().queue.length) void pump();
+      if (status.installed && runtimeReady(status) && get().queue.length) void pump();
     },
 
     cancelPending: () => set({ queue: [] }),

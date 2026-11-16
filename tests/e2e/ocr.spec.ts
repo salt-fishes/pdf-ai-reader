@@ -321,3 +321,64 @@ test("custom OCR mirror must be tested before saving and can be reset", async ({
   await ocr.getByRole("button", { name: "恢复默认", exact: true }).click();
   await expect(ocr).toContainText("已恢复官方下载源");
 });
+
+test("an uninstalled OCR runtime is a single explicit component download", async ({ page }) => {
+  let runtimeInstalled = false;
+  let installs = 0;
+  await page.route("**/api/ocr/status", (route) =>
+    route.fulfill({
+      json: {
+        installed: true,
+        ready: runtimeInstalled,
+        downloading: false,
+        downloaded: 0,
+        total: 0,
+        progress: 0,
+        model: "PP-OCRv6 tiny",
+        activeModel: "v6-tiny",
+        availableModels: [
+          {
+            id: "v6-tiny",
+            label: "PP-OCRv6 tiny",
+            speed: "fast",
+            note: "",
+            approxBytes: 6_270_385,
+            installed: true,
+            downloading: false,
+            progress: 1,
+          },
+        ],
+        installedModels: ["v6-tiny"],
+        error: null,
+        dir: "models",
+        runtime: {
+          installed: runtimeInstalled,
+          downloading: false,
+          downloaded: 0,
+          total: 0,
+          progress: runtimeInstalled ? 1 : 0,
+          approxBytes: 74_000_000,
+          downloadable: true,
+          error: null,
+        },
+      },
+    }),
+  );
+  await page.route("**/api/ocr/install", (route) => {
+    installs += 1;
+    runtimeInstalled = true;
+    return route.fulfill({ json: { ok: true, model: "v6-tiny", runtime: true } });
+  });
+
+  await openSample(page);
+  await page.locator('button[aria-label="设置"]').first().click();
+  const settings = page.getByRole("dialog", { name: "设置" });
+  await settings.getByRole("button", { name: "扫描件 OCR", exact: true }).click();
+  const ocr = settings.locator('[data-settings-section="ocr"]');
+  await expect(ocr).toContainText("组件未安装");
+  const tiny = ocr.getByRole("button", { name: "tiny", exact: true });
+  await expect(tiny).toBeDisabled();
+  await ocr.getByRole("button", { name: /下载 OCR 组件/ }).click();
+  await expect.poll(() => installs).toBe(1);
+  await expect(ocr).toContainText("已安装");
+});

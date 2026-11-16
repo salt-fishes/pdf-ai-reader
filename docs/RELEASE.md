@@ -2,7 +2,7 @@
 
 ## 版本策略
 
-- 当前目标版本：`0.2.0`；`0.1.0` 已发布。
+- 当前目标版本：`0.4.0`；`0.3.1` 已发布。
 - SemVer：`MAJOR.MINOR.PATCH`。0.x 阶段 minor 加功能，patch 修问题。
 - `package.json` 是唯一版本源；用 `npm version X.Y.Z --no-git-tag-version` 同步 lockfile。
 - tag 格式 `vX.Y.Z`，使用 annotated tag；预发布用 `vX.Y.Z-rc.1` 并标记 pre-release。
@@ -23,6 +23,7 @@ npm run test:e2e
 npm run build
 npm run build:server
 npm run package:desktop
+npm run package:ocr-pack
 ```
 
 手工回归：
@@ -33,16 +34,17 @@ npm run package:desktop
 - 隐私/关于：版本、commit、构建日期来自构建注入；复制诊断信息不含 Key。
 - 检查更新：点一次才发请求；离线/限流有可读错误；不自动下载。
 - 外链走系统浏览器；代理只监听 `127.0.0.1`。
-- zip <185MB；无 `.env`、`server/models`、`server/data`、测试 PDF。
+- 基础 zip <160MB，OCR 组件包 <60MB，两者合计 <185MB。
+- 无 `.env`、`server/models`、`server/data`、`node_modules` 与测试 PDF。
 
 ## 发布
 
 ```bash
-npm version 0.2.0 --no-git-tag-version
-# 更新 CHANGELOG 的 [0.2.0] 段
-npm run check:version -- 0.2.0
-git add -A && git commit -m "release: v0.2.0"
-git tag -a v0.2.0 -m "纸间 v0.2.0"
+npm version 0.4.0 --no-git-tag-version
+# 更新 CHANGELOG 的 [0.4.0] 段
+npm run check:version -- 0.4.0
+git add -A && git commit -m "release: v0.4.0"
+git tag -a v0.4.0 -m "纸间 v0.4.0"
 git push origin main --tags
 ```
 
@@ -50,9 +52,9 @@ git push origin main --tags
 
 1. 校验 tag 与 `package.json` 版本一致。
 2. 跑 typecheck / lint / 单测 / build / build:server。
-3. 打包可移植目录并压缩。
-4. 生成 `SHA256SUMS.txt` 与 CHANGELOG 对应的 release notes。
-5. 上传 zip、checksum、notes；体积超过 200MB 直接失败。
+3. 打包可移植目录与 OCR 组件包并分别压缩。
+4. 生成包含两个 zip 的 `SHA256SUMS.txt` 与 CHANGELOG 对应的 release notes。
+5. 上传基础 zip、OCR 组件 zip、checksum、notes；任一包超出预算直接失败。
 
 ## 预发布与干跑
 

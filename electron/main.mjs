@@ -137,6 +137,8 @@ async function startServer() {
       PORT: String(APP_PORT),
       PDF_AI_DATA_DIR: join(userData, "data"),
       OCR_MODEL_DIR: join(userData, "ocr-models"),
+      OCR_RUNTIME_DIR: join(userData, "ocr-runtime"),
+      OCR_PACK_VERSION: app.getVersion(),
       APP_ORIGIN,
       NODE_ENV: "production",
     },

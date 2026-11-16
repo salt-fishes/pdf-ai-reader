@@ -12,6 +12,13 @@ import {
   modelsInstalled,
   type OcrModelId,
 } from "./ocrModels";
+import {
+  installOcrRuntime,
+  isOcrRuntimeInstalled,
+  ocrRuntimeStatus,
+  resolveOcrRuntimeRoot,
+  type OcrRuntimeStatus,
+} from "./ocrRuntime";
 
 export type { OcrModelId } from "./ocrModels";
 export {
@@ -143,65 +150,71 @@ function startWorker(): Promise<void> {
   workerReady = false;
   workerError = null;
 
-  bootPromise = new Promise<void>((resolve, reject) => {
-    const instance = new Worker(workerUrl(), {
-      execArgv: workerExecArgv(),
-      name: `ocr-${model}`,
-    });
-    worker = instance;
-    let settled = false;
+  bootPromise = resolveOcrRuntimeRoot()
+    .then(
+      (runtimeRoot) =>
+        new Promise<void>((resolve, reject) => {
+          const instance = new Worker(workerUrl(), {
+            execArgv: workerExecArgv(),
+            name: `ocr-${model}`,
+          });
+          worker = instance;
+          let settled = false;
 
-    const timer = setTimeout(() => {
-      if (settled) return;
-      settled = true;
-      workerError = "OCR 初始化超时";
-      resetWorker(workerError, false);
-      reject(new Error(workerError));
-    }, 45_000);
+          const timer = setTimeout(() => {
+            if (settled) return;
+            settled = true;
+            workerError = "OCR 初始化超时";
+            resetWorker(workerError, false);
+            reject(new Error(workerError));
+          }, 45_000);
 
-    const settle = (error?: Error) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      if (error) {
-        workerError = error.message;
-        reject(error);
-      } else {
-        resolve();
-      }
-    };
+          const settle = (error?: Error) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            if (error) {
+              workerError = error.message;
+              reject(error);
+            } else {
+              resolve();
+            }
+          };
 
-    instance.on("message", (message: WorkerMessage) => {
-      if (message.type === "ready") settle();
-      if (message.type === "init-error") settle(new Error(message.message));
-      handleMessage(message);
-    });
-    instance.on("error", (error) => {
-      workerError = error.message;
-      settle(error);
-      resetWorker(error.message, true);
-    });
-    instance.on("exit", (code) => {
-      if (shuttingDown) return;
-      const message = code === 0 ? "OCR worker 已退出" : `OCR worker 异常退出（${code}）`;
-      workerError = message;
-      settle(new Error(message));
-      resetWorker(message, true);
-    });
+          instance.on("message", (message: WorkerMessage) => {
+            if (message.type === "ready") settle();
+            if (message.type === "init-error") settle(new Error(message.message));
+            handleMessage(message);
+          });
+          instance.on("error", (error) => {
+            workerError = error.message;
+            settle(error);
+            resetWorker(error.message, true);
+          });
+          instance.on("exit", (code) => {
+            if (shuttingDown) return;
+            const message = code === 0 ? "OCR worker 已退出" : `OCR worker 异常退出（${code}）`;
+            workerError = message;
+            settle(new Error(message));
+            resetWorker(message, true);
+          });
 
-    instance.postMessage({
-      type: "init",
-      modelId: model,
-      model: {
-        detection: paths.detection,
-        recognition: paths.recognition,
-        dictionary: paths.dictionary,
-      },
+          instance.postMessage({
+            type: "init",
+            modelId: model,
+            runtimeRoot,
+            model: {
+              detection: paths.detection,
+              recognition: paths.recognition,
+              dictionary: paths.dictionary,
+            },
+          });
+        }),
+    )
+    .catch((error) => {
+      bootPromise = null;
+      throw error;
     });
-  }).catch((error) => {
-    bootPromise = null;
-    throw error;
-  });
 
   return bootPromise;
 }
@@ -226,6 +239,9 @@ export async function recognizeImage(
   image: ArrayBuffer,
   options: { priority?: OcrPriority; signal?: AbortSignal } = {},
 ): Promise<OcrResult> {
+  if (!(await isOcrRuntimeInstalled())) {
+    throw new Error("OCR 组件尚未下载");
+  }
   if (!(await modelsInstalled(activeModel))) {
     throw new Error("OCR 模型尚未下载");
   }
@@ -292,11 +308,16 @@ export type OcrStatus = {
   dir: string;
   busy: boolean;
   queued: number;
+  runtime: OcrRuntimeStatus;
+  phase: "runtime" | "model" | null;
 };
 
 export async function ocrStatus(): Promise<OcrStatus> {
   const download = modelDownloadState(activeModel);
   const installed = await modelsInstalled(activeModel);
+  const runtime = await ocrRuntimeStatus();
+  const runtimePhase = runtime.downloading;
+  const modelPhase = !runtimePhase && download.active;
   const total = installed ? modelBytes(activeModel) : modelBytes(activeModel);
   const downloaded = installed ? total : await installedBytes(activeModel);
   const availableModels: OcrModelInfo[] = [];
@@ -322,26 +343,30 @@ export async function ocrStatus(): Promise<OcrStatus> {
   return {
     installed,
     ready: Boolean(worker && workerModel === activeModel && workerReady),
-    downloading: download.active,
-    downloaded: download.active ? download.downloaded : downloaded,
-    total: download.active ? download.total : total,
-    progress: download.active
-      ? download.total
-        ? Math.min(1, download.downloaded / download.total)
-        : 0
-      : installed
-        ? 1
-        : total
-          ? Math.min(1, downloaded / total)
-          : 0,
+    downloading: runtimePhase || modelPhase,
+    downloaded: runtimePhase ? runtime.downloaded : modelPhase ? download.downloaded : downloaded,
+    total: runtimePhase ? runtime.total : modelPhase ? download.total : total,
+    progress: runtimePhase
+      ? runtime.progress
+      : modelPhase
+        ? download.total
+          ? Math.min(1, download.downloaded / download.total)
+          : 0
+        : installed
+          ? 1
+          : total
+            ? Math.min(1, downloaded / total)
+            : 0,
     model: OCR_MODELS[activeModel].label,
     activeModel,
     availableModels,
     installedModels,
-    error: download.error ?? workerError,
+    error: runtime.error ?? download.error ?? workerError,
     dir: modelDir(activeModel),
     busy: running !== null,
     queued: queue.length,
+    runtime,
+    phase: runtimePhase ? "runtime" : modelPhase ? "model" : null,
   };
 }
 
@@ -358,8 +383,11 @@ export async function setActiveOcrModel(model: OcrModelId): Promise<OcrStatus> {
   return ocrStatus();
 }
 
-export function installModels(model: OcrModelId = activeModel): Promise<void> {
-  return installModelFiles(model);
+export async function installModels(model: OcrModelId = activeModel): Promise<void> {
+  // The runtime pack is downloaded once and shared by every model; models stay
+  // independent so switching to an already installed size never touches it.
+  await installOcrRuntime();
+  await installModelFiles(model);
 }
 
 export async function shutdownOcr(): Promise<void> {

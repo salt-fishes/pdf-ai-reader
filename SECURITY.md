@@ -19,7 +19,8 @@
 - 主 PDF 在浏览器本地解析，不上传。
 - 只有用户明确选择的页码、文字、截图、附件与问题会发给模型。
 - API Key 只保存在本机代理的 `server/.env` 或 `server/data/provider.json`，不会返回给浏览器。
-- 桌面版把 provider 配置与 OCR 模型放在 Electron `userData` 目录。
+- 桌面版把 provider 配置、OCR 运行时与模型放在 Electron `userData` 目录；
+  运行时被安全软件拦截时回退到 `%TEMP%/paper-reader-ocr`。
 - 自定义 OCR 镜像只允许 http(s)，目录结构与限制见 [docs/OCR-MIRROR.md](docs/OCR-MIRROR.md)。
 
 ## 部署提醒
@@ -35,6 +36,7 @@
 
 ## 依赖与模型
 
+- OCR 运行时组件从本仓库 Release 下载，安装前用发布页 `SHA256SUMS.txt` 校验 SHA-256。
 - OCR 模型从 oar-ocr 的 GitHub Release 下载，当前只校验文件大小；生产环境建议再加 SHA-256 校验与镜像白名单。
 - 第三方模型服务（DeepSeek、OpenAI 兼容端点、Ollama 等）的隐私与合规由其各自条款约束。
 - 发现依赖漏洞时，请附上 `npm audit` 输出与影响路径。

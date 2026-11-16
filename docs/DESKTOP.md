@@ -32,7 +32,7 @@ npm run build:desktop:dir   # 只产出 release/win-unpacked，便于快速验�
 npm run build:desktop       # NSIS 安装包 + portable exe
 ```
 
-`package:desktop` 直接复制 Electron 运行时、前端 `dist`、`server/dist` 与 OCR 运行时依赖，生成可直接双击的 `PaperReader.exe`。打包时会移除其它平台的 ONNX Runtime、DirectML/dxcompiler、`@napi-rs/canvas` 的 ICU 表、OpenCV 的 TypeScript 源码/声明与 Electron 默认应用；本地 zip 约 **177.8MB**（原 183MB）。如果 `release/` 所在目录被 Windows 受控文件夹/杀毒软件拦截，可指定输出目录：
+`package:desktop` 复制 Electron 运行时、前端 `dist` 与 `server/dist`，生成可直接双击的 `PaperReader.exe`。OCR 运行时（ONNX Runtime、OpenCV、canvas）与模型不再进包，而是 `package:ocr-pack` 单独生成约 **26MB** 的组件包，首次在设置中开启 OCR 时下载。基础 zip 约 **146.5MB**，解压约 **317MB**。如果 `release/` 所在目录被 Windows 受控文件夹/杀毒软件拦截，可指定输出目录：
 
 ```powershell
 $env:PDF_AI_RELEASE_DIR="$env:TEMP\PaperReader"
@@ -46,6 +46,7 @@ npm run package:desktop
 桌面版把可写数据放在 Electron `userData`：
 
 - provider 配置：`<userData>/data/provider.json`（含 API Key，权限 0600）
+- OCR 运行时：`<userData>/ocr-runtime`；被 360 等安全软件拦截 DLL 写入时回退到 `%TEMP%/paper-reader-ocr/<version>`
 - OCR 模型：`<userData>/ocr-models`
 - 阅读位置、对话、高亮、OCR 文本：Chromium IndexedDB（按 `http://127.0.0.1:8787` 原点）
 
@@ -67,5 +68,6 @@ npm run package:desktop
 ## 已知限制
 
 - 未做自动更新安装与代码签名；公开分发前需要配置证书。
-- 安装包体积较大（Electron + Node 依赖 + ONNX Runtime）；打包脚本已保留 zh-CN/en-US、移除 DirectML/dxcompiler、跨平台 ONNX Runtime、canvas ICU 表与 OpenCV 类型文件，实测 zip 约 177.8MB。
-- tiny OCR 模型存在时随包分发；small/medium 或缺少 tiny 时需要联网下载，也可以手动放到 `<userData>/ocr-models`。
+- 基础包约 146.5MB；OCR 是独立的 26MB 组件包，不下载也能正常阅读 PDF，只是没有扫描件文字层。
+- OCR 组件与模型都需要联网下载；模型也可以手动放到 `<userData>/ocr-models`。
+- 安全软件可能拦截未签名进程向用户目录写 DLL；应用会回退到临时目录，再次启动时若临时目录被清理，需要重新下载组件。

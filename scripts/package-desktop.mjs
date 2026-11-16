@@ -50,82 +50,17 @@ execFileSync("powershell", [
 
 const appDir = join(out, "resources", "app");
 mkdirSync(appDir, { recursive: true });
-for (const item of [
-  "dist",
-  "server/dist",
-  "server/models",
-  "electron",
-  "package.json",
-  "LICENSE",
-  "README.md",
-]) {
+for (const item of ["dist", "server/dist", "electron", "package.json", "LICENSE", "README.md"]) {
   const source = join(root, item);
   if (!existsSync(source)) continue;
   psCopy(source, join(appDir, item));
 }
 
-const modules = [
-  "onnxruntime-node",
-  "onnxruntime-common",
-  "ppu-paddle-ocr",
-  "ppu-ocv",
-  "@napi-rs/canvas",
-  "@napi-rs/canvas-win32-x64-msvc",
-  "@techstark/opencv-js",
-];
-for (const name of modules) {
-  const source = join(root, "node_modules", ...name.split("/"));
-  if (!existsSync(source)) throw new Error(`缺少运行时依赖 ${name}`);
-  const target = join(appDir, "node_modules", ...name.split("/"));
-  mkdirSync(join(target, ".."), { recursive: true });
-  psCopy(source, target);
-}
+// OCR (ONNX Runtime, OpenCV, canvas, models) is an on-demand download. Keeping
+// it out of the portable app saves ~77MB and lets the core reader stay small.
+psRemove(join(appDir, "server", "models"));
+psRemove(join(appDir, "node_modules"));
 
-// Keep only the Windows x64 ONNX Runtime; the package ships all platforms.
-for (const platform of ["darwin", "linux"]) {
-  const target = join(appDir, "node_modules", "onnxruntime-node", "bin", "napi-v6", platform);
-  execFileSync("powershell", [
-    "-NoProfile",
-    "-Command",
-    `Remove-Item -LiteralPath '${target.replace(/'/g, "''")}' -Recurse -Force -ErrorAction SilentlyContinue`,
-  ]);
-}
-const arm64Dir = join(
-  appDir,
-  "node_modules",
-  "onnxruntime-node",
-  "bin",
-  "napi-v6",
-  "win32",
-  "arm64",
-);
-execFileSync("powershell", [
-  "-NoProfile",
-  "-Command",
-  `if (Test-Path -LiteralPath '${arm64Dir.replace(/'/g, "''")}') { Remove-Item -LiteralPath '${arm64Dir.replace(/'/g, "''")}' -Recurse -Force }`,
-]);
-
-// OCR uses the CPU execution provider. DirectML/dxcompiler are only needed
-// for GPU inference and add ~35MB to the portable build.
-for (const file of ["DirectML.dll", "dxcompiler.dll"]) {
-  const target = join(
-    appDir,
-    "node_modules",
-    "onnxruntime-node",
-    "bin",
-    "napi-v6",
-    "win32",
-    "x64",
-    file,
-  );
-  psRemove(target);
-}
-
-// TypeScript sources and declarations are not loaded at runtime.
-psRemove(join(appDir, "node_modules", "@techstark", "opencv-js", "src"));
-psRemove(join(appDir, "node_modules", "@techstark", "opencv-js", "dist", "src"));
-// OCR only rasterises page images; the canvas text/ICU tables are unused.
-psRemove(join(appDir, "node_modules", "@napi-rs", "canvas-win32-x64-msvc", "icudtl.dat"));
 // Electron's bundled default app is unused once resources/app is present.
 psRemove(join(out, "resources", "default_app.asar"));
 
@@ -182,8 +117,9 @@ writeFileSync(
     "",
     "1. 双击 PaperReader.exe 启动。",
     "2. 第一次使用：打开右上角设置 → 模型服务，填入 Base URL、模型名与 API Key。",
-    "3. 桌面版把配置、OCR 模型和阅读数据放在 Electron userData 目录。",
-    "4. 主 PDF 不上传；只发送你明确选择的页码、文字、截图与附件。",
+    "3. 桌面版把配置、OCR 组件与模型、阅读数据放在 Electron userData 目录。",
+    "4. 扫描件 OCR 是可选组件：首次开启时下载约 26MB 运行时（解压 71MB）+ 6MB tiny 模型。",
+    "5. 主 PDF 不上传；只发送你明确选择的页码、文字、截图与附件。",
     "",
     "如果没有配置密钥，应用仍可打开和阅读 PDF。",
   ].join("\r\n"),
