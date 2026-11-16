@@ -4,7 +4,7 @@
 
 A local-first PDF reader with an embedded AI reading assistant. The PDF itself never leaves your browser: only the pages, selected text, screenshots and attachments you explicitly choose are sent to the model through a local Node proxy.
 
-[中文说明](README.md) · [Architecture & plan](docs/pdf-ai-reader-plan.md) · [Desktop build](docs/DESKTOP.md)
+[中文说明](README.md) · [Roadmap](docs/ROADMAP.md) · [Desktop build](docs/DESKTOP.md)
 
 ## Highlights
 

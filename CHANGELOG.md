@@ -32,7 +32,7 @@
 
 - Electron 桌面壳：自动启动本地代理、单实例、外部链接交给系统浏览器。
 - Electron Builder 配置（NSIS + portable），OCR 模型与 provider 配置写入 `userData`。
-- 61 个单元测试 / 25 个 Playwright E2E。
+- 63 个单元测试 / 33 个 Playwright E2E。
 - MIT License、贡献指南、安全策略、CI 工作流与 issue/PR 模板。
 
 ### 已知限制
