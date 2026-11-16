@@ -93,7 +93,10 @@ npm run dev:all
 ```bash
 npm run desktop:dev       # 开发壳
 npm run package:desktop   # 可移植目录，输出到 release/
+npm run build:installers  # NSIS .exe + MSI，输出到 release/
 ```
+
+发布页同时提供便携 zip、NSIS 与 MSI；安装版和便携版都不内置 OCR，首次开启时下载组件。
 
 ### 没有 API Key
 

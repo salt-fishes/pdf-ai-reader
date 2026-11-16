@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.6.0] — 2026-11-16
+
+### 新增
+
+- 提供 **NSIS 安装包**（`paper-reader-v0.6.0-x64.exe`）与 **MSI 安装包**
+  （`paper-reader-v0.6.0-x64.msi`）；安装后为 `PaperReader.exe`，开始菜单与快捷方式显示“纸间”。
+- `build:installers` 本地脚本；release workflow 同时构建并上传 NSIS、MSI、便携 zip 与 OCR 组件包。
+- MSI 使用 `build/zh-CN.wxl` 的 GBK 代码页，解决中文产品名导致的 WiX `LGHT0311`。
+
+### 修复
+
+- **Windows 11 默认应用列表找不到纸间**：该列表读取系统级 `HKLM` 注册，便携版的当前用户
+  `HKCU` 注册只会出现在“打开方式”。设置页新增“注册到系统（需要管理员）”，通过一次 UAC
+  写入 `HKLM`，状态区分“系统级 / 当前用户”。
+- `RegisteredApplications` 的值名与 `Capabilities\ApplicationName` 统一为“纸间”，并补齐
+  ProgID 的 `Application` 子键与 `OpenWithProgids`。
+- 安装包不再带入 `node_modules`（ONNX/OpenCV 仍由 OCR 组件包按需下载），NSIS 约 111MB、
+  MSI 约 116MB。
+
+### 边界
+
+- 注册系统级关联需要管理员授权；取消 UAC 不会修改任何系统设置。
+- 注册本身不会改变默认应用，仍需在 Windows 设置中选择“纸间”确认。
+- 代码签名仍未配置，SmartScreen 会提示未知发布者。
+
 ## [0.5.0] — 2026-11-16
 
 ### 新增

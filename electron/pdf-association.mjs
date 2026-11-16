@@ -7,14 +7,30 @@ const exec = promisify(execFile);
 const REG_EXE = path.join(process.env.SystemRoot ?? "C:\\Windows", "System32", "reg.exe");
 
 export const PDF_PROG_ID = "PaperReader.pdf";
-export const PDF_APPLICATION = "PaperReader";
-const COMMAND_KEY = `HKCU\\Software\\Classes\\${PDF_PROG_ID}\\shell\\open\\command`;
-const APPLICATIONS_KEY = "HKCU\\Software\\Classes\\Applications\\PaperReader.exe";
-const CAPABILITIES_KEY = `HKCU\\Software\\${PDF_APPLICATION}\\Capabilities`;
-const REGISTERED_APPLICATIONS = "HKCU\\Software\\RegisteredApplications";
-const OPEN_WITH_KEY = "HKCU\\Software\\Classes\\.pdf\\OpenWithProgids";
-const USER_CHOICE_KEY =
-  "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\.pdf\\UserChoice";
+/** Display name; must match the value name under RegisteredApplications. */
+export const PDF_APPLICATION_NAME = "纸间";
+const CAPABILITIES_ROOT = "PaperReader";
+
+const HIVES = {
+  user: "HKCU",
+  machine: "HKLM",
+};
+
+function keys(scope) {
+  const hive = HIVES[scope];
+  if (!hive) throw new Error("未知的注册范围");
+  return {
+    hive,
+    progId: `${hive}\\Software\\Classes\\${PDF_PROG_ID}`,
+    command: `${hive}\\Software\\Classes\\${PDF_PROG_ID}\\shell\\open\\command`,
+    applications: `${hive}\\Software\\Classes\\Applications\\PaperReader.exe`,
+    capabilities: `${hive}\\Software\\${CAPABILITIES_ROOT}\\Capabilities`,
+    registered: `${hive}\\Software\\RegisteredApplications`,
+    openWith: `${hive}\\Software\\Classes\\.pdf\\OpenWithProgids`,
+    userChoice:
+      "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\.pdf\\UserChoice",
+  };
+}
 
 async function reg(args) {
   const { stdout } = await exec(REG_EXE, args, {
@@ -66,53 +82,68 @@ function normalized(value) {
   return value.trim().replace(/^"|"$/g, "").toLowerCase();
 }
 
-/** Windows only; the caller passes the packaged executable path. */
+/** Registry entries needed for one scope, used by both direct and elevated installs. */
+export function associationEntries(exePath, scope = "user") {
+  const k = keys(scope);
+  const quoted = `"${path.resolve(exePath)}"`;
+  const icon = `${quoted},0`;
+  const command = `${quoted} "%1"`;
+  return [
+    { key: k.progId, value: "PDF 文档" },
+    { key: `${k.progId}\\DefaultIcon`, value: icon },
+    { key: `${k.progId}\\Application`, value: PDF_APPLICATION_NAME },
+    { key: `${k.progId}\\Application\\ApplicationName`, value: PDF_APPLICATION_NAME },
+    { key: `${k.progId}\\Application\\ApplicationIcon`, value: icon },
+    { key: k.command, value: command },
+    { key: k.openWith, name: PDF_PROG_ID, type: "REG_NONE", value: null },
+    { key: k.applications, value: PDF_APPLICATION_NAME },
+    { key: `${k.applications}\\FriendlyAppName`, value: PDF_APPLICATION_NAME },
+    { key: `${k.applications}\\DefaultIcon`, value: icon },
+    { key: `${k.applications}\\shell\\open\\command`, value: command },
+    { key: `${k.applications}\\SupportedTypes\\.pdf`, type: "REG_NONE", value: null },
+    { key: k.capabilities, value: PDF_APPLICATION_NAME },
+    { key: `${k.capabilities}\\ApplicationName`, value: PDF_APPLICATION_NAME },
+    {
+      key: `${k.capabilities}\\ApplicationDescription`,
+      value: "本地优先的 PDF 阅读器与 AI 阅读助手",
+    },
+    { key: `${k.capabilities}\\ApplicationIcon`, value: icon },
+    { key: `${k.capabilities}\\FileAssociations\\.pdf`, value: PDF_PROG_ID },
+    {
+      key: k.registered,
+      name: PDF_APPLICATION_NAME,
+      value: `Software\\${CAPABILITIES_ROOT}\\Capabilities`,
+    },
+  ];
+}
+
 export async function pdfAssociationStatus(exePath) {
-  const command = lastValue(await query(COMMAND_KEY));
-  const registered = Boolean(command);
+  const machine = keys("machine");
+  const user = keys("user");
+  const machineCommand = lastValue(await query(machine.command));
+  const userCommand = lastValue(await query(user.command));
+  const command = machineCommand ?? userCommand;
+  const scope = machineCommand ? "machine" : userCommand ? "user" : null;
   const stale = Boolean(command && !normalized(command).includes(normalized(exePath)));
-  const currentDefault = progId(await query(USER_CHOICE_KEY, "ProgId"));
+  const currentDefault = progId(await query(user.userChoice, "ProgId"));
   return {
     supported: true,
-    registered,
+    registered: Boolean(command),
+    scope,
     stale,
     isDefault:
       currentDefault === PDF_PROG_ID ||
       currentDefault?.toLowerCase() === "applications\\paperreader.exe",
     currentDefault,
-    appName: "纸间",
+    appName: PDF_APPLICATION_NAME,
   };
 }
 
-export async function registerPdfAssociation(exePath) {
+export async function registerPdfAssociation(exePath, scope = "user") {
   if (!existsSync(exePath)) throw new Error("找不到当前应用的可执行文件");
-  const quoted = `"${path.resolve(exePath)}"`;
-  const icon = `${quoted},0`;
-  const command = `${quoted} "%1"`;
-
-  await add(`HKCU\\Software\\Classes\\${PDF_PROG_ID}`, "PDF 文档");
-  await add(`HKCU\\Software\\Classes\\${PDF_PROG_ID}\\DefaultIcon`, icon);
-  await add(COMMAND_KEY, command);
-  await add(OPEN_WITH_KEY, null, "REG_NONE", PDF_PROG_ID);
-
-  await add(APPLICATIONS_KEY, "纸间");
-  await add(`${APPLICATIONS_KEY}\\FriendlyAppName`, "纸间");
-  await add(`${APPLICATIONS_KEY}\\DefaultIcon`, icon);
-  await add(`${APPLICATIONS_KEY}\\shell\\open\\command`, command);
-  await add(`${APPLICATIONS_KEY}\\SupportedTypes\\.pdf`, null, "REG_NONE");
-
-  await add(CAPABILITIES_KEY, "纸间");
-  await add(`${CAPABILITIES_KEY}\\ApplicationName`, "纸间");
-  await add(`${CAPABILITIES_KEY}\\ApplicationDescription`, "本地优先的 PDF 阅读器与 AI 阅读助手");
-  await add(`${CAPABILITIES_KEY}\\ApplicationIcon`, icon);
-  await add(`${CAPABILITIES_KEY}\\FileAssociations\\.pdf`, PDF_PROG_ID);
-  await add(
-    REGISTERED_APPLICATIONS,
-    `Software\\${PDF_APPLICATION}\\Capabilities`,
-    "REG_SZ",
-    PDF_APPLICATION,
-  );
-
+  for (const entry of associationEntries(exePath, scope)) {
+    await add(entry.key, entry.value, entry.type, entry.name);
+  }
   return pdfAssociationStatus(exePath);
 }
 
@@ -132,26 +163,41 @@ async function removeValue(key, name) {
   }
 }
 
-export async function removePdfAssociation(exePath) {
+export async function removePdfAssociation(exePath, scope = "user") {
   const status = await pdfAssociationStatus(exePath);
   if (status.isDefault) {
     throw new Error("纸间当前是默认 PDF 应用，请先在 Windows 设置中改为其他应用，再移除关联。");
   }
-  await removeKey(`HKCU\\Software\\Classes\\${PDF_PROG_ID}`);
-  await removeKey(APPLICATIONS_KEY);
-  await removeKey(`HKCU\\Software\\${PDF_APPLICATION}`);
-  await removeValue(REGISTERED_APPLICATIONS, PDF_APPLICATION);
-  await removeValue(OPEN_WITH_KEY, PDF_PROG_ID);
+  const k = keys(scope);
+  await removeKey(k.progId);
+  await removeKey(k.applications);
+  await removeKey(`${k.hive}\\Software\\${CAPABILITIES_ROOT}`);
+  await removeValue(k.registered, PDF_APPLICATION_NAME);
+  await removeValue(k.registered, "PaperReader");
+  await removeValue(k.openWith, PDF_PROG_ID);
   return pdfAssociationStatus(exePath);
+}
+
+export function associationRemovals(scope = "user") {
+  const k = keys(scope);
+  return {
+    keys: [k.progId, k.applications, `${k.hive}\\Software\\${CAPABILITIES_ROOT}`],
+    values: [
+      [k.registered, PDF_APPLICATION_NAME],
+      [k.registered, "PaperReader"],
+      [k.openWith, PDF_PROG_ID],
+    ],
+  };
 }
 
 export function unsupportedPdfAssociation() {
   return {
     supported: false,
     registered: false,
+    scope: null,
     stale: false,
     isDefault: false,
     currentDefault: null,
-    appName: "纸间",
+    appName: PDF_APPLICATION_NAME,
   };
 }

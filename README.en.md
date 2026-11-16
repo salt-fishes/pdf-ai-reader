@@ -55,6 +55,7 @@ Desktop:
 ```bash
 npm run desktop:dev
 npm run package:desktop   # portable directory in release/
+npm run build:installers  # NSIS .exe + MSI in release/
 ```
 
 Set `MOCK_AI=1` to stream a local mock answer without calling a real model.

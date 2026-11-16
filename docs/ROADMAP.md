@@ -8,6 +8,7 @@
 - 0.2：虚拟化页面列表、密码 PDF、最近文档、引用回跳锚点、本地 OCR worker 与行级文本层、tiny/small/medium 模型、焦点陷阱。
 - 0.4：OCR 运行时与模型改为按需下载，基础包不再携带 ONNX Runtime/OpenCV/canvas；组件包 SHA-256 校验与安全软件回退。
 - 0.5：可选注册为 Windows PDF 打开方式；不自动修改默认应用，由系统设置确认。
+- 0.6：NSIS/MSI 安装包；Windows 11 默认应用列表需要系统级注册，设置页增加一次 UAC 的“注册到系统”。
 
 ## 下一步
 

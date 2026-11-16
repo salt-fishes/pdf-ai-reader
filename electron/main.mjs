@@ -1,13 +1,18 @@
 import { app, BrowserWindow, dialog, ipcMain, net, session, shell } from "electron";
-import { spawn } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 import {
+  associationEntries,
+  associationRemovals,
   pdfAssociationStatus,
   registerPdfAssociation,
   removePdfAssociation,
   unsupportedPdfAssociation,
 } from "./pdf-association.mjs";
+
+const exec = promisify(execFile);
 
 const DEV_URL = process.env.PDF_AI_DESKTOP_URL;
 const APP_PORT = 8787;
@@ -16,6 +21,13 @@ const RELEASES_API = "https://api.github.com/repos/salt-fishes/pdf-ai-reader/rel
 const isDev = Boolean(DEV_URL);
 const PDF_ASSOCIATION_SUPPORTED =
   process.platform === "win32" && !/electron\.exe$/i.test(process.execPath);
+const POWERSHELL = join(
+  process.env.SystemRoot ?? "C:\\Windows",
+  "System32",
+  "WindowsPowerShell",
+  "v1.0",
+  "powershell.exe",
+);
 
 // Trim Chromium background work that this single-window reader never uses.
 app.commandLine.appendSwitch("disable-background-networking");
@@ -89,20 +101,93 @@ function currentAssociationStatus() {
     : Promise.resolve(unsupportedPdfAssociation());
 }
 
+function psQuote(value) {
+  return `'${String(value).replace(/'/g, "''")}'`;
+}
+
+/**
+ * Windows 11's Default Apps list reads machine-wide registrations; a portable
+ * HKCU registration only appears in "Open with". Run the same registry writes
+ * in an elevated PowerShell process so the app shows up in Settings too.
+ */
+function associationScript(scope, mode) {
+  const lines = [
+    "$ErrorActionPreference = 'Stop'",
+    "$reg = Join-Path $env:SystemRoot 'System32\\reg.exe'",
+  ];
+  if (mode === "register") {
+    for (const entry of associationEntries(process.execPath, scope)) {
+      const args = ["& $reg", "add", psQuote(entry.key)];
+      if (entry.name) args.push("/v", psQuote(entry.name));
+      else args.push("/ve");
+      args.push("/t", entry.type ?? "REG_SZ", "/f");
+      if (entry.value !== null && entry.value !== undefined) {
+        args.push("/d", psQuote(entry.value));
+      }
+      lines.push(args.join(" "));
+      lines.push("if ($LASTEXITCODE -ne 0) { throw 'registry write failed' }");
+    }
+  } else {
+    const removals = associationRemovals(scope);
+    for (const key of removals.keys) {
+      lines.push(`& $reg delete ${psQuote(key)} /f 2>$null`);
+    }
+    for (const [key, name] of removals.values) {
+      lines.push(`& $reg delete ${psQuote(key)} /v ${psQuote(name)} /f 2>$null`);
+    }
+  }
+  return lines.join("\r\n");
+}
+
+async function runElevatedAssociation(scope, mode) {
+  const encoded = Buffer.from(associationScript(scope, mode), "utf16le").toString("base64");
+  const command = [
+    "$p = Start-Process -FilePath powershell.exe -Verb RunAs -Wait -PassThru",
+    `-ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-EncodedCommand','${encoded}')`,
+    "; exit $p.ExitCode",
+  ].join(" ");
+  try {
+    await exec(POWERSHELL, ["-NoProfile", "-Command", command], {
+      windowsHide: true,
+      timeout: 120_000,
+    });
+  } catch (error) {
+    const code = error?.code ?? error?.status;
+    if (code === 1223 || /canceled|cancelled|已取消/i.test(String(error?.message))) {
+      throw new Error("已取消管理员授权，未修改系统级关联。");
+    }
+    throw new Error(`系统级注册失败：${error instanceof Error ? error.message : "需要管理员权限"}`);
+  }
+}
+
 ipcMain.handle("app:pdf-association-status", () => currentAssociationStatus());
 
-ipcMain.handle("app:pdf-association-register", async () => {
+ipcMain.handle("app:pdf-association-register", async (_event, scope = "user") => {
   if (!PDF_ASSOCIATION_SUPPORTED) {
     throw new Error("只有 Windows 桌面版支持注册 PDF 打开方式。");
   }
-  return registerPdfAssociation(process.execPath);
+  if (scope === "machine") {
+    await runElevatedAssociation("machine", "register");
+    return currentAssociationStatus();
+  }
+  return registerPdfAssociation(process.execPath, "user");
 });
 
-ipcMain.handle("app:pdf-association-remove", async () => {
+ipcMain.handle("app:pdf-association-remove", async (_event, requestedScope) => {
   if (!PDF_ASSOCIATION_SUPPORTED) {
     throw new Error("只有 Windows 桌面版支持移除 PDF 打开方式。");
   }
-  return removePdfAssociation(process.execPath);
+  const status = await currentAssociationStatus();
+  if (status.isDefault) {
+    throw new Error("纸间当前是默认 PDF 应用，请先在 Windows 设置中改为其他应用，再移除关联。");
+  }
+  const scope = requestedScope ?? status.scope ?? "user";
+  if (scope === "machine") {
+    await runElevatedAssociation("machine", "remove");
+    await removePdfAssociation(process.execPath, "user").catch(() => undefined);
+    return currentAssociationStatus();
+  }
+  return removePdfAssociation(process.execPath, "user");
 });
 
 ipcMain.handle("app:pdf-association-open-settings", async () => {
@@ -110,7 +195,9 @@ ipcMain.handle("app:pdf-association-open-settings", async () => {
     throw new Error("只有 Windows 桌面版支持打开默认应用设置。");
   }
   try {
-    await shell.openExternal("ms-settings:defaultapps?registeredAppUser=PaperReader");
+    await shell.openExternal(
+      `ms-settings:defaultapps?registeredAppUser=${encodeURIComponent("纸间")}`,
+    );
   } catch {
     await shell.openExternal("ms-settings:defaultapps");
   }

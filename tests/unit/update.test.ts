@@ -45,6 +45,7 @@ describe("PDF association bridge", () => {
   const status = {
     supported: true,
     registered: true,
+    scope: "user",
     stale: false,
     isDefault: false,
     currentDefault: "MSEdgePDF",
@@ -70,9 +71,11 @@ describe("PDF association bridge", () => {
 
     await expect(pdfAssociationStatus()).resolves.toEqual(status);
     await expect(registerPdfAssociation()).resolves.toEqual(status);
+    await expect(registerPdfAssociation("machine")).resolves.toEqual(status);
     await expect(removePdfAssociation()).resolves.toMatchObject({ registered: false });
     await expect(openPdfDefaultApps()).resolves.toEqual(status);
-    expect(pdfAssociation.register).toHaveBeenCalledOnce();
+    expect(pdfAssociation.register).toHaveBeenNthCalledWith(1, "user");
+    expect(pdfAssociation.register).toHaveBeenNthCalledWith(2, "machine");
     expect(pdfAssociation.remove).toHaveBeenCalledOnce();
     expect(pdfAssociation.openSettings).toHaveBeenCalledOnce();
   });

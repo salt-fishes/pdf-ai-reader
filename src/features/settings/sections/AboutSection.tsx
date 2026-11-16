@@ -73,13 +73,17 @@ export function AboutSection() {
       "",
     );
 
-  const registerAssociation = async () => {
+  const registerAssociation = async (scope: "user" | "machine") => {
     setAssociationBusy(true);
     setAssociationMessage("");
     try {
-      const status = await registerPdfAssociation();
+      const status = await registerPdfAssociation(scope);
       setAssociation(status);
-      setAssociationMessage("已注册。请在 Windows 设置中选择“纸间”并确认。");
+      setAssociationMessage(
+        scope === "machine"
+          ? "已注册到系统。请在 Windows 设置中选择“纸间”并确认。"
+          : "已注册到当前用户。Windows 11 默认应用列表可能只显示系统级注册。",
+      );
       await openPdfDefaultApps();
     } catch (error) {
       setAssociationMessage(associationError(error));
@@ -104,7 +108,7 @@ export function AboutSection() {
     setAssociationBusy(true);
     setAssociationMessage("");
     try {
-      setAssociation(await removePdfAssociation());
+      setAssociation(await removePdfAssociation(association?.scope ?? undefined));
       setAssociationMessage("已移除 PDF 打开方式注册，当前默认应用未改动。");
     } catch (error) {
       setAssociationMessage(associationError(error));
@@ -180,12 +184,12 @@ export function AboutSection() {
               <span className={styles.label}>默认 PDF 应用</span>
               <span className={`${styles.value} ${association.isDefault ? styles.ok : ""}`}>
                 {association.isDefault
-                  ? "纸间"
-                  : association.registered
-                    ? association.stale
-                      ? "已注册，路径已变化"
-                      : "已注册，未设为默认"
-                    : "未注册"}
+                  ? `纸间${association.scope === "machine" ? "（系统级）" : ""}`
+                  : association.stale
+                    ? "已注册，路径已变化"
+                    : association.registered
+                      ? `已注册（${association.scope === "machine" ? "系统级" : "当前用户"}），未设为默认`
+                      : "未注册"}
               </span>
             </div>
           </div>
@@ -198,19 +202,29 @@ export function AboutSection() {
               >
                 打开默认应用设置
               </button>
-            ) : (
+            ) : null}
+            {association.scope !== "machine" ? (
               <button
                 className={`${styles.button} ${styles.primary}`}
-                onClick={() => void registerAssociation()}
+                onClick={() => void registerAssociation("machine")}
                 disabled={associationBusy}
               >
                 {associationBusy
                   ? "处理中…"
                   : association.stale
-                    ? "重新注册 PDF 打开方式"
-                    : "注册为 PDF 打开方式"}
+                    ? "重新注册到系统（需要管理员）"
+                    : "注册到系统（需要管理员）"}
               </button>
-            )}
+            ) : null}
+            {!association.registered || association.stale ? (
+              <button
+                className={styles.button}
+                onClick={() => void registerAssociation("user")}
+                disabled={associationBusy}
+              >
+                仅当前用户
+              </button>
+            ) : null}
             {association.registered ? (
               <button
                 className={styles.button}
@@ -222,8 +236,9 @@ export function AboutSection() {
             ) : null}
           </div>
           <div className={styles.note}>
-            不会自动修改默认应用。注册后请在弹出的 Windows
-            设置中选择“纸间”并确认；移动安装目录后需要重新注册。
+            Windows 11 默认应用列表只显示系统级注册。按用户安装或便携版请点“注册到系统”， 会弹出一次
+            UAC；仅当前用户注册只保证出现在“打开方式”。这里不会自动修改默认应用， 仍需在 Windows
+            设置中确认。
           </div>
           {associationMessage ? <div className={styles.result}>{associationMessage}</div> : null}
         </>

@@ -49,13 +49,20 @@ jobs:
           $tag = "${{ github.ref_name || 'dry-run' }}"
           Compress-Archive -Path release/win-unpacked/* -DestinationPath "release/paper-reader-$tag-win-x64.zip"
           Compress-Archive -Path release/ocr-pack/* -DestinationPath "release/paper-reader-ocr-$tag-win-x64.zip"
+      - name: Build NSIS and MSI installers
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: npx electron-builder --win nsis msi --x64
       - name: Checksum
         shell: pwsh
         run: |
           $tag = "${{ github.ref_name || 'dry-run' }}"
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
           $lines = @(
             "release/paper-reader-$tag-win-x64.zip",
-            "release/paper-reader-ocr-$tag-win-x64.zip"
+            "release/paper-reader-ocr-$tag-win-x64.zip",
+            "release/paper-reader-v$version-x64.exe",
+            "release/paper-reader-v$version-x64.msi"
           ) | ForEach-Object {
             "$((Get-FileHash $_ -Algorithm SHA256).Hash.ToLower())  $(Split-Path $_ -Leaf)"
           }
@@ -64,10 +71,15 @@ jobs:
         shell: pwsh
         run: |
           $tag = "${{ github.ref_name || 'dry-run' }}"
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
           $zip = Get-Item "release/paper-reader-$tag-win-x64.zip"
           $ocr = Get-Item "release/paper-reader-ocr-$tag-win-x64.zip"
+          $nsis = Get-Item "release/paper-reader-v$version-x64.exe"
+          $msi = Get-Item "release/paper-reader-v$version-x64.msi"
           if ($zip.Length -gt 160MB) { throw "App zip is $([math]::Round($zip.Length/1MB))MB, budget is 160MB" }
           if ($ocr.Length -gt 60MB) { throw "OCR zip is $([math]::Round($ocr.Length/1MB))MB, budget is 60MB" }
+          if ($nsis.Length -gt 160MB) { throw "NSIS is $([math]::Round($nsis.Length/1MB))MB, budget is 160MB" }
+          if ($msi.Length -gt 160MB) { throw "MSI is $([math]::Round($msi.Length/1MB))MB, budget is 160MB" }
           if (($zip.Length + $ocr.Length) -gt 185MB) { throw "App + OCR zips are $([math]::Round(($zip.Length + $ocr.Length)/1MB))MB, budget is 185MB" }
       - name: Generate release notes
         run: node scripts/release-notes.mjs
@@ -78,6 +90,8 @@ jobs:
           files: |
             release/paper-reader-${{ github.ref_name }}-win-x64.zip
             release/paper-reader-ocr-${{ github.ref_name }}-win-x64.zip
+            release/paper-reader-${{ github.ref_name }}-x64.exe
+            release/paper-reader-${{ github.ref_name }}-x64.msi
             release/SHA256SUMS.txt
           draft: false
           prerelease: ${{ contains(github.ref_name, '-rc.') }}

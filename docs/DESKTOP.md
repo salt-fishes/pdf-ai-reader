@@ -29,7 +29,8 @@ npm run desktop
 ```bash
 npm run package:desktop     # 可移植目录 release/win-unpacked（不依赖 electron-builder 二进制）
 npm run build:desktop:dir   # 只产出 release/win-unpacked，便于快速验证
-npm run build:desktop       # NSIS 安装包 + portable exe
+npm run build:installers    # NSIS .exe + MSI（按用户安装，无需代码签名）
+npm run build:desktop       # NSIS + MSI + portable
 ```
 
 `package:desktop` 复制 Electron 运行时、前端 `dist` 与 `server/dist`，生成可直接双击的 `PaperReader.exe`。OCR 运行时（ONNX Runtime、OpenCV、canvas）与模型不再进包，而是 `package:ocr-pack` 单独生成约 **26MB** 的组件包，首次在设置中开启 OCR 时下载。基础 zip 约 **146.5MB**，解压约 **317MB**。如果 `release/` 所在目录被 Windows 受控文件夹/杀毒软件拦截，可指定输出目录：
@@ -38,6 +39,15 @@ npm run build:desktop       # NSIS 安装包 + portable exe
 $env:PDF_AI_RELEASE_DIR="$env:TEMP\PaperReader"
 npm run package:desktop
 ```
+
+安装包由 electron-builder 生成：
+
+- NSIS：`release/paper-reader-v0.6.0-x64.exe`，支持选择安装目录、创建桌面与开始菜单快捷方式。
+- MSI：`release/paper-reader-v0.6.0-x64.msi`，使用 `build/zh-CN.wxl` 的 GBK 代码页；中文产品名、快捷方式与卸载项正常。
+- 两者都按当前用户安装到 `%LOCALAPPDATA%\Programs\PaperReader`，安装后的可执行文件为
+  `PaperReader.exe`，快捷方式显示“纸间”；不包含 `node_modules` 或 OCR 组件。
+- 首次构建 MSI 会下载 WiX，需能访问 GitHub；网络受限时先配置系统代理或 `HTTPS_PROXY`。
+- 未做代码签名，SmartScreen 会提示未知发布者。
 
 `build:desktop` 需要 electron-builder 下载 NSIS/winCodeSign 工具；网络受限时优先用 `package:desktop`。产物在 `release/`，图标在 `build/icon.ico`（由 `build/icon.svg` 经 `npm run icons` 生成）。
 
@@ -63,12 +73,14 @@ npm run package:desktop
 
 设置 → 关于 → **默认 PDF 应用**：
 
-- 点击“注册为 PDF 打开方式”只会写入当前用户的 `HKCU\Software\Classes` 关联，
-  并打开 Windows 默认应用设置；**不会**自动把纸间设为默认。
-- 需要在系统设置中选择“纸间”并确认，之后状态会显示为“纸间”。
-- Windows 10/11 不允许应用静默修改默认关联，这是系统限制，不是应用权限不足。
-- 移动可移植目录后，原注册路径会失效；设置页会提示“路径已变化”，点击“重新注册”即可。
-- “移除关联”只删除纸间的 ProgID、OpenWith 与 Capabilities，不修改 `.pdf` 的当前默认应用。
+- Windows 11 的“默认应用”列表只显示**系统级**注册（`HKLM`）。便携版或按用户安装时，
+  仅写 `HKCU` 只会出现在“打开方式”，不会出现在默认应用列表，这是系统行为。
+- “注册到系统（需要管理员）”会弹出一次 UAC，把 ProgID、OpenWithProgids、
+  `RegisteredApplications` 与 `Capabilities` 写入 `HKLM`，之后即可在默认应用列表中找到“纸间”。
+- “仅当前用户”不弹 UAC，只写 `HKCU`；适合只想通过“打开方式”临时选择的场景。
+- 注册本身**不会**改变默认应用；仍需在 Windows 设置中选择“纸间”并确认。
+- 移动可移植目录后，原注册路径会失效；状态会显示“路径已变化”，重新注册即可。
+- “移除关联”只删除纸间的注册项，不修改 `.pdf` 当前默认应用；系统级注册的移除同样需要 UAC。
   如果纸间当前是默认应用，需要先在 Windows 设置中改为其他应用。
 
 ## 检查更新

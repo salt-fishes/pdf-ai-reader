@@ -11,7 +11,7 @@
 | 阅读位置、对话、高亮、OCR 文本、页面尺寸、摘要分段 | IndexedDB                                                               | 未加密；可在设置中清空。                                                              |
 | 最近文档缓存                                       | IndexedDB                                                               | 单个文件 ≤24MB，总量 ≤64MB，最多 8 条；超出预算时按最近使用淘汰缓存字节，记录仍保留。 |
 | 界面偏好                                           | localStorage                                                            | 主题、助手形态、思考强度、上下文预算等。                                              |
-| PDF 打开方式（可选）                               | `HKCU\Software\Classes` 与 `HKCU\Software\PaperReader`                  | 只有点击“注册为 PDF 打开方式”后才写入；可在设置中移除。                               |
+| PDF 打开方式（可选）                               | `HKCU` 或 `HKLM` 的 `Software\Classes` 与 `Software\PaperReader`        | 只有点击注册后才写入；系统级注册需管理员授权，可在设置中移除。                        |
 | API Key、Base URL、模型允许列表                    | 本机代理（`server/data/provider.json`，桌面版在 `userData/data`）       | 不进入前端 bundle，不返回给浏览器。                                                   |
 | OCR 运行时与模型                                   | `server/models`、桌面版 `userData/ocr-runtime` 与 `userData/ocr-models` | 首次下载后可离线使用；安全软件拦截时运行时回退到 `%TEMP%/paper-reader-ocr`。          |
 

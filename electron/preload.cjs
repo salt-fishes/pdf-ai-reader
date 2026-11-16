@@ -4,8 +4,8 @@ contextBridge.exposeInMainWorld("paperReader", {
   checkForUpdates: () => ipcRenderer.invoke("app:check-for-updates"),
   pdfAssociation: {
     status: () => ipcRenderer.invoke("app:pdf-association-status"),
-    register: () => ipcRenderer.invoke("app:pdf-association-register"),
-    remove: () => ipcRenderer.invoke("app:pdf-association-remove"),
+    register: (scope) => ipcRenderer.invoke("app:pdf-association-register", scope),
+    remove: (scope) => ipcRenderer.invoke("app:pdf-association-remove", scope),
     openSettings: () => ipcRenderer.invoke("app:pdf-association-open-settings"),
   },
   versions: {

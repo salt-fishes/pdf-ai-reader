@@ -1,7 +1,7 @@
 {
   "name": "pdf-ai-reader",
   "private": true,
-  "version": "0.5.0",
+  "version": "0.6.0",
   "type": "module",
   "description": "Local-first PDF reader with an AI reading assistant",
   "main": "electron/main.mjs",
@@ -29,6 +29,7 @@
     "desktop": "npm run build && npm run build:server && electron .",
     "build:desktop": "npm run build && npm run build:server && electron-builder --win --x64",
     "build:desktop:dir": "npm run build && npm run build:server && electron-builder --win --x64 --dir",
+    "build:installers": "npm run build && npm run build:server && electron-builder --win nsis msi --x64",
     "package:desktop": "npm run build && npm run build:server && node scripts/package-desktop.mjs",
     "package:ocr-pack": "node scripts/package-ocr-pack.mjs",
     "preview": "vite preview",
@@ -107,7 +108,7 @@
   "build": {
     "appId": "cn.paperreader.app",
     "productName": "纸间",
-    "artifactName": "paper-reader-${version}-${arch}.${ext}",
+    "artifactName": "paper-reader-v${version}-${arch}.${ext}",
     "asar": false,
     "electronLanguages": [
       "zh-CN",
@@ -122,14 +123,17 @@
       "!dist/samples/**",
       "server/dist/**/*",
       "electron/**/*",
-      "package.json"
+      "package.json",
+      "!node_modules/**"
     ],
     "win": {
       "target": [
         "nsis",
+        "msi",
         "portable"
       ],
       "icon": "build/icon.ico",
+      "executableName": "PaperReader",
       "signAndEditExecutable": false
     },
     "nsis": {
@@ -139,8 +143,21 @@
       "createDesktopShortcut": true,
       "shortcutName": "纸间"
     },
+    "msi": {
+      "oneClick": false,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "纸间",
+      "runAfterFinish": true,
+      "warningsAsErrors": false,
+      "additionalLightArgs": [
+        "-loc",
+        "../../build/zh-CN.wxl"
+      ]
+    },
     "portable": {
-      "artifactName": "paper-reader-${version}-portable.${ext}"
+      "artifactName": "paper-reader-v${version}-portable.${ext}"
     }
   }
 }

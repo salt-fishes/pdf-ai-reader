@@ -24,6 +24,7 @@ npm run build
 npm run build:server
 npm run package:desktop
 npm run package:ocr-pack
+npm run build:installers
 ```
 
 手工回归：
@@ -34,17 +35,18 @@ npm run package:ocr-pack
 - 隐私/关于：版本、commit、构建日期来自构建注入；复制诊断信息不含 Key。
 - 检查更新：点一次才发请求；离线/限流有可读错误；不自动下载。
 - 外链走系统浏览器；代理只监听 `127.0.0.1`。
-- 基础 zip <160MB，OCR 组件包 <60MB，两者合计 <185MB。
+- 基础 zip <160MB，OCR 组件包 <60MB，两者合计 <185MB；NSIS/MSI 各 <160MB。
 - 无 `.env`、`server/models`、`server/data`、`node_modules` 与测试 PDF。
+- 安装包验证：安装到 `%LOCALAPPDATA%\Programs\PaperReader`，开始菜单显示“纸间”；卸载后目录与快捷方式消失。
 
 ## 发布
 
 ```bash
-npm version 0.4.0 --no-git-tag-version
-# 更新 CHANGELOG 的 [0.4.0] 段
-npm run check:version -- 0.4.0
-git add -A && git commit -m "release: v0.4.0"
-git tag -a v0.4.0 -m "纸间 v0.4.0"
+npm version 0.6.0 --no-git-tag-version
+# 更新 CHANGELOG 的 [0.6.0] 段
+npm run check:version -- 0.6.0
+git add -A && git commit -m "release: v0.6.0"
+git tag -a v0.6.0 -m "纸间 v0.6.0"
 git push origin main --tags
 ```
 
@@ -52,9 +54,9 @@ git push origin main --tags
 
 1. 校验 tag 与 `package.json` 版本一致。
 2. 跑 typecheck / lint / 单测 / build / build:server。
-3. 打包可移植目录与 OCR 组件包并分别压缩。
-4. 生成包含两个 zip 的 `SHA256SUMS.txt` 与 CHANGELOG 对应的 release notes。
-5. 上传基础 zip、OCR 组件 zip、checksum、notes；任一包超出预算直接失败。
+3. 打包可移植目录、OCR 组件包，并用 electron-builder 生成 NSIS 与 MSI。
+4. 生成包含两个 zip、NSIS、MSI 的 `SHA256SUMS.txt` 与 CHANGELOG 对应的 release notes。
+5. 上传便携 zip、OCR zip、NSIS、MSI、checksum、notes；任一包超出预算直接失败。
 
 ## 预发布与干跑
 

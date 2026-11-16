@@ -9,9 +9,12 @@ export type UpdateInfo = {
   publishedAt?: string;
 };
 
+export type PdfAssociationScope = "user" | "machine";
+
 export type PdfAssociationStatus = {
   supported: boolean;
   registered: boolean;
+  scope: PdfAssociationScope | null;
   stale: boolean;
   isDefault: boolean;
   currentDefault: string | null;
@@ -22,8 +25,8 @@ type DesktopBridge = {
   checkForUpdates?: () => Promise<UpdateInfo>;
   pdfAssociation?: {
     status: () => Promise<PdfAssociationStatus>;
-    register: () => Promise<PdfAssociationStatus>;
-    remove: () => Promise<PdfAssociationStatus>;
+    register: (scope?: PdfAssociationScope) => Promise<PdfAssociationStatus>;
+    remove: (scope?: PdfAssociationScope) => Promise<PdfAssociationStatus>;
     openSettings: () => Promise<PdfAssociationStatus>;
   };
   versions?: { electron?: string; chrome?: string };
@@ -109,6 +112,7 @@ function unsupportedAssociation(): PdfAssociationStatus {
   return {
     supported: false,
     registered: false,
+    scope: null,
     stale: false,
     isDefault: false,
     currentDefault: null,
@@ -122,18 +126,22 @@ export async function pdfAssociationStatus(): Promise<PdfAssociationStatus> {
     : unsupportedAssociation();
 }
 
-export async function registerPdfAssociation(): Promise<PdfAssociationStatus> {
+export async function registerPdfAssociation(
+  scope: PdfAssociationScope = "user",
+): Promise<PdfAssociationStatus> {
   if (!window.paperReader?.pdfAssociation) {
     throw new Error("只有 Windows 桌面版支持注册 PDF 打开方式。");
   }
-  return window.paperReader.pdfAssociation.register();
+  return window.paperReader.pdfAssociation.register(scope);
 }
 
-export async function removePdfAssociation(): Promise<PdfAssociationStatus> {
+export async function removePdfAssociation(
+  scope?: PdfAssociationScope,
+): Promise<PdfAssociationStatus> {
   if (!window.paperReader?.pdfAssociation) {
     throw new Error("只有 Windows 桌面版支持移除 PDF 打开方式。");
   }
-  return window.paperReader.pdfAssociation.remove();
+  return window.paperReader.pdfAssociation.remove(scope);
 }
 
 export async function openPdfDefaultApps(): Promise<PdfAssociationStatus> {
