@@ -8,7 +8,8 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.cidfonts import UnicodeCIDFont
 from reportlab.pdfgen import canvas
 
-OUT = Path(__file__).parent
+OUT = Path(__file__).parent / "pdf"
+OUT.mkdir(exist_ok=True)
 FONT = "STSong-Light"
 pdfmetrics.registerFont(UnicodeCIDFont(FONT))
 

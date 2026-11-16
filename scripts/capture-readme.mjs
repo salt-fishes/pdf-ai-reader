@@ -1,6 +1,7 @@
 import { chromium } from "@playwright/test";
 import { mkdirSync } from "node:fs";
 import sharp from "sharp";
+import { dropSample } from "./lib/sample.mjs";
 
 const OUT = "docs/screenshots";
 const RAW = "C:/Users/15572/AppData/Local/Temp/opencode/readme-raw";
@@ -17,17 +18,7 @@ const page = await context.newPage();
 await page.goto("http://127.0.0.1:5173/");
 
 async function drop(name) {
-  await page.evaluate(async (fileName) => {
-    const blob = await (await fetch(`/samples/${fileName}`)).blob();
-    const file = new File([blob], fileName, { type: "application/pdf" });
-    const transfer = new DataTransfer();
-    transfer.items.add(file);
-    document
-      .querySelector("#root > div")
-      ?.dispatchEvent(
-        new DragEvent("drop", { dataTransfer: transfer, bubbles: true, cancelable: true }),
-      );
-  }, name);
+  await dropSample(page, name);
   await page.locator('[data-page="1"] .textLayer span').first().waitFor({ timeout: 20_000 });
   await page.waitForTimeout(700);
 }

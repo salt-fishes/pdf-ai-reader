@@ -1,5 +1,6 @@
 import { chromium } from "@playwright/test";
 import { mkdirSync } from "node:fs";
+import { dropSample } from "./lib/sample.mjs";
 
 const OUT = new URL("../docs", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1");
 mkdirSync(OUT, { recursive: true });
@@ -8,17 +9,7 @@ const browser = await chromium.launch({ channel: "msedge" });
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, locale: "zh-CN" });
 
 await page.goto("http://127.0.0.1:5173/");
-await page.evaluate(async () => {
-  const blob = await (await fetch("/samples/sample-cn.pdf")).blob();
-  const file = new File([blob], "sample-cn.pdf", { type: "application/pdf" });
-  const transfer = new DataTransfer();
-  transfer.items.add(file);
-  document
-    .querySelector("#root > div")
-    ?.dispatchEvent(
-      new DragEvent("drop", { dataTransfer: transfer, bubbles: true, cancelable: true }),
-    );
-});
+await dropSample(page, "sample-cn.pdf");
 await page.locator('[data-page="1"] .textLayer span').first().waitFor({ timeout: 20_000 });
 await page.waitForTimeout(800);
 await page.screenshot({ path: `${OUT}/app-reading.png` });

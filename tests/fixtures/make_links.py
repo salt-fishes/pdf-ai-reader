@@ -4,7 +4,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.cidfonts import UnicodeCIDFont
 from reportlab.pdfgen import canvas
 
-OUT = Path(__file__).parent / "sample-links.pdf"
+OUT = Path(__file__).parent / "pdf" / "sample-links.pdf"
 FONT = "STSong-Light"
 pdfmetrics.registerFont(UnicodeCIDFont(FONT))
 W, H = A4

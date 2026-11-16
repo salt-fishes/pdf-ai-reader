@@ -1,5 +1,6 @@
 import { chromium } from "@playwright/test";
 import path from "node:path";
+import { dropSample } from "./lib/sample.mjs";
 
 const BASE = "http://127.0.0.1:8787";
 const outDir = path.resolve("docs");
@@ -12,17 +13,7 @@ page.on("pageerror", (error) => errors.push(error.message));
 
 await page.goto(`${BASE}/`, { waitUntil: "domcontentloaded" });
 await page.waitForSelector("#root > div");
-await page.evaluate(async () => {
-  const blob = await (await fetch("/samples/sample-cn.pdf")).blob();
-  const file = new File([blob], "sample-cn.pdf", { type: "application/pdf" });
-  const transfer = new DataTransfer();
-  transfer.items.add(file);
-  document
-    .querySelector("#root > div")
-    ?.dispatchEvent(
-      new DragEvent("drop", { dataTransfer: transfer, bubbles: true, cancelable: true }),
-    );
-});
+await dropSample(page, "sample-cn.pdf");
 await page.locator("header").filter({ hasText: "sample-cn.pdf" }).waitFor();
 await page.locator('[data-page="1"] .textLayer span').first().waitFor();
 
