@@ -155,10 +155,7 @@ export async function saveOcrRecord(record: OcrRecord): Promise<void> {
   await set(ocrKey(record.hash), { ...record, updatedAt: Date.now() });
 }
 
-export async function loadOcrPage(
-  hash: string,
-  page: number,
-): Promise<OcrPageRecord | null> {
+export async function loadOcrPage(hash: string, page: number): Promise<OcrPageRecord | null> {
   return (await get<OcrPageRecord>(ocrPageKey(hash, page))) ?? null;
 }
 
@@ -201,10 +198,7 @@ export async function recordRecentDocument(
   record: RecentDocumentRecord,
 ): Promise<RecentDocumentRecord[]> {
   const current = await loadRecentDocuments();
-  const next = [
-    record,
-    ...current.filter((item) => item.hash !== record.hash),
-  ]
+  const next = [record, ...current.filter((item) => item.hash !== record.hash)]
     .sort((a, b) => b.updatedAt - a.updatedAt)
     .slice(0, 8);
   await saveRecentDocuments(next);
@@ -238,9 +232,7 @@ export async function saveHighlightsRecord(record: HighlightsRecord): Promise<vo
 
 export async function hashBytes(bytes: ArrayBuffer): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", bytes);
-  return [...new Uint8Array(digest)]
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 const SETTINGS_KEY = "pdf-ai-reader:settings:v1";

@@ -111,9 +111,7 @@ export function Sidebar() {
 
   const exportHighlights = (format: "md" | "json") => {
     if (!highlights.length) return;
-    const sorted = [...highlights].sort(
-      (a, b) => a.page - b.page || a.createdAt - b.createdAt,
-    );
+    const sorted = [...highlights].sort((a, b) => a.page - b.page || a.createdAt - b.createdAt);
     if (format === "json") {
       const payload = {
         document: docName,
@@ -140,7 +138,11 @@ export function Sidebar() {
           lines.push(`> ${label}${item.text.replace(/\n+/g, "\n> ")}`, "");
         }
       }
-      downloadText(`${safeFileName(docName)}-highlights.md`, lines.join("\n"), "text/markdown;charset=utf-8");
+      downloadText(
+        `${safeFileName(docName)}-highlights.md`,
+        lines.join("\n"),
+        "text/markdown;charset=utf-8",
+      );
     }
     useAssistant.getState().notify(`已导出 ${sorted.length} 条高亮`, "success");
   };
@@ -227,40 +229,40 @@ export function Sidebar() {
                     align: "top",
                   });
                 return (
-                <div
-                  key={highlight.id}
-                  className={styles.highlightItem}
-                  role="button"
-                  tabIndex={0}
-                  onClick={jump}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      jump();
-                    }
-                  }}
-                >
-                  <div className={styles.highlightText}>{highlight.text}</div>
-                  <div className={styles.highlightMeta}>
-                    <span>
-                      第 {highlight.page} 页
-                      {highlight.source ? (
-                        <span className={styles.highlightOcr} title="该高亮来自 OCR 识别文字">
-                          OCR
-                        </span>
-                      ) : null}
-                    </span>
-                    <button
-                      aria-label="删除高亮"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        removeHighlight(highlight.id);
-                      }}
-                    >
-                      <WinIcon glyph="clear" size={12} />
-                    </button>
+                  <div
+                    key={highlight.id}
+                    className={styles.highlightItem}
+                    role="button"
+                    tabIndex={0}
+                    onClick={jump}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        jump();
+                      }
+                    }}
+                  >
+                    <div className={styles.highlightText}>{highlight.text}</div>
+                    <div className={styles.highlightMeta}>
+                      <span>
+                        第 {highlight.page} 页
+                        {highlight.source ? (
+                          <span className={styles.highlightOcr} title="该高亮来自 OCR 识别文字">
+                            OCR
+                          </span>
+                        ) : null}
+                      </span>
+                      <button
+                        aria-label="删除高亮"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          removeHighlight(highlight.id);
+                        }}
+                      >
+                        <WinIcon glyph="clear" size={12} />
+                      </button>
+                    </div>
                   </div>
-                </div>
                 );
               })}
             </div>

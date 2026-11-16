@@ -15,7 +15,9 @@ await page.evaluate(async () => {
   transfer.items.add(file);
   document
     .querySelector("#root > div")
-    ?.dispatchEvent(new DragEvent("drop", { dataTransfer: transfer, bubbles: true, cancelable: true }));
+    ?.dispatchEvent(
+      new DragEvent("drop", { dataTransfer: transfer, bubbles: true, cancelable: true }),
+    );
 });
 await page.locator('[data-page="1"] .textLayer span').first().waitFor({ timeout: 20_000 });
 await page.waitForTimeout(800);
@@ -23,9 +25,9 @@ await page.screenshot({ path: `${OUT}/app-reading.png` });
 
 await page.keyboard.press("Control+J");
 await page.waitForTimeout(500);
-await page.locator('[data-assistant-panel] textarea').fill("第 2 页的主要结论是什么？");
+await page.locator("[data-assistant-panel] textarea").fill("第 2 页的主要结论是什么？");
 await page.locator('[data-assistant-panel] button[aria-label="发送"]').click();
-await page.locator('[data-assistant-panel]').getByText("本地 mock 模型", { exact: false }).waitFor({
+await page.locator("[data-assistant-panel]").getByText("本地 mock 模型", { exact: false }).waitFor({
   timeout: 20_000,
 });
 await page.locator('[data-assistant-panel] button[aria-label="发送"]').waitFor({ timeout: 20_000 });

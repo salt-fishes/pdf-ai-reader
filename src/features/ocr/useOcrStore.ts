@@ -263,9 +263,7 @@ export const useOcr = create<OcrState>((set, get) => {
         // The page the reader is looking at now wins over older high-priority
         // pages that were only briefly visible.
         set((state) => ({
-          queue: state.queue.filter(
-            (item) => item.priority !== "high" || item.page === page,
-          ),
+          queue: state.queue.filter((item) => item.priority !== "high" || item.page === page),
         }));
       }
       void get().ensurePage(page, priority);

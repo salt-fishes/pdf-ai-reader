@@ -49,17 +49,17 @@ npm run build:desktop     # Windows NSIS installer + portable exe
 
 Provider settings can be written in `server/.env` **or** from Settings → Model service (stored in `server/data/provider.json`, gitignored). The browser never receives the key; it only sees a boolean and a 4-character hint.
 
-| Variable | Purpose |
-|---|---|
-| `AI_BASE_URL` | OpenAI-compatible endpoint, default `https://api.deepseek.com` |
-| `AI_API_KEY` | server-side key |
-| `AI_MODEL` | default model |
-| `AI_MODEL_ALLOW` | comma-separated switchable models |
-| `MOCK_AI` | `1` enables the local mock stream |
-| `PORT` / `HOST` | default `8787` / `127.0.0.1` |
-| `OCR_MODEL_BASE_URL` | optional OCR model mirror |
-| `OCR_MODEL_DIR` | optional OCR model directory |
-| `PDF_AI_DATA_DIR` | optional writable data directory (desktop uses Electron userData) |
+| Variable             | Purpose                                                           |
+| -------------------- | ----------------------------------------------------------------- |
+| `AI_BASE_URL`        | OpenAI-compatible endpoint, default `https://api.deepseek.com`    |
+| `AI_API_KEY`         | server-side key                                                   |
+| `AI_MODEL`           | default model                                                     |
+| `AI_MODEL_ALLOW`     | comma-separated switchable models                                 |
+| `MOCK_AI`            | `1` enables the local mock stream                                 |
+| `PORT` / `HOST`      | default `8787` / `127.0.0.1`                                      |
+| `OCR_MODEL_BASE_URL` | optional OCR model mirror                                         |
+| `OCR_MODEL_DIR`      | optional OCR model directory                                      |
+| `PDF_AI_DATA_DIR`    | optional writable data directory (desktop uses Electron userData) |
 
 ## Privacy
 

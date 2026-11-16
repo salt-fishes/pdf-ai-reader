@@ -10,8 +10,7 @@ import { PageView } from "./PageView";
 import styles from "./PdfViewer.module.css";
 
 const reducedMotion = () =>
-  typeof window !== "undefined" &&
-  window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 const PAGE_GAP = 28;
 const PADDING_TOP = 28;
@@ -145,23 +144,20 @@ export function PdfViewer() {
   const [viewportHeight, setViewportHeight] = useState(0);
   const [scrollTop, setScrollTop] = useState(0);
 
-  const applyPageSizes = useCallback(
-    (next: Array<{ width: number; height: number }>) => {
-      const previous = pageSizesRef.current;
-      if (previous.length === next.length && viewportRef.current) {
-        const index = Math.max(0, useViewer.getState().currentPage - 1);
-        const scale = useViewer.getState().zoom * PDF_TO_CSS_UNITS;
-        let delta = 0;
-        for (let i = 0; i < index; i += 1) {
-          delta += (next[i].height - previous[i].height) * scale;
-        }
-        if (delta !== 0) pendingShift.current += delta;
+  const applyPageSizes = useCallback((next: Array<{ width: number; height: number }>) => {
+    const previous = pageSizesRef.current;
+    if (previous.length === next.length && viewportRef.current) {
+      const index = Math.max(0, useViewer.getState().currentPage - 1);
+      const scale = useViewer.getState().zoom * PDF_TO_CSS_UNITS;
+      let delta = 0;
+      for (let i = 0; i < index; i += 1) {
+        delta += (next[i].height - previous[i].height) * scale;
       }
-      pageSizesRef.current = next;
-      setPageSizes(next);
-    },
-    [],
-  );
+      if (delta !== 0) pendingShift.current += delta;
+    }
+    pageSizesRef.current = next;
+    setPageSizes(next);
+  }, []);
 
   useEffect(() => {
     void ocrInit();
@@ -373,8 +369,7 @@ export function PdfViewer() {
       top,
       // Long jumps mount far fewer pages when they are instant; short jumps
       // keep the smooth motion readers expect.
-      behavior:
-        reducedMotion() || distance > viewport.clientHeight * 3 ? "auto" : "smooth",
+      behavior: reducedMotion() || distance > viewport.clientHeight * 3 ? "auto" : "smooth",
     });
   }, [scrollTarget, numPages, sizeHint.height, scale]);
 
@@ -522,7 +517,10 @@ export function PdfViewer() {
             <br />
             只有你明确选中的页、文字与截图才会发给模型。
           </p>
-          <button className={styles.primary} onClick={() => pickPdfFile((file) => void openFile(file))}>
+          <button
+            className={styles.primary}
+            onClick={() => pickPdfFile((file) => void openFile(file))}
+          >
             选择 PDF 文件
           </button>
           <div className={styles.hint}>也可以把 PDF 拖到这里 · Ctrl + O</div>
@@ -557,7 +555,10 @@ export function PdfViewer() {
           <div className="spin" style={{ margin: "0 auto 12px", width: 20, height: 20 }} />
           正在解析文档…
           <div className={styles.progress}>
-            <div className={styles.progressFill} style={{ width: `${Math.round(progress * 100)}%` }} />
+            <div
+              className={styles.progressFill}
+              style={{ width: `${Math.round(progress * 100)}%` }}
+            />
           </div>
         </div>
       </div>
@@ -581,9 +582,7 @@ export function PdfViewer() {
       tabIndex={-1}
     >
       <div ref={pagesRef} className={styles.pages} aria-label={`${docName}，共 ${numPages} 页`}>
-        {beforeHeight > 0 ? (
-          <div aria-hidden="true" style={{ height: beforeHeight }} />
-        ) : null}
+        {beforeHeight > 0 ? <div aria-hidden="true" style={{ height: beforeHeight }} /> : null}
         {Array.from({ length: windowRange.end - windowRange.start }, (_, index) => {
           const page = windowRange.start + index + 1;
           return (
@@ -596,11 +595,11 @@ export function PdfViewer() {
             />
           );
         })}
-        {afterHeight > 0 ? (
-          <div aria-hidden="true" style={{ height: afterHeight }} />
-        ) : null}
+        {afterHeight > 0 ? <div aria-hidden="true" style={{ height: afterHeight }} /> : null}
       </div>
-      <span className="visually-hidden">当前第 {currentPage} 页，共 {numPages} 页</span>
+      <span className="visually-hidden">
+        当前第 {currentPage} 页，共 {numPages} 页
+      </span>
     </div>
   );
 }

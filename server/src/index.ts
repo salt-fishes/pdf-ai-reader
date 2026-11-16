@@ -19,7 +19,6 @@ import {
 loadEnv({ path: fileURLToPath(new URL("../.env", import.meta.url)) });
 loadEnv();
 
-
 const PORT = Number(process.env.PORT ?? 8787);
 const HOST = process.env.HOST ?? "127.0.0.1";
 const APP_ORIGIN = process.env.APP_ORIGIN ?? "http://127.0.0.1:5173";
@@ -40,11 +39,7 @@ function normalizeBaseUrl(value: string): string {
 }
 
 function normalizeAllow(value: unknown): string[] {
-  const list = Array.isArray(value)
-    ? value
-    : typeof value === "string"
-      ? value.split(",")
-      : [];
+  const list = Array.isArray(value) ? value : typeof value === "string" ? value.split(",") : [];
   return [...new Set(list.map((item) => String(item).trim()).filter(Boolean))];
 }
 
@@ -88,7 +83,10 @@ async function saveProvider(next: {
   apiKey?: string;
 }): Promise<void> {
   await mkdir(DATA_DIR, { recursive: true });
-  await writeFile(PROVIDER_FILE, `${JSON.stringify(next, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
+  await writeFile(PROVIDER_FILE, `${JSON.stringify(next, null, 2)}\n`, {
+    encoding: "utf8",
+    mode: 0o600,
+  });
 }
 
 const MODEL_RE = /^[a-zA-Z0-9._:/-]{1,96}$/;
@@ -109,9 +107,7 @@ const ALLOWED_ORIGINS = new Set([
   "http://localhost:5173",
 ]);
 
-function trustedMutation(c: {
-  req: { header: (name: string) => string | undefined };
-}): boolean {
+function trustedMutation(c: { req: { header: (name: string) => string | undefined } }): boolean {
   const origin = c.req.header("origin");
   if (origin && !ALLOWED_ORIGINS.has(origin)) return false;
   const site = c.req.header("sec-fetch-site");
@@ -119,9 +115,7 @@ function trustedMutation(c: {
   return true;
 }
 
-function isJsonRequest(c: {
-  req: { header: (name: string) => string | undefined };
-}): boolean {
+function isJsonRequest(c: { req: { header: (name: string) => string | undefined } }): boolean {
   return /^application\/json\b/i.test(c.req.header("content-type") ?? "");
 }
 
@@ -163,9 +157,11 @@ function messageText(message: ChatMessage): string {
   if (typeof message.content === "string") return message.content;
   if (!Array.isArray(message.content)) return "";
   return message.content
-    .map((part) => (part && typeof part === "object" && (part as { type?: string }).type === "text"
-      ? String((part as { text?: string }).text ?? "")
-      : ""))
+    .map((part) =>
+      part && typeof part === "object" && (part as { type?: string }).type === "text"
+        ? String((part as { text?: string }).text ?? "")
+        : "",
+    )
     .join("\n");
 }
 
@@ -326,7 +322,8 @@ app.post("/api/provider", async (c) => {
   } catch {
     return jsonError(400, "invalid_base_url", "Base URL 必须是 http(s) 地址");
   }
-  const model = typeof body.model === "string" && body.model.trim() ? body.model.trim() : provider.model;
+  const model =
+    typeof body.model === "string" && body.model.trim() ? body.model.trim() : provider.model;
   if (!MODEL_RE.test(model)) {
     return jsonError(400, "invalid_model", "模型名不合法");
   }
@@ -388,7 +385,12 @@ app.get("/api/models", async (c) => {
     });
     if (!upstream.ok) {
       const text = await upstream.text();
-      return jsonError(upstream.status, "upstream_error", `上游返回 ${upstream.status}`, text.slice(0, 300));
+      return jsonError(
+        upstream.status,
+        "upstream_error",
+        `上游返回 ${upstream.status}`,
+        text.slice(0, 300),
+      );
     }
     const payload = (await upstream.json()) as { data?: Array<{ id?: string }> };
     const discovered = (payload.data ?? [])
@@ -399,7 +401,11 @@ app.get("/api/models", async (c) => {
       ? provider.modelAllow.filter((id) => discovered.includes(id))
       : discovered;
     return c.json({
-      models: models.length ? models : provider.modelAllow.length ? provider.modelAllow : [provider.model],
+      models: models.length
+        ? models
+        : provider.modelAllow.length
+          ? provider.modelAllow
+          : [provider.model],
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown";
@@ -474,7 +480,9 @@ app.post("/api/ocr", async (c) => {
       return jsonError(400, "invalid_image", "image 必须是 PNG/JPEG data URL");
     }
     bytes = Buffer.from(match[1], "base64");
-  } else if (/^(image\/jpeg|image\/png|image\/webp|application\/octet-stream)\b/i.test(contentType)) {
+  } else if (
+    /^(image\/jpeg|image\/png|image\/webp|application\/octet-stream)\b/i.test(contentType)
+  ) {
     bytes = Buffer.from(await c.req.arrayBuffer());
   } else {
     return jsonError(415, "invalid_content_type", "请发送 JPEG/PNG 图片字节");
@@ -535,7 +543,12 @@ app.post("/api/chat", async (c) => {
 
   const messages = validateMessages(body.messages);
   if (!messages) {
-    return jsonError(400, "invalid_messages", "messages 结构不合法", "仅支持 system/user/assistant，最多 4 张图片");
+    return jsonError(
+      400,
+      "invalid_messages",
+      "messages 结构不合法",
+      "仅支持 system/user/assistant，最多 4 张图片",
+    );
   }
 
   if (MOCK_AI) {
@@ -550,11 +563,15 @@ app.post("/api/chat", async (c) => {
     return jsonError(400, "model_not_allowed", "该模型不在允许列表内");
   }
   if (!provider.modelAllow.length && requestedModel !== provider.model) {
-    return jsonError(400, "model_not_allowed", "服务端只允许使用配置中的模型", "如需切换，请设置模型允许列表");
+    return jsonError(
+      400,
+      "model_not_allowed",
+      "服务端只允许使用配置中的模型",
+      "如需切换，请设置模型允许列表",
+    );
   }
 
-  const effort =
-    typeof body.effort === "string" ? body.effort : null;
+  const effort = typeof body.effort === "string" ? body.effort : null;
   if (effort !== null && !["none", "low", "high", "max"].includes(effort)) {
     return jsonError(400, "invalid_effort", "思考强度不合法", "可选 none / low / high / max");
   }
@@ -647,5 +664,7 @@ app.onError((error) => {
 });
 
 serve({ fetch: app.fetch, port: PORT, hostname: HOST }, (info) => {
-  console.log(`[api] http://${HOST}:${info.port}  model=${provider.model}  key=${provider.apiKey ? "set" : "missing"}`);
+  console.log(
+    `[api] http://${HOST}:${info.port}  model=${provider.model}  key=${provider.apiKey ? "set" : "missing"}`,
+  );
 });

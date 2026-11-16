@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { countInvalidCitations, extractCitedPages, splitCitations } from "../../src/lib/ai/citations";
+import {
+  countInvalidCitations,
+  extractCitedPages,
+  splitCitations,
+} from "../../src/lib/ai/citations";
 
 describe("splitCitations", () => {
   it("splits double-bracket citations into buttons", () => {

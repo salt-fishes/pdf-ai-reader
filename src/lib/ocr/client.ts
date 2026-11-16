@@ -57,13 +57,13 @@ export class OcrClientError extends Error {
 }
 
 async function readError(response: Response): Promise<OcrClientError> {
-  const payload = (await response.json().catch(() => null)) as
-    | { error?: { code?: string; message?: string; hint?: string } }
-    | null;
-  return new OcrClientError(
-    payload?.error?.message ?? `OCR 请求失败（${response.status}）`,
-    { hint: payload?.error?.hint, code: payload?.error?.code },
-  );
+  const payload = (await response.json().catch(() => null)) as {
+    error?: { code?: string; message?: string; hint?: string };
+  } | null;
+  return new OcrClientError(payload?.error?.message ?? `OCR 请求失败（${response.status}）`, {
+    hint: payload?.error?.hint,
+    code: payload?.error?.code,
+  });
 }
 
 export async function fetchOcrStatus(): Promise<OcrStatus> {
@@ -122,9 +122,7 @@ export async function recognizeImageBytes(
   let response: Response;
   try {
     const timeout = AbortSignal.timeout(120_000);
-    const signal = options.signal
-      ? AbortSignal.any([options.signal, timeout])
-      : timeout;
+    const signal = options.signal ? AbortSignal.any([options.signal, timeout]) : timeout;
     response = await fetch("/api/ocr", {
       method: "POST",
       headers: {

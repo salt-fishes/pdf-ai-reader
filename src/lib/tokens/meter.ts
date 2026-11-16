@@ -47,11 +47,7 @@ export function envelopeHash(parts: Array<string | number | undefined | null>): 
   return `${(h1 >>> 0).toString(16)}${(h2 >>> 0).toString(16)}`;
 }
 
-export function projectTokens(
-  anchor: Anchor | null,
-  surfaceNow: number,
-  hash: string,
-): number {
+export function projectTokens(anchor: Anchor | null, surfaceNow: number, hash: string): number {
   if (!anchor || anchor.envelopeHash !== hash) return Math.max(0, surfaceNow);
   const delta = surfaceNow - anchor.surfaceEstimate;
   return Math.max(0, anchor.promptTokens + delta);
@@ -70,9 +66,11 @@ export function usageFromProvider(raw: unknown): UsageBuckets | null {
   const completion = num("completion_tokens") || num("output_tokens");
   if (!prompt && !completion) return null;
 
-  const details = (u.prompt_tokens_details ?? u.input_tokens_details ?? {}) as Record<string, unknown>;
-  const imageTokens =
-    typeof details.image_tokens === "number" ? details.image_tokens : 0;
+  const details = (u.prompt_tokens_details ?? u.input_tokens_details ?? {}) as Record<
+    string,
+    unknown
+  >;
+  const imageTokens = typeof details.image_tokens === "number" ? details.image_tokens : 0;
 
   const cacheRead =
     num("prompt_cache_hit_tokens") ||

@@ -108,8 +108,7 @@ const LUCIDE: Record<string, IconNode> = {
   globe: Globe,
 };
 
-const windows =
-  typeof navigator !== "undefined" && /Windows/i.test(navigator.userAgent);
+const windows = typeof navigator !== "undefined" && /Windows/i.test(navigator.userAgent);
 
 export function WinIcon({ glyph, size = 16, className, title }: WinIconProps) {
   const fallback = LUCIDE[glyph];

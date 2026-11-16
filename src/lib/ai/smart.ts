@@ -14,15 +14,101 @@ const ASCII_WORD = /[a-z0-9][a-z0-9._-]*/g;
 
 /** Very common question words and function words add noise, not signal. */
 const STOP_TERMS = new Set([
-  "什么", "么是", "是什", "怎么", "怎样", "如何", "为何", "哪些", "哪个", "多少",
-  "是否", "可以", "能否", "请问", "请", "介绍", "说明", "解释", "总结", "概括",
-  "主要", "内容", "这一", "这个", "那个", "这些", "那些", "一下", "一种", "一个",
-  "我们", "你们", "他们", "它们", "自己", "以及", "并且", "但是", "因为", "所以",
-  "如果", "然后", "其中", "而且", "不过", "因此", "由于", "通过", "对于", "关于",
-  "根据", "没有", "不是", "就是", "还是", "或者", "问题", "第一", "第二", "第三",
-  "的", "了", "是", "在", "和", "与", "及", "或", "对", "把", "被", "将", "从",
-  "到", "中", "上", "下", "里", "这", "那", "有", "也", "都", "而", "其", "之",
-  "吗", "呢", "啊", "吧", "页", "第", "说", "讲", "写",
+  "什么",
+  "么是",
+  "是什",
+  "怎么",
+  "怎样",
+  "如何",
+  "为何",
+  "哪些",
+  "哪个",
+  "多少",
+  "是否",
+  "可以",
+  "能否",
+  "请问",
+  "请",
+  "介绍",
+  "说明",
+  "解释",
+  "总结",
+  "概括",
+  "主要",
+  "内容",
+  "这一",
+  "这个",
+  "那个",
+  "这些",
+  "那些",
+  "一下",
+  "一种",
+  "一个",
+  "我们",
+  "你们",
+  "他们",
+  "它们",
+  "自己",
+  "以及",
+  "并且",
+  "但是",
+  "因为",
+  "所以",
+  "如果",
+  "然后",
+  "其中",
+  "而且",
+  "不过",
+  "因此",
+  "由于",
+  "通过",
+  "对于",
+  "关于",
+  "根据",
+  "没有",
+  "不是",
+  "就是",
+  "还是",
+  "或者",
+  "问题",
+  "第一",
+  "第二",
+  "第三",
+  "的",
+  "了",
+  "是",
+  "在",
+  "和",
+  "与",
+  "及",
+  "或",
+  "对",
+  "把",
+  "被",
+  "将",
+  "从",
+  "到",
+  "中",
+  "上",
+  "下",
+  "里",
+  "这",
+  "那",
+  "有",
+  "也",
+  "都",
+  "而",
+  "其",
+  "之",
+  "吗",
+  "呢",
+  "啊",
+  "吧",
+  "页",
+  "第",
+  "说",
+  "讲",
+  "写",
 ]);
 
 /** Chinese bigrams (per the plan) plus lowercase ASCII words. */
@@ -61,15 +147,13 @@ type Chunk = {
 const SENTENCE_END = /[。！？!?；;]/;
 
 function normalizePageText(text: string): string {
-  return text.replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+  return text
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
-function chunkPage(
-  page: number,
-  text: string,
-  size: number,
-  overlap: number,
-): Chunk[] {
+function chunkPage(page: number, text: string, size: number, overlap: number): Chunk[] {
   const source = text;
   if (!source) return [];
 
@@ -170,8 +254,7 @@ export function selectSmartContext(
     }
   }
 
-  const averageLength =
-    chunks.reduce((sum, chunk) => sum + chunk.len, 0) / chunks.length;
+  const averageLength = chunks.reduce((sum, chunk) => sum + chunk.len, 0) / chunks.length;
   const k1 = 1.2;
   const b = 0.75;
 
@@ -192,9 +275,7 @@ export function selectSmartContext(
     .filter((item) => item.score > 0)
     .sort(
       (a, b2) =>
-        b2.score - a.score ||
-        a.chunk.page - b2.chunk.page ||
-        a.chunk.start - b2.chunk.start,
+        b2.score - a.score || a.chunk.page - b2.chunk.page || a.chunk.start - b2.chunk.start,
     );
 
   const picked: Chunk[] = [];

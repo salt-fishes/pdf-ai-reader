@@ -10,10 +10,7 @@ export function formatBytes(bytes: number): string {
 export function fileKind(file: File): "pdf" | "image" | "text" | null {
   if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) return "pdf";
   if (file.type.startsWith("image/")) return "image";
-  if (
-    file.type.startsWith("text/") ||
-    /\.(txt|md|markdown|csv|json)$/i.test(file.name)
-  ) {
+  if (file.type.startsWith("text/") || /\.(txt|md|markdown|csv|json)$/i.test(file.name)) {
     return "text";
   }
   return null;
@@ -23,7 +20,10 @@ export function readTextFile(file: File): Promise<string> {
   return file.text();
 }
 
-export function readImageFile(file: File, maxEdge = 1568): Promise<{ dataUrl: string; width: number; height: number }> {
+export function readImageFile(
+  file: File,
+  maxEdge = 1568,
+): Promise<{ dataUrl: string; width: number; height: number }> {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
     const image = new Image();

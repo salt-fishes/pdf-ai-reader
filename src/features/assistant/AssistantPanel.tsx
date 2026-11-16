@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { MorphIcon } from "morphicons/react";
 import { PanelRight, PictureInPicture2 } from "lucide";
 import { WinIcon } from "../../components/icons/WinIcon";
@@ -31,8 +37,7 @@ function fabRect(): { x: number; y: number; width: number; height: number } {
   };
 }
 
-const reduced = () =>
-  window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const reduced = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 function formatSessionTime(timestamp: number): string {
   const date = new Date(timestamp);
@@ -98,9 +103,8 @@ export function AssistantPanel() {
     : boosted
       ? Math.min(540, window.innerHeight - 140)
       : rect.height;
-  const effectiveTop = boosted && !rect.manual
-    ? Math.max(56, rect.top + rect.height - effectiveHeight)
-    : rect.top;
+  const effectiveTop =
+    boosted && !rect.manual ? Math.max(56, rect.top + rect.height - effectiveHeight) : rect.top;
 
   useEffect(() => {
     setRect(panel);
@@ -432,7 +436,7 @@ export function AssistantPanel() {
 
   if (status !== "open") return null;
 
-  const list = modelList.length ? modelList : config?.models ?? [model];
+  const list = modelList.length ? modelList : (config?.models ?? [model]);
   const allowed = new Set(config?.models ?? [model]);
   const orderedSessions = [...sessions].sort((a, b) => b.updatedAt - a.updatedAt);
 
@@ -461,10 +465,7 @@ export function AssistantPanel() {
               }
         }
       >
-        <div
-          className={styles.panelHeader}
-          onPointerDown={sidebar ? undefined : startDrag}
-        >
+        <div className={styles.panelHeader} onPointerDown={sidebar ? undefined : startDrag}>
           <div ref={modelRef}>
             <button
               className={styles.modelButton}
@@ -480,9 +481,7 @@ export function AssistantPanel() {
             </button>
             {modelOpen ? (
               <div className={styles.modelPicker} role="menu">
-                <div className={styles.modelPickerTitle}>
-                  模型{modelBusy ? " · 正在读取…" : ""}
-                </div>
+                <div className={styles.modelPickerTitle}>模型{modelBusy ? " · 正在读取…" : ""}</div>
                 {list.map((item) => (
                   <button
                     key={item}
@@ -759,14 +758,38 @@ export function AssistantPanel() {
           />
         ) : (
           <>
-            <div className={`${styles.resize} ${styles.resizeN}`} onPointerDown={(event) => startResize(event, "n")} />
-            <div className={`${styles.resize} ${styles.resizeS}`} onPointerDown={(event) => startResize(event, "s")} />
-            <div className={`${styles.resize} ${styles.resizeE}`} onPointerDown={(event) => startResize(event, "e")} />
-            <div className={`${styles.resize} ${styles.resizeW}`} onPointerDown={(event) => startResize(event, "w")} />
-            <div className={`${styles.resize} ${styles.resizeNE}`} onPointerDown={(event) => startResize(event, "ne")} />
-            <div className={`${styles.resize} ${styles.resizeNW}`} onPointerDown={(event) => startResize(event, "nw")} />
-            <div className={`${styles.resize} ${styles.resizeSE}`} onPointerDown={(event) => startResize(event, "se")} />
-            <div className={`${styles.resize} ${styles.resizeSW}`} onPointerDown={(event) => startResize(event, "sw")} />
+            <div
+              className={`${styles.resize} ${styles.resizeN}`}
+              onPointerDown={(event) => startResize(event, "n")}
+            />
+            <div
+              className={`${styles.resize} ${styles.resizeS}`}
+              onPointerDown={(event) => startResize(event, "s")}
+            />
+            <div
+              className={`${styles.resize} ${styles.resizeE}`}
+              onPointerDown={(event) => startResize(event, "e")}
+            />
+            <div
+              className={`${styles.resize} ${styles.resizeW}`}
+              onPointerDown={(event) => startResize(event, "w")}
+            />
+            <div
+              className={`${styles.resize} ${styles.resizeNE}`}
+              onPointerDown={(event) => startResize(event, "ne")}
+            />
+            <div
+              className={`${styles.resize} ${styles.resizeNW}`}
+              onPointerDown={(event) => startResize(event, "nw")}
+            />
+            <div
+              className={`${styles.resize} ${styles.resizeSE}`}
+              onPointerDown={(event) => startResize(event, "se")}
+            />
+            <div
+              className={`${styles.resize} ${styles.resizeSW}`}
+              onPointerDown={(event) => startResize(event, "sw")}
+            />
             <span className={styles.gripper} aria-hidden="true" />
           </>
         )}

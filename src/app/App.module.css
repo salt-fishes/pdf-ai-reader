@@ -5,7 +5,9 @@
   overflow: hidden;
   background: var(--paper);
   color: var(--ink);
-  transition: background 200ms ease, color 200ms ease;
+  transition:
+    background 200ms ease,
+    color 200ms ease;
 }
 
 .body {

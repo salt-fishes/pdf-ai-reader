@@ -11,7 +11,9 @@ const out = join(release, "win-unpacked");
 const electronDist = join(root, "node_modules", "electron", "dist");
 
 if (!existsSync(electronDist)) {
-  throw new Error("Electron 二进制未安装；先运行 npm install / node node_modules/electron/install.js");
+  throw new Error(
+    "Electron 二进制未安装；先运行 npm install / node node_modules/electron/install.js",
+  );
 }
 for (const required of ["dist", "server/dist/index.mjs"]) {
   if (!existsSync(join(root, required))) {
@@ -125,7 +127,16 @@ if (existsSync(join(out, "electron.exe"))) {
 }
 
 const rceditCandidates = [
-  join(homedir(), "AppData", "Local", "electron-builder", "Cache", "winCodeSign", "winCodeSign-2.6.0", "rcedit-x64.exe"),
+  join(
+    homedir(),
+    "AppData",
+    "Local",
+    "electron-builder",
+    "Cache",
+    "winCodeSign",
+    "winCodeSign-2.6.0",
+    "rcedit-x64.exe",
+  ),
 ];
 const rcedit = rceditCandidates.find((path) => existsSync(path));
 if (rcedit && existsSync(join(root, "build", "icon.ico"))) {
@@ -166,4 +177,6 @@ writeFileSync(
 );
 
 console.log(`portable desktop app ready: ${out}`);
-console.log(`zip it with: Compress-Archive -Path '${join(out, "*")}' -DestinationPath '${join(release, "paper-reader-0.1.0-win-x64.zip")}'`);
+console.log(
+  `zip it with: Compress-Archive -Path '${join(out, "*")}' -DestinationPath '${join(release, "paper-reader-0.1.0-win-x64.zip")}'`,
+);

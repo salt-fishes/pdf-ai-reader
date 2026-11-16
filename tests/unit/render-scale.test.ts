@@ -36,4 +36,3 @@ describe("PDF_TO_CSS_UNITS", () => {
     expect(612 * PDF_TO_CSS_UNITS).toBeCloseTo(816, 6);
   });
 });
-

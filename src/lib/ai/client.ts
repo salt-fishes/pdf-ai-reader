@@ -8,10 +8,11 @@ export async function fetchConfig(): Promise<ServerConfig> {
 }
 
 export async function fetchModels(): Promise<string[]> {
-  const response = await fetch("/api/models");  if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as
-      | { error?: { message?: string } }
-      | null;
+  const response = await fetch("/api/models");
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as {
+      error?: { message?: string };
+    } | null;
     throw new Error(payload?.error?.message ?? `模型列表返回 ${response.status}`);
   }
   const payload = (await response.json()) as { models?: string[] };
@@ -32,14 +33,15 @@ export async function saveProviderConfig(input: ProviderInput): Promise<ServerCo
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
   });
-  const payload = (await response.json().catch(() => null)) as
-    | { config?: ServerConfig; error?: { message?: string; hint?: string } }
-    | null;
+  const payload = (await response.json().catch(() => null)) as {
+    config?: ServerConfig;
+    error?: { message?: string; hint?: string };
+  } | null;
   if (!response.ok || !payload?.config) {
     throw new Error(
       payload?.error?.hint
         ? `${payload.error.message ?? "保存失败"}（${payload.error.hint}）`
-        : payload?.error?.message ?? `保存失败（${response.status}）`,
+        : (payload?.error?.message ?? `保存失败（${response.status}）`),
     );
   }
   return payload.config;
@@ -79,9 +81,9 @@ export async function streamChat(
   }
 
   if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as
-      | { error?: { code?: string; message?: string; hint?: string } }
-      | null;
+    const payload = (await response.json().catch(() => null)) as {
+      error?: { code?: string; message?: string; hint?: string };
+    } | null;
     const hints: Record<number, string> = {
       401: "检查 server/.env 中的 AI_API_KEY 是否正确",
       403: "密钥无权访问该模型，检查账号权限",

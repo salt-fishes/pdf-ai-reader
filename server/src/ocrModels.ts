@@ -138,9 +138,7 @@ export const OCR_MODELS: Record<OcrModelId, OcrModelSpec> = {
 
 export const OCR_MODEL_IDS = Object.keys(OCR_MODELS) as OcrModelId[];
 
-const WRITABLE_ROOT = process.env.OCR_MODEL_DIR
-  ? path.resolve(process.env.OCR_MODEL_DIR)
-  : null;
+const WRITABLE_ROOT = process.env.OCR_MODEL_DIR ? path.resolve(process.env.OCR_MODEL_DIR) : null;
 const BUNDLED_ROOT = fileURLToPath(new URL("../models", import.meta.url));
 const MODELS_ROOT = WRITABLE_ROOT ?? BUNDLED_ROOT;
 

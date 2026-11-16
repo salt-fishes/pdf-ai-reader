@@ -77,9 +77,7 @@ export function SearchOverlay() {
             <button
               key={`${result.page}_${result.index}_${index}`}
               className={styles.searchResult}
-              onClick={() =>
-                focusSearchResult(result.page, result.occurrence, query.trim())
-              }
+              onClick={() => focusSearchResult(result.page, result.occurrence, query.trim())}
             >
               <span className={styles.searchPage}>
                 P{result.page}

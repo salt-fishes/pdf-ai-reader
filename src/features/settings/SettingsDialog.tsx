@@ -51,7 +51,14 @@ const SHORTCUTS: Array<[string, string]> = [
 ];
 
 function splitModels(value: string): string[] {
-  return [...new Set(value.split(/[,，\s]+/).map((item) => item.trim()).filter(Boolean))];
+  return [
+    ...new Set(
+      value
+        .split(/[,，\s]+/)
+        .map((item) => item.trim())
+        .filter(Boolean),
+    ),
+  ];
 }
 
 function mb(bytes: number): string {
@@ -243,7 +250,10 @@ export function SettingsDialog({ open, onClose }: Props) {
   };
 
   return (
-    <div className={styles.backdrop} onPointerDown={(event) => event.target === event.currentTarget && onClose()}>
+    <div
+      className={styles.backdrop}
+      onPointerDown={(event) => event.target === event.currentTarget && onClose()}
+    >
       <div
         ref={cardRef}
         className={`${styles.card} ${styles.settingsCard}`}
@@ -272,7 +282,8 @@ export function SettingsDialog({ open, onClose }: Props) {
               </button>
             ))}
             <div className={styles.settingsNavFoot}>
-              偏好保存在本机 localStorage；模型服务密钥保存在本机代理的 <code>server/data</code>，不会进入前端 bundle。
+              偏好保存在本机 localStorage；模型服务密钥保存在本机代理的 <code>server/data</code>
+              ，不会进入前端 bundle。
             </div>
           </nav>
           <div className={styles.settingsContent} ref={contentRef} onScroll={onContentScroll}>
@@ -280,16 +291,24 @@ export function SettingsDialog({ open, onClose }: Props) {
               <div className={styles.sectionTitle}>
                 <WinIcon glyph="globe" size={13} />
                 模型服务
-                <span className={`${styles.badge} ${config?.mock ? styles.badgeWarn : styles.badgeOk}`}>
+                <span
+                  className={`${styles.badge} ${config?.mock ? styles.badgeWarn : styles.badgeOk}`}
+                >
                   {config?.mock ? "本地 mock" : config?.hasKey ? "已连接配置" : "缺少密钥"}
                 </span>
               </div>
 
               <div className={styles.presetRow}>
                 <span>快速预设</span>
-                <button className={styles.preset} onClick={() => applyPreset("deepseek")}>DeepSeek</button>
-                <button className={styles.preset} onClick={() => applyPreset("openai")}>OpenAI 兼容</button>
-                <button className={styles.preset} onClick={() => applyPreset("ollama")}>本地 Ollama</button>
+                <button className={styles.preset} onClick={() => applyPreset("deepseek")}>
+                  DeepSeek
+                </button>
+                <button className={styles.preset} onClick={() => applyPreset("openai")}>
+                  OpenAI 兼容
+                </button>
+                <button className={styles.preset} onClick={() => applyPreset("ollama")}>
+                  本地 Ollama
+                </button>
               </div>
 
               <div className={styles.formGrid}>
@@ -329,7 +348,8 @@ export function SettingsDialog({ open, onClose }: Props) {
                     spellCheck={false}
                   />
                   <span className={styles.fieldHint}>
-                    密钥写入本机 <code>server/data/provider.json</code>（已 gitignore），不会返回给浏览器。
+                    密钥写入本机 <code>server/data/provider.json</code>（已
+                    gitignore），不会返回给浏览器。
                   </span>
                 </label>
                 <label className={`${styles.field} ${styles.fieldWide}`}>
@@ -371,7 +391,10 @@ export function SettingsDialog({ open, onClose }: Props) {
                 </div>
               ) : null}
               {testResult ? (
-                <div className={styles.result} style={{ color: testError ? "var(--danger)" : "var(--muted)" }}>
+                <div
+                  className={styles.result}
+                  style={{ color: testError ? "var(--danger)" : "var(--muted)" }}
+                >
                   {testResult}
                 </div>
               ) : null}
@@ -390,7 +413,9 @@ export function SettingsDialog({ open, onClose }: Props) {
                 </div>
                 <div className={styles.row}>
                   <span className={styles.label}>上下文窗口</span>
-                  <span className={styles.value}>{formatTokens(config?.contextWindow ?? 1_000_000)}</span>
+                  <span className={styles.value}>
+                    {formatTokens(config?.contextWindow ?? 1_000_000)}
+                  </span>
                 </div>
                 <div className={styles.row}>
                   <span className={styles.label}>服务端预算</span>
@@ -485,7 +510,8 @@ export function SettingsDialog({ open, onClose }: Props) {
               </div>
               <ColorModeControl />
               <div className={styles.note}>
-                色彩模式只改变本机页面的显示方式，不修改 PDF 文件。智能暗色自动识别纸面，深色封面与彩色照片保留原样；强度控制与原色的混合比例。缩略图保持原色。
+                色彩模式只改变本机页面的显示方式，不修改 PDF
+                文件。智能暗色自动识别纸面，深色封面与彩色照片保留原样；强度控制与原色的混合比例。缩略图保持原色。
               </div>
             </section>
 
@@ -552,7 +578,10 @@ export function SettingsDialog({ open, onClose }: Props) {
                 </div>
               </div>
               <div className={styles.note}>
-                思考强度映射 DeepSeek 的 <code>reasoning_effort</code>；关闭更快更省。上下文预算是软限制，只影响超限提示、token 圆环与阅读建议，不阻止发送；真正的硬上限是模型 1M 上下文。对话历史窗口会把更早的消息折叠掉，避免长会话无限增长。
+                思考强度映射 DeepSeek 的 <code>reasoning_effort</code>
+                ；关闭更快更省。上下文预算是软限制，只影响超限提示、token
+                圆环与阅读建议，不阻止发送；真正的硬上限是模型 1M
+                上下文。对话历史窗口会把更早的消息折叠掉，避免长会话无限增长。
               </div>
             </section>
 
@@ -613,8 +642,8 @@ export function SettingsDialog({ open, onClose }: Props) {
               <div className={styles.note}>
                 当前页没有文字层时，会在后台自动识别；模型首次使用自动准备，不弹窗。行级 OCR
                 文本可拖选、复制、高亮、引用和搜索，并在页面、侧栏和上下文里标注 OCR。
-                识别在本机代理的 worker 线程完成，图片不上传云端。tiny 随桌面版分发，small /
-                medium 按需下载。
+                识别在本机代理的 worker 线程完成，图片不上传云端。tiny 随桌面版分发，small / medium
+                按需下载。
               </div>
               <div className={styles.actions}>
                 {!ocrStatus?.installed ? (
@@ -658,15 +687,20 @@ export function SettingsDialog({ open, onClose }: Props) {
                 </div>
                 <div className={styles.row}>
                   <span className={styles.label}>传输</span>
-                  <span className={styles.value}>默认只监听 127.0.0.1；云端内容受 provider 条款约束</span>
+                  <span className={styles.value}>
+                    默认只监听 127.0.0.1；云端内容受 provider 条款约束
+                  </span>
                 </div>
                 <div className={styles.row}>
                   <span className={styles.label}>本地记录</span>
-                  <span className={styles.value}>阅读位置、对话、高亮与 OCR 文本保存在 IndexedDB</span>
+                  <span className={styles.value}>
+                    阅读位置、对话、高亮与 OCR 文本保存在 IndexedDB
+                  </span>
                 </div>
               </div>
               <div className={styles.note}>
-                本地 IndexedDB 未加密；共用电脑时可使用下方“清空所有本地数据”。完全离线可把 Base URL 指向本机 Ollama 等 OpenAI 兼容端点。
+                本地 IndexedDB 未加密；共用电脑时可使用下方“清空所有本地数据”。完全离线可把 Base URL
+                指向本机 Ollama 等 OpenAI 兼容端点。
               </div>
             </section>
 
@@ -729,8 +763,9 @@ export function SettingsDialog({ open, onClose }: Props) {
                 </div>
               </div>
               <div className={styles.note}>
-                图标来自 lobe-icons（MIT）、Segoe Fluent Icons 与 Lucide（ISC）；状态图标使用 Morphicons（MIT）。
-                PDF 内容视为不可信输入，模型不会执行文档中的指令。第三方模型服务由其各自条款约束。
+                图标来自 lobe-icons（MIT）、Segoe Fluent Icons 与 Lucide（ISC）；状态图标使用
+                Morphicons（MIT）。 PDF
+                内容视为不可信输入，模型不会执行文档中的指令。第三方模型服务由其各自条款约束。
               </div>
             </section>
           </div>

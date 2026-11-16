@@ -182,13 +182,18 @@ export function PagePicker({ onClose, showSmart = false }: Props) {
               if (event.key === "Escape") onClose();
             }}
           />
-          <button className={styles.pageApply} onClick={() => void submitCustom()} disabled={disabled}>
+          <button
+            className={styles.pageApply}
+            onClick={() => void submitCustom()}
+            disabled={disabled}
+          >
             确定
           </button>
         </div>
         {rangeError ? <div className={styles.pagePickerError}>{rangeError}</div> : null}
         <div className={styles.pagePickerHint}>
-          支持 <code>{exampleSingle}</code>、<code>{exampleSpan}</code>、<code>{exampleRange}</code>，也可以直接点下方目录。
+          支持 <code>{exampleSingle}</code>、<code>{exampleSpan}</code>、<code>{exampleRange}</code>
+          ，也可以直接点下方目录。
         </div>
       </div>
 
@@ -204,12 +209,14 @@ export function PagePicker({ onClose, showSmart = false }: Props) {
                 key={`${chapter.title}_${chapter.start}_${index}`}
                 className={styles.pageTocItem}
                 style={{ paddingLeft: 8 + chapter.depth * 10 }}
-                onClick={() => void applyRange(
-                  Array.from(
-                    { length: chapter.end - chapter.start + 1 },
-                    (_, index) => chapter.start + index,
-                  ),
-                )}
+                onClick={() =>
+                  void applyRange(
+                    Array.from(
+                      { length: chapter.end - chapter.start + 1 },
+                      (_, index) => chapter.start + index,
+                    ),
+                  )
+                }
                 disabled={disabled}
                 title={`加入 ${chapter.title}（P${chapter.start}–P${chapter.end}）`}
               >

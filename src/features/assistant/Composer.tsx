@@ -163,7 +163,11 @@ export function Composer() {
           aria-label="截取当前页"
           aria-keyshortcuts="Control+Alt+S"
         >
-          {capturingPage !== null ? <span className="spin" /> : <WinIcon glyph="camera" size={15} />}
+          {capturingPage !== null ? (
+            <span className="spin" />
+          ) : (
+            <WinIcon glyph="camera" size={15} />
+          )}
         </button>
         <button
           className={styles.toolButton}
@@ -199,7 +203,10 @@ export function Composer() {
 
         <div className={styles.composerSpacer} />
 
-        <span className={`${styles.tokenHint} ${overBudget ? styles.tokenWarn : ""}`} title="本次发送的 token 估算">
+        <span
+          className={`${styles.tokenHint} ${overBudget ? styles.tokenWarn : ""}`}
+          title="本次发送的 token 估算"
+        >
           ≈ {formatTokens(projected)}
           {context.screenshots.length ? ` · ${context.screenshots.length} 图` : ""}
         </span>

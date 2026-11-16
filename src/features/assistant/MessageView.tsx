@@ -83,7 +83,10 @@ export function MessageView({ message, onQuote, onContextMenu }: Props) {
     useViewer.getState().requestCitation(page);
   };
 
-  const markdown = message.role === "assistant" ? normalizeMath(markdownWithCitations(message.content, allowed)) : "";
+  const markdown =
+    message.role === "assistant"
+      ? normalizeMath(markdownWithCitations(message.content, allowed))
+      : "";
   const showToggle = message.role === "assistant" && message.content.length > 220;
 
   if (message.role === "user") {
@@ -103,7 +106,13 @@ export function MessageView({ message, onQuote, onContextMenu }: Props) {
         {message.excluded ? <div className={styles.excludedTag}>已从上下文移除</div> : null}
         <div className={styles.messageActions}>
           <button className={styles.actionButton} onClick={handleCopy} title="复制">
-            <MorphIcon icon={copied ? Check : Copy} size={13} strokeWidth={1.7} spring="snappy" reducedMotion="user" />
+            <MorphIcon
+              icon={copied ? Check : Copy}
+              size={13}
+              strokeWidth={1.7}
+              spring="snappy"
+              reducedMotion="user"
+            />
           </button>
           <button
             className={`${styles.actionButton} ${isQuoted ? styles.actionActive : ""}`}
@@ -150,7 +159,9 @@ export function MessageView({ message, onQuote, onContextMenu }: Props) {
         <div className={`${styles.messageBody} ${showToggle && !expanded ? styles.clamped : ""}`}>
           <ReactMarkdown
             remarkPlugins={[remarkGfm, remarkMath]}
-            rehypePlugins={[[rehypeKatex, { throwOnError: false, strict: false, errorColor: "#d14d4d" }]]}
+            rehypePlugins={[
+              [rehypeKatex, { throwOnError: false, strict: false, errorColor: "#d14d4d" }],
+            ]}
             urlTransform={(url) => (url.startsWith("cite:") ? url : defaultUrlTransform(url))}
             components={{
               a: ({ href, children }) => {
@@ -183,11 +194,13 @@ export function MessageView({ message, onQuote, onContextMenu }: Props) {
         <div className={styles.messageBody}>
           {message.reasoning ? (
             <>
-              正在思考<span className={styles.streamingCaret} />
+              正在思考
+              <span className={styles.streamingCaret} />
             </>
           ) : (
             <>
-              正在阅读上下文<span className={styles.streamingCaret} />
+              正在阅读上下文
+              <span className={styles.streamingCaret} />
             </>
           )}
         </div>
@@ -219,13 +232,17 @@ export function MessageView({ message, onQuote, onContextMenu }: Props) {
         </div>
       ) : null}
 
-      {message.status === "stopped" ? (
-        <div className={styles.excludedTag}>已停止生成</div>
-      ) : null}
+      {message.status === "stopped" ? <div className={styles.excludedTag}>已停止生成</div> : null}
 
       <div className={styles.messageActions}>
         <button className={styles.actionButton} onClick={handleCopy} title="复制回答">
-          <MorphIcon icon={copied ? Check : Copy} size={13} strokeWidth={1.7} spring="snappy" reducedMotion="user" />
+          <MorphIcon
+            icon={copied ? Check : Copy}
+            size={13}
+            strokeWidth={1.7}
+            spring="snappy"
+            reducedMotion="user"
+          />
           <span>复制</span>
         </button>
         <button

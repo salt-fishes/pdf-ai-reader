@@ -1,6 +1,5 @@
 export type CitationSegment =
-  | { type: "text"; value: string }
-  | { type: "cite"; page: number; raw: string };
+  { type: "text"; value: string } | { type: "cite"; page: number; raw: string };
 
 const CITE_RE = /\[\[p\.(\d+)\]\]|\[p\.(\d+)\]/g;
 
@@ -19,9 +18,7 @@ export function splitCitations(markdown: string, allowed: Set<number>): Citation
     }
     const page = Number(match[1] ?? match[2]);
     segments.push(
-      allowed.has(page)
-        ? { type: "cite", page, raw: match[0] }
-        : { type: "text", value: match[0] },
+      allowed.has(page) ? { type: "cite", page, raw: match[0] } : { type: "text", value: match[0] },
     );
     last = index + match[0].length;
   }

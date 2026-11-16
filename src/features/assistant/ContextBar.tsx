@@ -82,9 +82,7 @@ export function ContextBar() {
   if (context.quotes.length) icons.push("history");
 
   const overlap =
-    context.pageRange &&
-    context.currentPage &&
-    context.pageRange.includes(context.currentPage);
+    context.pageRange && context.currentPage && context.pageRange.includes(context.currentPage);
 
   const smartOverlap =
     context.smart && context.currentPage
@@ -92,8 +90,7 @@ export function ContextBar() {
       : false;
 
   const smartQuery = context.smart?.query ?? "";
-  const smartQueryLabel =
-    smartQuery.length > 60 ? `${smartQuery.slice(0, 60)}…` : smartQuery;
+  const smartQueryLabel = smartQuery.length > 60 ? `${smartQuery.slice(0, 60)}…` : smartQuery;
   const allSelected = numPages > 0 && context.pageRange?.length === numPages;
   const selectionPages = context.selection?.pages?.map((page) => page.page) ?? [];
   const selectionLabel =
@@ -130,7 +127,7 @@ export function ContextBar() {
         aria-label="上下文详情"
       >
         <span className={styles.sourceStack} aria-hidden="true">
-          {(icons.length ? icons : ["page"] as const).slice(0, 3).map((glyph, index) => (
+          {(icons.length ? icons : (["page"] as const)).slice(0, 3).map((glyph, index) => (
             <span key={`${glyph}_${index}`} className={styles.sourceIcon}>
               <WinIcon glyph={glyph} size={10} />
             </span>
@@ -209,7 +206,11 @@ export function ContextBar() {
                 >
                   {formatPageList(context.pageRange)} · {formatChars(context.pageRangeText.length)}
                 </button>
-                <button className={styles.chipRemove} onClick={removePageRange} aria-label="移除页码">
+                <button
+                  className={styles.chipRemove}
+                  onClick={removePageRange}
+                  aria-label="移除页码"
+                >
                   <WinIcon glyph="close" size={10} />
                 </button>
               </span>
@@ -245,7 +246,11 @@ export function ContextBar() {
                   选中{context.selection.source ? "（OCR）" : ""} · {selectionLabel} ·{" "}
                   {formatChars(context.selection.text.length)}
                 </button>
-                <button className={styles.chipRemove} onClick={removeSelection} aria-label="移除选中文字">
+                <button
+                  className={styles.chipRemove}
+                  onClick={removeSelection}
+                  aria-label="移除选中文字"
+                >
                   <WinIcon glyph="close" size={10} />
                 </button>
               </span>
@@ -259,8 +264,8 @@ export function ContextBar() {
                   title="预览截图"
                   style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
                 >
-                  <img className={styles.chipThumb} src={shot.dataUrl} alt="" />
-                  P{shot.page} {shot.kind === "region" ? "框选" : "截图"}
+                  <img className={styles.chipThumb} src={shot.dataUrl} alt="" />P{shot.page}{" "}
+                  {shot.kind === "region" ? "框选" : "截图"}
                 </button>
                 <button
                   className={styles.chipRemove}
@@ -290,7 +295,8 @@ export function ContextBar() {
                   }}
                   title={`${file.name}${file.pages ? ` · ${file.pages} 页` : ""}`}
                 >
-                  {file.kind === "image" ? "图片" : file.kind === "pdf" ? "PDF" : "文本"} · {file.name}
+                  {file.kind === "image" ? "图片" : file.kind === "pdf" ? "PDF" : "文本"} ·{" "}
+                  {file.name}
                 </button>
                 <button
                   className={styles.chipRemove}
@@ -305,7 +311,8 @@ export function ContextBar() {
             {context.quotes.map((quote) => (
               <span key={quote.id} className={styles.chip}>
                 <span className={styles.chipLabel} title={quote.text}>
-                  引用 · {quote.role === "assistant" ? "回答" : "提问"} · {formatChars(quote.text.length)}
+                  引用 · {quote.role === "assistant" ? "回答" : "提问"} ·{" "}
+                  {formatChars(quote.text.length)}
                 </span>
                 <button
                   className={styles.chipRemove}
@@ -377,11 +384,15 @@ export function ContextBar() {
             </div>
             <div className={styles.bucket}>
               <span>缓存命中</span>
-              <span className={styles.bucketValue}>{usage ? formatTokens(usage.cacheRead) : "—"}</span>
+              <span className={styles.bucketValue}>
+                {usage ? formatTokens(usage.cacheRead) : "—"}
+              </span>
             </div>
             <div className={styles.bucket}>
               <span>未命中输入</span>
-              <span className={styles.bucketValue}>{usage ? formatTokens(usage.uncachedInput) : "—"}</span>
+              <span className={styles.bucketValue}>
+                {usage ? formatTokens(usage.uncachedInput) : "—"}
+              </span>
             </div>
             <div className={styles.bucket}>
               <span>输出</span>
@@ -389,10 +400,13 @@ export function ContextBar() {
             </div>
             <div className={styles.bucket}>
               <span>预计费用</span>
-              <span className={styles.bucketValue}>{usage ? formatCny(estimateCost(usage, pricing)) : "—"}</span>
+              <span className={styles.bucketValue}>
+                {usage ? formatCny(estimateCost(usage, pricing)) : "—"}
+              </span>
             </div>
             <div className={styles.bucketNote}>
-              上下文预算 {formatTokens(budget)} 只作提示与圆环刻度；发送上限由模型 1M 上下文决定，超限时会建议改用整本总结。
+              上下文预算 {formatTokens(budget)} 只作提示与圆环刻度；发送上限由模型 1M
+              上下文决定，超限时会建议改用整本总结。
             </div>
           </div>
         </div>
@@ -420,7 +434,10 @@ export function ContextBar() {
                     const ok = await copyImage(preview);
                     useAssistant
                       .getState()
-                      .notify(ok ? "图片已复制" : "无法复制图片，可改为下载", ok ? "success" : "error");
+                      .notify(
+                        ok ? "图片已复制" : "无法复制图片，可改为下载",
+                        ok ? "success" : "error",
+                      );
                   }}
                 >
                   复制图片
@@ -432,7 +449,11 @@ export function ContextBar() {
                   下载
                 </button>
               </div>
-              <button className={styles.previewClose} aria-label="关闭预览" onClick={() => setPreview(null)}>
+              <button
+                className={styles.previewClose}
+                aria-label="关闭预览"
+                onClick={() => setPreview(null)}
+              >
                 <WinIcon glyph="close" size={16} />
               </button>
             </div>,
@@ -458,7 +479,9 @@ export function ContextBar() {
                     onClick={async () => {
                       const text = textPreview.body;
                       const ok = await copyText(text);
-                      useAssistant.getState().notify(ok ? "已复制" : "复制失败", ok ? "success" : "error");
+                      useAssistant
+                        .getState()
+                        .notify(ok ? "已复制" : "复制失败", ok ? "success" : "error");
                     }}
                   >
                     复制文本

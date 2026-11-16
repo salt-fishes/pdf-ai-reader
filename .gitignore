@@ -13,3 +13,5 @@ coverage
 
 server/models/
 server/data/
+
+eslint-report.json

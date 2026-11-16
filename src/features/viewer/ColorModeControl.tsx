@@ -57,10 +57,7 @@ export function ColorModeControl({ className }: Props) {
                     <i className={styles.previewLine} style={{ width: "42%" }} />
                   </span>
                 </span>
-                <i
-                  className={styles.previewImage}
-                  style={{ filter: imageFilter(mode.id) }}
-                />
+                <i className={styles.previewImage} style={{ filter: imageFilter(mode.id) }} />
                 {overlay ? (
                   <i
                     className={styles.previewTint}

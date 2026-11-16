@@ -17,9 +17,11 @@ await page.evaluate(async () => {
   const file = new File([blob], "sample-long.pdf", { type: "application/pdf" });
   const transfer = new DataTransfer();
   transfer.items.add(file);
-  document.querySelector("#root > div")?.dispatchEvent(
-    new DragEvent("drop", { dataTransfer: transfer, bubbles: true, cancelable: true }),
-  );
+  document
+    .querySelector("#root > div")
+    ?.dispatchEvent(
+      new DragEvent("drop", { dataTransfer: transfer, bubbles: true, cancelable: true }),
+    );
 });
 await page.locator("header").filter({ hasText: "sample-long.pdf" }).waitFor();
 await page.locator('[data-page="1"] .textLayer span').first().waitFor();
@@ -44,7 +46,9 @@ await page.waitForTimeout(400);
 await page.screenshot({ path: path.join(outDir, "real-smart-context.png") });
 
 await panel.locator('button[aria-label="发送"]').click();
-await panel.locator('button[aria-label="停止生成"]').waitFor({ state: "detached", timeout: 120_000 });
+await panel
+  .locator('button[aria-label="停止生成"]')
+  .waitFor({ state: "detached", timeout: 120_000 });
 await panel.locator('button[aria-label="发送"]').waitFor();
 
 const assistant = panel.locator('[class*="assistantMessage"]').last();
@@ -63,4 +67,3 @@ console.log("页面错误:", errors.length ? errors.join(" | ") : "无");
 
 await browser.close();
 process.exit(bad.length || !answer.trim() || errors.length ? 1 : 0);
-

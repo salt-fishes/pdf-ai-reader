@@ -32,17 +32,17 @@ let generation = 0;
 
 const nativeTextCache = new WeakMap<PDFDocumentProxy, Map<number, string>>();
 const ocrTextCache = new WeakMap<PDFDocumentProxy, Map<number, string>>();
-const pageSizeCache = new WeakMap<PDFDocumentProxy, Map<number, { width: number; height: number }>>();
+const pageSizeCache = new WeakMap<
+  PDFDocumentProxy,
+  Map<number, { width: number; height: number }>
+>();
 const thumbCache = new WeakMap<PDFDocumentProxy, Map<number, string>>();
 
 export function getActiveDocument(): PDFDocumentProxy | null {
   return session?.doc ?? null;
 }
 
-export async function openPdf(
-  bytes: ArrayBuffer,
-  password?: string,
-): Promise<PDFDocumentProxy> {
+export async function openPdf(bytes: ArrayBuffer, password?: string): Promise<PDFDocumentProxy> {
   const mine = ++generation;
   const { getDocument } = await loadPdfjs();
   const loadingTask = getDocument({
@@ -70,9 +70,8 @@ export async function openPdf(
       updatePassword(password);
     };
   }
-  const doc = await (passwordRejected
-    ? Promise.race([loadingTask.promise, passwordRejected])
-    : loadingTask.promise
+  const doc = await (
+    passwordRejected ? Promise.race([loadingTask.promise, passwordRejected]) : loadingTask.promise
   ).catch((error) => {
     void loadingTask.destroy().catch(() => undefined);
     throw error;
@@ -119,20 +118,19 @@ export async function getPageSize(
 }
 
 function normalizeText(raw: string): string {
-  return raw
-    // PDF text objects legitimately contain NUL padding.
-    // eslint-disable-next-line no-control-regex
-    .replace(/\u0000/g, "")
-    .replace(/[ \t]+\n/g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .replace(/[ \t]{2,}/g, " ")
-    .trim();
+  return (
+    raw
+      // PDF text objects legitimately contain NUL padding.
+      // eslint-disable-next-line no-control-regex
+      .replace(/\u0000/g, "")
+      .replace(/[ \t]+\n/g, "\n")
+      .replace(/\n{3,}/g, "\n\n")
+      .replace(/[ \t]{2,}/g, " ")
+      .trim()
+  );
 }
 
-export function getNativePageText(
-  pdf: PDFDocumentProxy,
-  pageNumber: number,
-): Promise<string> {
+export function getNativePageText(pdf: PDFDocumentProxy, pageNumber: number): Promise<string> {
   let cache = nativeTextCache.get(pdf);
   if (!cache) {
     cache = new Map();

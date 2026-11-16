@@ -83,7 +83,10 @@ test("reads a Chinese PDF, sends context, cites and jumps", async ({ page }) => 
   // Page range 2-3 via the composer popover.
   await panel.locator('button[aria-label="限定页码"]').click();
   await panel.locator('[class*="popover"] input').fill("2-3");
-  await panel.locator('[class*="popover"]').getByRole("button", { name: "确定", exact: true }).click();
+  await panel
+    .locator('[class*="popover"]')
+    .getByRole("button", { name: "确定", exact: true })
+    .click();
   await panel.locator('button[aria-label="上下文详情"]').click();
   await expect(panel).toContainText("第 2–3 页");
   await expect(panel).not.toContainText("P1 当前页");
@@ -292,9 +295,9 @@ test("recognizes a scanned page in the background and builds a selectable OCR la
   page,
   request,
 }) => {
-  const status = (await (
-    await request.get("http://127.0.0.1:8787/api/ocr/status")
-  ).json()) as { installed?: boolean };
+  const status = (await (await request.get("http://127.0.0.1:8787/api/ocr/status")).json()) as {
+    installed?: boolean;
+  };
   test.skip(!status.installed, "OCR 模型未下载，跳过实际识别");
 
   await openSample(page);
@@ -348,9 +351,9 @@ test("recognizes a scanned page in the background and builds a selectable OCR la
     const selection = window.getSelection();
     selection?.removeAllRanges();
     selection?.addRange(range);
-    document.querySelector("[data-reader]")?.dispatchEvent(
-      new MouseEvent("mouseup", { bubbles: true }),
-    );
+    document
+      .querySelector("[data-reader]")
+      ?.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
   });
   const toolbar = page.getByRole("toolbar", { name: "选中文字操作" });
   await expect(toolbar).toBeVisible();
@@ -446,7 +449,9 @@ test("opens a password-protected PDF without losing the current document", async
     transfer.items.add(file);
     document
       .querySelector("#root > div")
-      ?.dispatchEvent(new DragEvent("drop", { dataTransfer: transfer, bubbles: true, cancelable: true }));
+      ?.dispatchEvent(
+        new DragEvent("drop", { dataTransfer: transfer, bubbles: true, cancelable: true }),
+      );
   });
 
   const dialog = page.getByRole("dialog", { name: "输入 PDF 密码" });
@@ -782,7 +787,10 @@ test("color modes recolor pages, sync chrome and persist strength", async ({ pag
   ).toHaveAttribute("aria-valuetext", "65%");
 
   await page.keyboard.press("Shift+D");
-  await expect(page.locator("[data-theme]").first()).toHaveAttribute("data-color-mode", "grayscale");
+  await expect(page.locator("[data-theme]").first()).toHaveAttribute(
+    "data-color-mode",
+    "grayscale",
+  );
 });
 
 test("virtualizes pages and mounts the jump target", async ({ page }) => {
@@ -890,7 +898,9 @@ test("zoom controls, thinking effort and context budget", async ({ page }) => {
   await zoomLabel.click();
   await page.getByRole("menuitem", { name: "适合页面" }).click();
   await page.waitForTimeout(500);
-  const pageHeight = await page.locator('[data-page="1"]').evaluate((el) => el.getBoundingClientRect().height);
+  const pageHeight = await page
+    .locator('[data-page="1"]')
+    .evaluate((el) => el.getBoundingClientRect().height);
   expect(pageHeight).toBeLessThan(900);
 
   await page.locator('[aria-label="设置"]').last().click();
@@ -1145,9 +1155,7 @@ test("highlight jump lands on the highlighted line, not the page top", async ({ 
   const highlightPosition = () =>
     page.evaluate(() => {
       const viewport = document.querySelector<HTMLElement>("[data-reader]");
-      const highlight = document.querySelector<HTMLElement>(
-        '[data-page="2"] [class*="highlight"]',
-      );
+      const highlight = document.querySelector<HTMLElement>('[data-page="2"] [class*="highlight"]');
       if (!viewport || !highlight) return -1;
       const viewportRect = viewport.getBoundingClientRect();
       const rect = highlight.getBoundingClientRect();
@@ -1177,9 +1185,7 @@ test("restores the saved scroll offset, not just the page number", async ({ page
   await expect
     .poll(
       () =>
-        page.evaluate(
-          () => document.querySelector<HTMLElement>("[data-reader]")?.scrollTop ?? 0,
-        ),
+        page.evaluate(() => document.querySelector<HTMLElement>("[data-reader]")?.scrollTop ?? 0),
       { timeout: 8_000 },
     )
     .toBeGreaterThan(1750);
@@ -1311,4 +1317,3 @@ test("responsive layout has no horizontal overflow at 1024 and 390", async ({ pa
     await expect(panel).toBeHidden();
   }
 });
-

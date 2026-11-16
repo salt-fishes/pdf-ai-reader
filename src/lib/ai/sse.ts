@@ -5,9 +5,7 @@ import type { StreamEvent } from "./types";
  * data fields, comments, [DONE], and providers that attach usage to the final
  * chunk (with or without choices).
  */
-export async function* parseSse(
-  stream: ReadableStream<Uint8Array>,
-): AsyncGenerator<StreamEvent> {
+export async function* parseSse(stream: ReadableStream<Uint8Array>): AsyncGenerator<StreamEvent> {
   const reader = stream.getReader();
   const decoder = new TextDecoder();
   let buffer = "";

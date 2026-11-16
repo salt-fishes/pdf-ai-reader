@@ -14,7 +14,19 @@ import {
   summaryFinalQuestion,
   summaryMapQuestion,
 } from "../../lib/ai/summary";
-import type { AiError, ApiMessage, Attachment, ChatMessage, ChatSession, ContextState, Quote, Screenshot, Selection, ServerConfig, ThinkingEffort } from "../../lib/ai/types";
+import type {
+  AiError,
+  ApiMessage,
+  Attachment,
+  ChatMessage,
+  ChatSession,
+  ContextState,
+  Quote,
+  Screenshot,
+  Selection,
+  ServerConfig,
+  ThinkingEffort,
+} from "../../lib/ai/types";
 import {
   DEFAULT_PRICING,
   EMPTY_USAGE,
@@ -46,7 +58,19 @@ import {
   readImageFile,
   readTextFile,
 } from "../../lib/files";
-import { clearSummaryRecord, loadChatRecord, loadOcrRecord, loadSettings, loadSummaryRecord, saveChatRecord, saveOcrRecord, saveSettings, saveSummaryRecord, type SummaryRecord } from "../../lib/storage/db";import { SYSTEM_PROMPT } from "../../lib/ai/prompt";
+import {
+  clearSummaryRecord,
+  loadChatRecord,
+  loadOcrRecord,
+  loadSettings,
+  loadSummaryRecord,
+  saveChatRecord,
+  saveOcrRecord,
+  saveSettings,
+  saveSummaryRecord,
+  type SummaryRecord,
+} from "../../lib/storage/db";
+import { SYSTEM_PROMPT } from "../../lib/ai/prompt";
 import { selectSmartContext } from "../../lib/ai/smart";
 import {
   fetchOcrStatus,
@@ -385,9 +409,7 @@ function chatRecordFrom(state: AssistantState) {
   if (!hash) return null;
   const activeMessages = state.messages.filter((message) => message.status !== "streaming");
   const sessions = state.sessions.map((session) =>
-    session.id === state.activeSessionId
-      ? { ...session, messages: activeMessages }
-      : session,
+    session.id === state.activeSessionId ? { ...session, messages: activeMessages } : session,
   );
   return {
     hash,
@@ -499,14 +521,13 @@ export const useAssistant = create<AssistantState>((set, get) => {
     bootstrap: async () => {
       try {
         const config = await fetchConfig();
-        const model = settings.model && config.models.includes(settings.model)
-          ? settings.model
-          : config.model;
+        const model =
+          settings.model && config.models.includes(settings.model) ? settings.model : config.model;
         const budget = Math.min(
           MAX_CONTEXT_BUDGET,
           settings.contextBudget && settings.contextBudget > 32_000
             ? settings.contextBudget
-            : config.contextWindow ?? DEFAULT_CONTEXT_BUDGET,
+            : (config.contextWindow ?? DEFAULT_CONTEXT_BUDGET),
         );
         set({
           config,
@@ -791,9 +812,7 @@ export const useAssistant = create<AssistantState>((set, get) => {
 
       try {
         const pages: Array<{ page: number; text: string }> = [];
-        await useOcr
-          .getState()
-          .hydratePages(Array.from({ length: scan }, (_, index) => index + 1));
+        await useOcr.getState().hydratePages(Array.from({ length: scan }, (_, index) => index + 1));
         for (let page = 1; page <= scan; page += 1) {
           pages.push({ page, text: await getPageText(pdf, page) });
           if (page % 8 === 0 || page === scan) {
@@ -827,10 +846,7 @@ export const useAssistant = create<AssistantState>((set, get) => {
         get().notify(`已从 ${scan} 页中筛选 ${result.chunks} 段${capped}`, "success");
         set({ focusInputAt: Date.now() });
       } catch (error) {
-        get().notify(
-          error instanceof Error ? `筛选失败：${error.message}` : "筛选失败",
-          "error",
-        );
+        get().notify(error instanceof Error ? `筛选失败：${error.message}` : "筛选失败", "error");
       } finally {
         if (mine === filterToken) set({ filtering: null });
       }
@@ -1164,7 +1180,10 @@ export const useAssistant = create<AssistantState>((set, get) => {
           };
         }
         set((current) => ({
-          context: { ...current.context, attachments: [...current.context.attachments, attachment] },
+          context: {
+            ...current.context,
+            attachments: [...current.context.attachments, attachment],
+          },
           attaching: false,
         }));
         recalc();
@@ -1271,15 +1290,11 @@ export const useAssistant = create<AssistantState>((set, get) => {
                   typeof session.title === "string" && session.title.trim()
                     ? session.title
                     : titleFromMessages(messages),
-                createdAt:
-                  typeof session.createdAt === "number" ? session.createdAt : Date.now(),
-                updatedAt:
-                  typeof session.updatedAt === "number" ? session.updatedAt : Date.now(),
+                createdAt: typeof session.createdAt === "number" ? session.createdAt : Date.now(),
+                updatedAt: typeof session.updatedAt === "number" ? session.updatedAt : Date.now(),
                 messages,
                 model:
-                  typeof session.model === "string" && session.model
-                    ? session.model
-                    : currentModel,
+                  typeof session.model === "string" && session.model ? session.model : currentModel,
                 anchor: (session.anchor as Anchor | null) ?? null,
               };
             })
@@ -1297,9 +1312,7 @@ export const useAssistant = create<AssistantState>((set, get) => {
               updatedAt: now,
               messages,
               model:
-                typeof record?.model === "string" && record.model
-                  ? record.model
-                  : currentModel,
+                typeof record?.model === "string" && record.model ? record.model : currentModel,
               anchor: (record?.anchor as Anchor | null) ?? null,
             },
           ];
@@ -1307,8 +1320,7 @@ export const useAssistant = create<AssistantState>((set, get) => {
 
         if (!sessions.length) sessions = [createSession(currentModel)];
 
-        const active =
-          sessions.find((session) => session.id === record?.activeId) ?? sessions[0];
+        const active = sessions.find((session) => session.id === record?.activeId) ?? sessions[0];
         set({
           sessions,
           activeSessionId: active.id,
@@ -1498,9 +1510,7 @@ export const useAssistant = create<AssistantState>((set, get) => {
       const run = beginForeground("chat", runHash, controller);
       if (!run) return;
       const stale = () =>
-        !isForegroundCurrent(run) ||
-        docEpoch !== run.epoch ||
-        get().boundDocHash !== run.hash;
+        !isForegroundCurrent(run) || docEpoch !== run.epoch || get().boundDocHash !== run.hash;
 
       const now = Date.now();
       const userId = `u_${now.toString(36)}`;
@@ -1531,10 +1541,7 @@ export const useAssistant = create<AssistantState>((set, get) => {
             ? {
                 ...session,
                 messages: nextMessages,
-                title:
-                  session.title === "新对话"
-                    ? titleFromQuestion(text)
-                    : session.title,
+                title: session.title === "新对话" ? titleFromQuestion(text) : session.title,
                 model: state.model,
                 updatedAt: Date.now(),
               }
@@ -1616,11 +1623,13 @@ export const useAssistant = create<AssistantState>((set, get) => {
         } else {
           const buckets = usageFromProvider(usageRaw) ?? EMPTY_USAGE;
           const hasUsage = Boolean(usageFromProvider(usageRaw));
-          const cited = [...new Set(
-            [...content.matchAll(/\[\[p\.(\d+)\]\]|\[p\.(\d+)\]/g)].map((match) =>
-              Number(match[1] ?? match[2]),
+          const cited = [
+            ...new Set(
+              [...content.matchAll(/\[\[p\.(\d+)\]\]|\[p\.(\d+)\]/g)].map((match) =>
+                Number(match[1] ?? match[2]),
+              ),
             ),
-          )];
+          ];
           patchMessage(assistantId, {
             status: "done",
             content: content.trim() || "（模型没有返回内容）",
@@ -1760,9 +1769,7 @@ export const useAssistant = create<AssistantState>((set, get) => {
       const run = beginForeground("summary", hash, controller);
       if (!run) return;
       const stale = () =>
-        !isForegroundCurrent(run) ||
-        docEpoch !== run.epoch ||
-        get().boundDocHash !== run.hash;
+        !isForegroundCurrent(run) || docEpoch !== run.epoch || get().boundDocHash !== run.hash;
 
       if (get().status !== "open") set({ status: "open", origin: null, toast: null });
       const allPages = Array.from({ length: viewer.numPages }, (_, index) => index + 1);
@@ -1925,8 +1932,7 @@ export const useAssistant = create<AssistantState>((set, get) => {
 
         const direct = chunks.length === 1 && totalChars <= SUMMARY_DIRECT_CHARS;
         const sectionSummaries: string[] = [];
-        const cacheRecord: SummaryRecord =
-          (await loadSummaryRecord(hash)) ?? { hash, chunks: {} };
+        const cacheRecord: SummaryRecord = (await loadSummaryRecord(hash)) ?? { hash, chunks: {} };
         if (stale()) throw new DOMException("aborted", "AbortError");
         const cached = cacheRecord.chunks;
 
@@ -2017,9 +2023,7 @@ export const useAssistant = create<AssistantState>((set, get) => {
           addAssistant();
         }
 
-        const material = direct
-          ? chunks[0].text
-          : joinSectionSummaries(sectionSummaries);
+        const material = direct ? chunks[0].text : joinSectionSummaries(sectionSummaries);
         const question = direct
           ? summaryDirectQuestion(viewer.numPages)
           : summaryFinalQuestion(viewer.numPages, chunks.length);

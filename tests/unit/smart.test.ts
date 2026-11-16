@@ -42,9 +42,7 @@ describe("selectSmartContext", () => {
 
   it("keeps page markers unique and ordered", () => {
     const result = selectSmartContext(pages, "光合作用", { maxChunks: 6 })!;
-    const markers = [...result.text.matchAll(/<<<PAGE (\d+)>>>/g)].map((match) =>
-      Number(match[1]),
-    );
+    const markers = [...result.text.matchAll(/<<<PAGE (\d+)>>>/g)].map((match) => Number(match[1]));
     expect(new Set(markers).size).toBe(markers.length);
     expect(markers).toEqual([...markers].sort((a, b) => a - b));
     expect(markers).toEqual(result.pages);

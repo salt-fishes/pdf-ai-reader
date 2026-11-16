@@ -38,11 +38,7 @@ export function SelectionToolbar() {
         onClick={async () => {
           const ok = await copyText(selection.text);
           notify(
-            ok
-              ? ocr
-                ? "已复制 OCR 文字（可能有误差）"
-                : "已复制原文"
-              : "复制失败",
+            ok ? (ocr ? "已复制 OCR 文字（可能有误差）" : "已复制原文") : "复制失败",
             ok ? "success" : "error",
           );
           clear();

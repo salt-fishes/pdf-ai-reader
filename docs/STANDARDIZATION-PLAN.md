@@ -7,23 +7,23 @@
 
 基础规范不差：`.editorconfig`、`.gitattributes`、CI/release、issue/PR 模板、`CONTRIBUTING.md`、`SECURITY.md`、`CHANGELOG.md` 都已存在。当前主要问题集中在“收口”和“门禁”。
 
-| 项目 | 现状 | 影响 |
-|---|---|---|
-| 未提交改动 | 43 个条目，34 个已跟踪文件 + 9 个新路径，`+2636 / -528` | 没法 review、回滚和二分定位 |
-| 版本 | 0.1 已发布，下一版 0.2.0；仓库仍无 tag | 需要补 0.1 的 tag 与发布记录 |
-| Lint/format | 没有 ESLint/Prettier 配置和脚本 | 风格与 hooks 问题只能靠 review |
-| CI | 只跑 typecheck/unit/build；没有 `build:server`、lint、format check | server bundle、E2E 类型、格式问题会漏 |
-| 小字 | 114 处 `font-size < 12px`；助手面板 61 处 | 界面碎、可读性差 |
-| 对比度 | 浅色 `--faint` 2.63:1；`--muted` 4.43:1 | 小字不满足 WCAG AA |
-| 品牌色 | 71 处硬编码 `#5b5bd6` / `rgb(91 91 214 / …)` | 改色要全库搜，容易漏 |
-| 图标 | Windows 用 Segoe Fluent 字符，其他平台用 Lucide/Morphicons | 同一按钮在不同平台长得不一样 |
-| 文档 | `README.en.md` 有坏链；CHANGELOG 测试数过时；ROADMAP 把已完成项列为下一步 | 对外信息不可信 |
-| 测试样本 | `public/samples` 7 个文件 319KB 会进 `dist` 和桌面包 | 测试数据混进产品 |
-| E2E | `tests/e2e/reader.spec.ts` 1314 行、33 个用例，串行执行 | 定位成本高，CI 时间长 |
-| 动效 | 105 行动效相关 CSS（`transition` / `animation` / `@keyframes`），约 18 种时长，很多绕过 `--motion-*` | 交互节奏不一致，难统一调整 |
-| 更新检查 | 没有 updater 或检查入口，只有 `shell.openExternal` | 用户只能自己去 GitHub 找版本 |
-| OCR 下载源 | `OCR_MODEL_BASE_URL` 只影响 tiny；small/medium 写死 HuggingFace；切换模型会自动下载 | 无法换镜像，且下载前不询问 |
-| 大文件 | `useAssistantStore.ts` 2214 行、`SettingsDialog.tsx` 706 行、`server/src/index.ts` 651 行 | 后续改动风险高 |
+| 项目        | 现状                                                                                                 | 影响                                  |
+| ----------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| 未提交改动  | 43 个条目，34 个已跟踪文件 + 9 个新路径，`+2636 / -528`                                              | 没法 review、回滚和二分定位           |
+| 版本        | 0.1 已发布，下一版 0.2.0；仓库仍无 tag                                                               | 需要补 0.1 的 tag 与发布记录          |
+| Lint/format | 没有 ESLint/Prettier 配置和脚本                                                                      | 风格与 hooks 问题只能靠 review        |
+| CI          | 只跑 typecheck/unit/build；没有 `build:server`、lint、format check                                   | server bundle、E2E 类型、格式问题会漏 |
+| 小字        | 114 处 `font-size < 12px`；助手面板 61 处                                                            | 界面碎、可读性差                      |
+| 对比度      | 浅色 `--faint` 2.63:1；`--muted` 4.43:1                                                              | 小字不满足 WCAG AA                    |
+| 品牌色      | 71 处硬编码 `#5b5bd6` / `rgb(91 91 214 / …)`                                                         | 改色要全库搜，容易漏                  |
+| 图标        | Windows 用 Segoe Fluent 字符，其他平台用 Lucide/Morphicons                                           | 同一按钮在不同平台长得不一样          |
+| 文档        | `README.en.md` 有坏链；CHANGELOG 测试数过时；ROADMAP 把已完成项列为下一步                            | 对外信息不可信                        |
+| 测试样本    | `public/samples` 7 个文件 319KB 会进 `dist` 和桌面包                                                 | 测试数据混进产品                      |
+| E2E         | `tests/e2e/reader.spec.ts` 1314 行、33 个用例，串行执行                                              | 定位成本高，CI 时间长                 |
+| 动效        | 105 行动效相关 CSS（`transition` / `animation` / `@keyframes`），约 18 种时长，很多绕过 `--motion-*` | 交互节奏不一致，难统一调整            |
+| 更新检查    | 没有 updater 或检查入口，只有 `shell.openExternal`                                                   | 用户只能自己去 GitHub 找版本          |
+| OCR 下载源  | `OCR_MODEL_BASE_URL` 只影响 tiny；small/medium 写死 HuggingFace；切换模型会自动下载                  | 无法换镜像，且下载前不询问            |
+| 大文件      | `useAssistantStore.ts` 2214 行、`SettingsDialog.tsx` 706 行、`server/src/index.ts` 651 行            | 后续改动风险高                        |
 
 ### 已确认的 UI 证据
 
@@ -43,14 +43,14 @@
 
 ## 2. 阶段与顺序
 
-| 阶段 | 工作流 | 产出 | 预估 |
-|---|---|---|---|
-| Phase 0 | 工程基线 | 提交收口、Prettier/ESLint、CI 门禁、文档坏链修复 | 0.5–1 人日 |
-| Phase 1 | 界面、品牌与动效 | 字号体系、小字清理、Lucide 图标（移除 MorphIcon）、全局动效、品牌色 token、App 图标 | 2.5–3.5 人日 |
-| Phase 2 | 隐私、关于与更新 | 设置导航合并（6 项）、`PRIVACY.md`、构建信息注入、手动检查更新、OCR 下载源与切换确认 | 1.5–2 人日 |
-| Phase 3 | README 与发版 | README 重写、截图规范、`RELEASE.md`、release workflow | 1.5–2 人日 |
-| Phase 4 | 结构与契约 | API/config schema、IndexedDB 版本、E2E 拆分、fixtures 移出 public | 2–3 人日 |
-| Phase 5 | 架构与预算 | 拆大文件、覆盖率、包体积预算 | 后续 |
+| 阶段    | 工作流           | 产出                                                                                 | 预估         |
+| ------- | ---------------- | ------------------------------------------------------------------------------------ | ------------ |
+| Phase 0 | 工程基线         | 提交收口、Prettier/ESLint、CI 门禁、文档坏链修复                                     | 0.5–1 人日   |
+| Phase 1 | 界面、品牌与动效 | 字号体系、小字清理、Lucide 图标（移除 MorphIcon）、全局动效、品牌色 token、App 图标  | 2.5–3.5 人日 |
+| Phase 2 | 隐私、关于与更新 | 设置导航合并（6 项）、`PRIVACY.md`、构建信息注入、手动检查更新、OCR 下载源与切换确认 | 1.5–2 人日   |
+| Phase 3 | README 与发版    | README 重写、截图规范、`RELEASE.md`、release workflow                                | 1.5–2 人日   |
+| Phase 4 | 结构与契约       | API/config schema、IndexedDB 版本、E2E 拆分、fixtures 移出 public                    | 2–3 人日     |
+| Phase 5 | 架构与预算       | 拆大文件、覆盖率、包体积预算                                                         | 后续         |
 
 依赖关系：Phase 0 必须先做；Phase 1 的 token 是 Phase 2/3 截图和 README 的前提；Phase 4 放在门禁稳定之后。
 
@@ -203,21 +203,21 @@ npm run build:server
 
 ### 1.2 删掉不需要的小字
 
-| 位置 | 现状 | 处理 |
-|---|---|---|
-| 顶栏 | 文件名旁 `6 页`，右侧页码又显示 `/ 6` | 合并为“文件名 · 6 页”，删除重复 `docMeta` |
-| 更多菜单 | `Ctrl O` 等 10.5px 快捷键提示 | 从菜单移除，快捷键面板已有 |
-| 关于 | 图标/许可证长段 10.5px | 移到“第三方声明”，主界面只留一句 |
-| 隐私 | “主 PDF 不上传”在关于和隐私重复 | 只保留一处 |
-| 助手 | `.tokenHint`、`.bucketNote`、`.smartNote`、`.scannedNote` 等多行微文案 | 合并为一行 12px 或 tooltip |
-| OCR | 9px `OCR` 角标 | 改成 12px chip，或图标 + tooltip |
-| 选区工具条 | 9px `OCR` | 同上 |
-| 引用 | 10.5px `p.12` | 提到 12px；引用是重要交互，不该最小 |
-| 消息表格 | 11.5px | 提到 13px |
-| 空状态 | `.dropHint` + `.hint` 两句 | 保留一句“拖入 PDF 或 Ctrl+O” |
-| 搜索 | `.searchHint` 10.5px | 12px；只留必要操作 |
-| 侧栏 | 缩略图页码、目录页码、高亮元信息 10–11px | 统一 12px，能省则省 |
-| 快捷键面板 | `kbd` 9px | 12px，键帽样式保留 |
+| 位置       | 现状                                                                   | 处理                                      |
+| ---------- | ---------------------------------------------------------------------- | ----------------------------------------- |
+| 顶栏       | 文件名旁 `6 页`，右侧页码又显示 `/ 6`                                  | 合并为“文件名 · 6 页”，删除重复 `docMeta` |
+| 更多菜单   | `Ctrl O` 等 10.5px 快捷键提示                                          | 从菜单移除，快捷键面板已有                |
+| 关于       | 图标/许可证长段 10.5px                                                 | 移到“第三方声明”，主界面只留一句          |
+| 隐私       | “主 PDF 不上传”在关于和隐私重复                                        | 只保留一处                                |
+| 助手       | `.tokenHint`、`.bucketNote`、`.smartNote`、`.scannedNote` 等多行微文案 | 合并为一行 12px 或 tooltip                |
+| OCR        | 9px `OCR` 角标                                                         | 改成 12px chip，或图标 + tooltip          |
+| 选区工具条 | 9px `OCR`                                                              | 同上                                      |
+| 引用       | 10.5px `p.12`                                                          | 提到 12px；引用是重要交互，不该最小       |
+| 消息表格   | 11.5px                                                                 | 提到 13px                                 |
+| 空状态     | `.dropHint` + `.hint` 两句                                             | 保留一句“拖入 PDF 或 Ctrl+O”              |
+| 搜索       | `.searchHint` 10.5px                                                   | 12px；只留必要操作                        |
+| 侧栏       | 缩略图页码、目录页码、高亮元信息 10–11px                               | 统一 12px，能省则省                       |
+| 快捷键面板 | `kbd` 9px                                                              | 12px，键帽样式保留                        |
 
 原则：
 
@@ -269,12 +269,12 @@ npm run build:server
 新增动效 token：
 
 ```css
---motion-instant: 80ms;   /* 按下、勾选 */
---motion-fast: 120ms;     /* hover、颜色、边框 */
---motion-base: 180ms;     /* 菜单、弹层、对话框 */
---motion-slow: 260ms;     /* 侧栏、面板 */
---motion-panel: 360ms;    /* FAB / 面板 FLIP */
---motion-exit: 180ms;     /* 退场，略快于入场 */
+--motion-instant: 80ms; /* 按下、勾选 */
+--motion-fast: 120ms; /* hover、颜色、边框 */
+--motion-base: 180ms; /* 菜单、弹层、对话框 */
+--motion-slow: 260ms; /* 侧栏、面板 */
+--motion-panel: 360ms; /* FAB / 面板 FLIP */
+--motion-exit: 180ms; /* 退场，略快于入场 */
 --ease-standard: cubic-bezier(0.2, 0, 0, 1);
 --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
 --ease-in: cubic-bezier(0.4, 0, 1, 1);
@@ -284,15 +284,15 @@ npm run build:server
 
 场景映射：
 
-| 场景 | 时长 / 缓动 | 动作 |
-|---|---|---|
-| hover、颜色、边框 | `fast` + `standard` | 只动 `background` / `color` / `border-color` |
-| 菜单、popover、tooltip | `base` + `ease-out` | opacity + translateY(4px) + scale(.98) |
-| 对话框、模态 | `base` + `ease-out` | opacity + scale(.98) |
-| 侧栏、面板展开 | `slow` + `ease-out` | transform；宽度只在拖拽调整时动 |
-| FAB → 面板 | `panel` + `ease-out` | FLIP，保持现有 360ms |
-| 退场 | `exit` + `ease-in` | 不反弹、不延迟 |
-| 循环动效 | FAB 3.8s、skeleton 1.4s、spinner 0.8s | 只动 opacity / transform |
+| 场景                   | 时长 / 缓动                           | 动作                                         |
+| ---------------------- | ------------------------------------- | -------------------------------------------- |
+| hover、颜色、边框      | `fast` + `standard`                   | 只动 `background` / `color` / `border-color` |
+| 菜单、popover、tooltip | `base` + `ease-out`                   | opacity + translateY(4px) + scale(.98)       |
+| 对话框、模态           | `base` + `ease-out`                   | opacity + scale(.98)                         |
+| 侧栏、面板展开         | `slow` + `ease-out`                   | transform；宽度只在拖拽调整时动              |
+| FAB → 面板             | `panel` + `ease-out`                  | FLIP，保持现有 360ms                         |
+| 退场                   | `exit` + `ease-in`                    | 不反弹、不延迟                               |
+| 循环动效               | FAB 3.8s、skeleton 1.4s、spinner 0.8s | 只动 opacity / transform                     |
 
 实现规则：
 
@@ -721,7 +721,7 @@ MIT
 ### 4.1 API / 配置 schema
 
 - `server/src/index.ts` 现有 5 处 `as Record<string, unknown>`（301/415/442/465/531），改 zod schema；新增的 OCR source/test/reset 也走 schema。
-- 新增 `server/src/config.ts`：PORT/HOST/APP_ORIGIN/MOCK_AI/AI_*/OCR_* 统一校验，失败即退出；日志脱敏。
+- 新增 `server/src/config.ts`：PORT/HOST/APP_ORIGIN/MOCK_AI/AI__/OCR__ 统一校验，失败即退出；日志脱敏。
 - 统一错误：`invalid_request` / `invalid_config`，可选 `details`；保持现有 `{ error: { code, message, hint } }`。
 - 客户端类型从 schema 推导；先覆盖 provider、model switch、OCR install/switch、OCR source/test/reset、chat。
 

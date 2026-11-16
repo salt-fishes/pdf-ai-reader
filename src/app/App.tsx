@@ -1,4 +1,12 @@
-import { Suspense, lazy, useEffect, useMemo, useState, type CSSProperties, type DragEvent } from "react";
+import {
+  Suspense,
+  lazy,
+  useEffect,
+  useMemo,
+  useState,
+  type CSSProperties,
+  type DragEvent,
+} from "react";
 import { Header } from "./Header";
 import { PasswordDialog } from "./PasswordDialog";
 import { Rail } from "./Rail";
@@ -159,7 +167,8 @@ export function App() {
         key: "pagedown",
         run: () => {
           const viewer = useViewer.getState();
-          if (viewer.numPages) viewer.requestScroll(Math.min(viewer.numPages, viewer.currentPage + 1));
+          if (viewer.numPages)
+            viewer.requestScroll(Math.min(viewer.numPages, viewer.currentPage + 1));
         },
       },
       {
@@ -273,7 +282,10 @@ export function App() {
           onOpenShortcuts={() => setShortcutsOpen(true)}
         />
         <Sidebar />
-        <main className={`${styles.reader} ${reserved ? styles.readerReserved : ""}`} style={reserveStyle}>
+        <main
+          className={`${styles.reader} ${reserved ? styles.readerReserved : ""}`}
+          style={reserveStyle}
+        >
           <PdfViewer />
         </main>
       </div>

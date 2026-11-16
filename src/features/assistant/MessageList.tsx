@@ -186,9 +186,7 @@ export function MessageList() {
                     >
                       <span className={styles.summaryText}>
                         <span>总结整份文档</span>
-                        <small>
-                          {summary ? summaryLabel : `全文 ${numPages} 页 · 自动分段`}
-                        </small>
+                        <small>{summary ? summaryLabel : `全文 ${numPages} 页 · 自动分段`}</small>
                       </span>
                       <span aria-hidden="true">→</span>
                     </button>

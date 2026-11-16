@@ -81,7 +81,10 @@ export function Rail({ onOpenSettings, onOpenShortcuts }: Props) {
           aria-expanded={colorOpen}
           title={`色彩模式：${color.label}`}
         >
-          <WinIcon glyph={colorMode === "smart" || colorMode === "invert" ? "moon" : "theme"} size={16} />
+          <WinIcon
+            glyph={colorMode === "smart" || colorMode === "invert" ? "moon" : "theme"}
+            size={16}
+          />
         </button>
         {colorOpen ? (
           <div className={styles.colorPopover} role="dialog" aria-label="色彩模式">
@@ -101,12 +104,7 @@ export function Rail({ onOpenSettings, onOpenShortcuts }: Props) {
       >
         <WinIcon glyph="help" size={16} />
       </button>
-      <button
-        className={styles.railButton}
-        onClick={onOpenSettings}
-        aria-label="设置"
-        title="设置"
-      >
+      <button className={styles.railButton} onClick={onOpenSettings} aria-label="设置" title="设置">
         <WinIcon glyph="settings" size={16} />
       </button>
     </aside>

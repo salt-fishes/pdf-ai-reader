@@ -9,3 +9,7 @@ test-results
 playwright-report
 server/models
 server/data
+
+eslint-report.json
+
+public/pdfjs

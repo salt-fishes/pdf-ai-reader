@@ -28,8 +28,9 @@
   --radius-chip: 8px;
   --radius-button: 7px;
 
-  --font-ui: "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei",
-    system-ui, sans-serif;
+  --font-ui:
+    "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", system-ui,
+    sans-serif;
   --font-reading: "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", system-ui, sans-serif;
   --font-mono: "Cascadia Mono", "JetBrains Mono", Consolas, monospace;
 

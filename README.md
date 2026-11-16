@@ -223,18 +223,18 @@ E2E 启动前会检查代理必须是 `MOCK_AI=1`，避免误用真实密钥产�
 
 `server/.env`：
 
-| 变量 | 说明 |
-|---|---|
-| `AI_BASE_URL` | OpenAI 兼容端点，默认 `https://api.deepseek.com` |
-| `AI_API_KEY` | 服务端密钥；不要写进前端 |
-| `AI_MODEL` | 默认模型，默认 `deepseek-flash` |
-| `AI_MODEL_ALLOW` | 允许前端切换的模型，逗号分隔；留空时只能使用 `AI_MODEL` |
-| `MOCK_AI` | `1` 时使用内置 mock 流，不访问真实模型 |
-| `PORT` / `HOST` | 默认 `8787` / `127.0.0.1` |
-| `APP_ORIGIN` | 开发前端地址，写入 `/api/config` |
-| `OCR_MODEL_BASE_URL` | 可选：tiny 模型下载镜像前缀，默认 GitHub release；国内网络可换镜像 |
-| `OCR_MODEL_DIR` | 可选：可写模型根目录（包含 `ppocrv6`、`ppocrv6-small`、`ppocrv6-medium`）；默认 `server/models` |
-| `OCR_MODEL` | 可选：默认 OCR 模型，`v6-tiny` / `v6-small` / `v6-medium`，默认 `v6-tiny` |
+| 变量                 | 说明                                                                                            |
+| -------------------- | ----------------------------------------------------------------------------------------------- |
+| `AI_BASE_URL`        | OpenAI 兼容端点，默认 `https://api.deepseek.com`                                                |
+| `AI_API_KEY`         | 服务端密钥；不要写进前端                                                                        |
+| `AI_MODEL`           | 默认模型，默认 `deepseek-flash`                                                                 |
+| `AI_MODEL_ALLOW`     | 允许前端切换的模型，逗号分隔；留空时只能使用 `AI_MODEL`                                         |
+| `MOCK_AI`            | `1` 时使用内置 mock 流，不访问真实模型                                                          |
+| `PORT` / `HOST`      | 默认 `8787` / `127.0.0.1`                                                                       |
+| `APP_ORIGIN`         | 开发前端地址，写入 `/api/config`                                                                |
+| `OCR_MODEL_BASE_URL` | 可选：tiny 模型下载镜像前缀，默认 GitHub release；国内网络可换镜像                              |
+| `OCR_MODEL_DIR`      | 可选：可写模型根目录（包含 `ppocrv6`、`ppocrv6-small`、`ppocrv6-medium`）；默认 `server/models` |
+| `OCR_MODEL`          | 可选：默认 OCR 模型，`v6-tiny` / `v6-small` / `v6-medium`，默认 `v6-tiny`                       |
 
 换 provider 时选一个多模态模型（Qwen-VL / GLM-4V / Gemini / GPT-4o 等），截图与文字走同一个模型。
 

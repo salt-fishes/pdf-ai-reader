@@ -1,6 +1,4 @@
-export type PageRange =
-  | { pages: number[]; count: number }
-  | null;
+export type PageRange = { pages: number[]; count: number } | null;
 
 /**
  * Parse "3", "3-7", "2,5,9-12" into a sorted unique page list.

@@ -4,11 +4,17 @@ import { chromium } from "@playwright/test";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const BASE = (process.argv[2] ?? process.env.API_BASE ?? "http://127.0.0.1:8787").replace(/\/+$/, "");
+const BASE = (process.argv[2] ?? process.env.API_BASE ?? "http://127.0.0.1:8787").replace(
+  /\/+$/,
+  "",
+);
 const outDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "docs");
 
 const browser = await chromium.launch({ channel: "msedge", headless: true });
-const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: "zh-CN" });
+const context = await browser.newContext({
+  viewport: { width: 1440, height: 900 },
+  locale: "zh-CN",
+});
 const page = await context.newPage();
 const errors = [];
 page.on("console", (message) => {
@@ -27,7 +33,9 @@ await page.evaluate(async () => {
   const transfer = new DataTransfer();
   transfer.items.add(file);
   const root = document.querySelector("#root > div");
-  root?.dispatchEvent(new DragEvent("drop", { dataTransfer: transfer, bubbles: true, cancelable: true }));
+  root?.dispatchEvent(
+    new DragEvent("drop", { dataTransfer: transfer, bubbles: true, cancelable: true }),
+  );
 });
 await page.locator("header").filter({ hasText: "sample-cn.pdf" }).waitFor({ timeout: 20_000 });
 mark("PDF 已打开");
@@ -53,7 +61,10 @@ mark("已发送");
 
 // 思考阶段：等「思考过程」出现，证明 reasoning 流已被接收。
 try {
-  await panel.getByText(/思考过程/).first().waitFor({ timeout: 20_000 });
+  await panel
+    .getByText(/思考过程/)
+    .first()
+    .waitFor({ timeout: 20_000 });
   mark("收到 reasoning 流（思考过程）");
   await page.screenshot({ path: path.join(outDir, "real-thinking.png") });
 } catch {
@@ -61,7 +72,9 @@ try {
 }
 
 // 停止按钮消失 = 流结束
-await panel.locator('button[aria-label="停止生成"]').waitFor({ state: "detached", timeout: 120_000 });
+await panel
+  .locator('button[aria-label="停止生成"]')
+  .waitFor({ state: "detached", timeout: 120_000 });
 mark("流结束");
 
 await panel.locator('button[aria-label="发送"]').waitFor({ timeout: 10_000 });

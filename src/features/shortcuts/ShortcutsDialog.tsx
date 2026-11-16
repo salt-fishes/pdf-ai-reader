@@ -67,8 +67,17 @@ export function ShortcutsDialog({ open, onClose }: Props) {
   if (!open) return null;
 
   return (
-    <div className={styles.backdrop} onPointerDown={(event) => event.target === event.currentTarget && onClose()}>
-      <div ref={cardRef} className={styles.card} role="dialog" aria-modal="true" aria-label="快捷键">
+    <div
+      className={styles.backdrop}
+      onPointerDown={(event) => event.target === event.currentTarget && onClose()}
+    >
+      <div
+        ref={cardRef}
+        className={styles.card}
+        role="dialog"
+        aria-modal="true"
+        aria-label="快捷键"
+      >
         <div className={styles.head}>
           <span className={styles.title}>快捷键</span>
           <span className={styles.headSpacer} />

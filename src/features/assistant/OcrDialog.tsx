@@ -54,8 +54,8 @@ export function OcrDialog() {
               PP-OCRv6 tiny
             </div>
             <div className={styles.lead}>
-              首次使用才下载检测与识别模型（约 {mb(total)}），保存在本机代理目录。
-              图片只发送到 <code>127.0.0.1</code>，不会上传云端；识别出的文字用于提问、搜索和智能筛选。
+              首次使用才下载检测与识别模型（约 {mb(total)}），保存在本机代理目录。 图片只发送到{" "}
+              <code>127.0.0.1</code>，不会上传云端；识别出的文字用于提问、搜索和智能筛选。
             </div>
             <div className={styles.meta}>
               <span>模型：PP-OCRv6 tiny · Apache-2.0</span>
@@ -71,7 +71,10 @@ export function OcrDialog() {
             {downloading ? (
               <>
                 <div className={styles.track} aria-hidden="true">
-                  <span className={styles.fill} style={{ width: `${Math.max(2, progress * 100)}%` }} />
+                  <span
+                    className={styles.fill}
+                    style={{ width: `${Math.max(2, progress * 100)}%` }}
+                  />
                 </div>
                 <div className={styles.progressText}>
                   {mb(downloaded)} / {mb(total)}
@@ -120,7 +123,11 @@ export function OcrDialog() {
                         ? `下载并识别第 ${pending} 页`
                         : "下载模型"}
                   </button>
-                  <button className={modal.button} onClick={close} disabled={downloading || recognizing}>
+                  <button
+                    className={modal.button}
+                    onClick={close}
+                    disabled={downloading || recognizing}
+                  >
                     取消
                   </button>
                 </>
@@ -132,8 +139,8 @@ export function OcrDialog() {
             <div className={modal.sectionTitle}>说明</div>
             <div className={modal.note}>
               识别在本机代理进程中完成；模型缺失时可把 ONNX 文件放入
-              <code>server/models/ppocrv6</code>，或在设置中下载。
-              扫描页本身仍是图片，OCR 只补充可检索的文本。
+              <code>server/models/ppocrv6</code>，或在设置中下载。 扫描页本身仍是图片，OCR
+              只补充可检索的文本。
             </div>
           </section>
         </div>
