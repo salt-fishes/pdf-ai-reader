@@ -16,6 +16,7 @@ const context = await browser.newContext({
 });
 const page = await context.newPage();
 await page.goto("http://127.0.0.1:5173/");
+await page.waitForSelector("#root > div", { timeout: 30_000 });
 
 async function drop(name) {
   await dropSample(page, name);

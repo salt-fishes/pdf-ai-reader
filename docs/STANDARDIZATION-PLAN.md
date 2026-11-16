@@ -3,7 +3,7 @@
 > 目标：让界面更清爽、品牌与动效更统一、隐私与发版更可信，同时把工程门禁补齐。
 > 原则：先收口，再改样式；先有测试/门禁，再做结构拆分；不为“规范”而规范。
 >
-> **执行状态（2026-11-16）**：Phase 0–5 已完成可落地部分。Phase 5：服务端 `index.ts` 745→51 行（routes/provider/ocr 拆分）、`SettingsDialog` 1154→674 行（OCR/About 章节抽出）、`src/lib` 覆盖率门禁、release 包体积预算 185MB；`useAssistantStore` 拆分与代码签名留待下一轮。CI Linux/Windows 与 release 干跑均通过，`v0.3.0` 已发布。
+> **执行状态（2026-11-16）**：Phase 0–5 已完成可落地部分。Phase 5：服务端 `index.ts` 745→51 行（routes/provider/chat/ocr 拆分）、`SettingsDialog` 1154→674 行（OCR/About 章节抽出）、`src/lib` 覆盖率门禁、release 包体积预算 185MB；`useAssistantStore` 拆分与代码签名留待下一轮。CI Linux/Windows 与 release 干跑均通过，`v0.3.1` 已发布。
 
 ## 1. 现状结论
 

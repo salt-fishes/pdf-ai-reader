@@ -14,6 +14,14 @@
 - 76 个单元测试 / 40 个 Playwright E2E。
 - 本地覆盖率：statements 51.1%、branches 51.7%、functions 40.4%、lines 51.7%。
 
+### 已知问题
+
+- 桌面版未做代码签名与自动更新安装；Windows SmartScreen 会提示未知发布者。
+- OCR 行框对倾斜或双栏页面可能略宽，词级命中框尚未实现。
+- 仅提供 Windows x64 可移植包；macOS / Linux 打包未验证。
+- IndexedDB 未加密，共用电脑时请使用“清空所有本地数据”。
+- `useAssistantStore` 仍未拆分，后续重构需要补充 characterization tests。
+
 ## [0.3.0] — 2026-11-16
 
 ### 新增
