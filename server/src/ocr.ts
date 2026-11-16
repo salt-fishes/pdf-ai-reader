@@ -14,7 +14,17 @@ import {
 } from "./ocrModels";
 
 export type { OcrModelId } from "./ocrModels";
-export { OCR_MODELS, OCR_MODEL_IDS, isOcrModelId } from "./ocrModels";
+export {
+  OCR_MODELS,
+  OCR_MODEL_IDS,
+  customOcrSource,
+  isOcrModelId,
+  normalizeOcrSourceUrl,
+  ocrSourceInfo,
+  resetOcrSource,
+  saveOcrSource,
+  testOcrSource,
+} from "./ocrModels";
 
 export type OcrLineBox = { x: number; y: number; width: number; height: number };
 

@@ -44,6 +44,24 @@ export type OcrResult = {
 
 export type OcrPriority = "high" | "normal" | "low";
 
+export type OcrSourceFile = { name: string; url: string; bytes: number };
+export type OcrSourceModel = { id: OcrModelId; label: string; files: OcrSourceFile[] };
+export type OcrSourceInfo = {
+  customBaseUrl: string | null;
+  defaultBaseUrl: string;
+  officialBaseUrls: Record<"tiny" | "small" | "medium", string>;
+  models: OcrSourceModel[];
+};
+export type OcrSourceProbe = {
+  name: string;
+  url: string;
+  ok: boolean;
+  status: number;
+  bytes: number;
+  error?: string;
+};
+export type OcrSourceTest = { baseUrl: string; files: OcrSourceProbe[]; ok: boolean };
+
 export class OcrClientError extends Error {
   hint?: string;
   code?: string;
@@ -75,6 +93,52 @@ export async function fetchOcrStatus(): Promise<OcrStatus> {
   }
   if (!response.ok) throw await readError(response);
   return (await response.json()) as OcrStatus;
+}
+
+export async function fetchOcrSource(): Promise<OcrSourceInfo> {
+  let response: Response;
+  try {
+    response = await fetch("/api/ocr/source", { signal: AbortSignal.timeout(15_000) });
+  } catch {
+    throw new OcrClientError("无法连接本地代理", { hint: "请确认 npm start 正在运行" });
+  }
+  if (!response.ok) throw await readError(response);
+  return (await response.json()) as OcrSourceInfo;
+}
+
+async function sourceRequest(
+  path: string,
+  body?: unknown,
+): Promise<{ source?: OcrSourceInfo } & Partial<OcrSourceTest>> {
+  let response: Response;
+  try {
+    response = await fetch(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body ?? {}),
+      signal: AbortSignal.timeout(45_000),
+    });
+  } catch {
+    throw new OcrClientError("无法连接本地代理", { hint: "请确认 npm start 正在运行" });
+  }
+  if (!response.ok) throw await readError(response);
+  return (await response.json()) as { source?: OcrSourceInfo } & Partial<OcrSourceTest>;
+}
+
+export async function saveOcrSource(baseUrl: string): Promise<OcrSourceInfo> {
+  const payload = await sourceRequest("/api/ocr/source", { baseUrl });
+  return payload.source ?? fetchOcrSource();
+}
+
+export async function resetOcrSource(): Promise<OcrSourceInfo> {
+  const payload = await sourceRequest("/api/ocr/source/reset");
+  return payload.source ?? fetchOcrSource();
+}
+
+export async function testOcrSource(baseUrl: string, model?: OcrModelId): Promise<OcrSourceTest> {
+  const payload = await sourceRequest("/api/ocr/source/test", { baseUrl, model });
+  if (!payload.files) throw new OcrClientError("下载源测试没有返回结果");
+  return payload as OcrSourceTest;
 }
 
 export async function startOcrInstall(model?: OcrModelId): Promise<void> {

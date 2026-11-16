@@ -1,5 +1,5 @@
-import { createWriteStream, existsSync } from "node:fs";
-import { mkdir, rename, stat, unlink } from "node:fs/promises";
+import { createWriteStream, existsSync, readFileSync } from "node:fs";
+import { mkdir, rename, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
@@ -17,8 +17,10 @@ export type OcrModelId = "v6-tiny" | "v6-small" | "v6-medium";
 export type OcrModelFile = {
   /** File name inside the model directory. */
   name: string;
-  /** Download URL. */
+  /** Default download URL. */
   url: string;
+  /** Path inside a custom mirror root. */
+  relative: string;
   /** Expected size in bytes; used for progress and integrity checks. */
   bytes: number;
   /** Accept a slightly smaller file (legacy exports used a different size). */
@@ -64,6 +66,7 @@ export const OCR_MODELS: Record<OcrModelId, OcrModelSpec> = {
       detection: {
         name: "det.onnx",
         url: `${OAR_BASE}/pp-ocrv6_tiny_det.onnx`,
+        relative: "pp-ocrv6_tiny_det.onnx",
         bytes: 1_780_590,
         tolerant: true,
         exact: true,
@@ -71,6 +74,7 @@ export const OCR_MODELS: Record<OcrModelId, OcrModelSpec> = {
       recognition: {
         name: "rec.onnx",
         url: `${OAR_BASE}/pp-ocrv6_tiny_rec.onnx`,
+        relative: "pp-ocrv6_tiny_rec.onnx",
         bytes: 4_462_639,
         tolerant: true,
         exact: true,
@@ -78,6 +82,7 @@ export const OCR_MODELS: Record<OcrModelId, OcrModelSpec> = {
       dictionary: {
         name: "dict.txt",
         url: `${OAR_BASE}/ppocrv6_tiny_dict.txt`,
+        relative: "ppocrv6_tiny_dict.txt",
         bytes: 27_156,
         tolerant: true,
         exact: true,
@@ -95,16 +100,19 @@ export const OCR_MODELS: Record<OcrModelId, OcrModelSpec> = {
       detection: {
         name: "det.ort",
         url: `${HF_BASE}/detection/ort/PP-OCRv6_small_det.ort`,
+        relative: "detection/ort/PP-OCRv6_small_det.ort",
         bytes: 2_200_000,
       },
       recognition: {
         name: "rec.ort",
         url: `${HF_BASE}/recognition/ort/PP-OCRv6_small_rec.ort`,
+        relative: "recognition/ort/PP-OCRv6_small_rec.ort",
         bytes: 9_800_000,
       },
       dictionary: {
         name: "dict.txt",
         url: `${HF_BASE}/recognition/ppocrv6_dict.txt`,
+        relative: "recognition/ppocrv6_dict.txt",
         bytes: 30_000,
       },
     },
@@ -120,16 +128,19 @@ export const OCR_MODELS: Record<OcrModelId, OcrModelSpec> = {
       detection: {
         name: "det.ort",
         url: `${HF_BASE}/detection/ort/PP-OCRv6_medium_det.ort`,
+        relative: "detection/ort/PP-OCRv6_medium_det.ort",
         bytes: 4_600_000,
       },
       recognition: {
         name: "rec.ort",
         url: `${HF_BASE}/recognition/ort/PP-OCRv6_medium_rec.ort`,
+        relative: "recognition/ort/PP-OCRv6_medium_rec.ort",
         bytes: 22_000_000,
       },
       dictionary: {
         name: "dict.txt",
         url: `${HF_BASE}/recognition/ppocrv6_dict.txt`,
+        relative: "recognition/ppocrv6_dict.txt",
         bytes: 30_000,
       },
     },
@@ -137,6 +148,162 @@ export const OCR_MODELS: Record<OcrModelId, OcrModelSpec> = {
 };
 
 export const OCR_MODEL_IDS = Object.keys(OCR_MODELS) as OcrModelId[];
+
+const DATA_DIR = process.env.PDF_AI_DATA_DIR ?? fileURLToPath(new URL("../data", import.meta.url));
+const SOURCE_FILE = path.join(DATA_DIR, "ocr-source.json");
+
+/** Only http(s) mirror roots are accepted; paths stay fixed below. */
+export function normalizeOcrSourceUrl(value: string): string {
+  const trimmed = value.trim().replace(/\/+$/, "");
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    throw new Error("下载源必须是完整的 http(s) 地址");
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new Error("下载源只支持 http 或 https");
+  }
+  if (parsed.username || parsed.password) throw new Error("下载源不能包含账号密码");
+  return trimmed;
+}
+
+function readCustomSource(): string | null {
+  try {
+    if (!existsSync(SOURCE_FILE)) return null;
+    const raw = JSON.parse(readFileSync(SOURCE_FILE, "utf8")) as { baseUrl?: unknown };
+    return typeof raw.baseUrl === "string" ? normalizeOcrSourceUrl(raw.baseUrl) : null;
+  } catch {
+    return null;
+  }
+}
+
+let customSource: string | null = readCustomSource();
+
+export function customOcrSource(): string | null {
+  return customSource;
+}
+
+export async function saveOcrSource(value: string): Promise<void> {
+  const baseUrl = normalizeOcrSourceUrl(value);
+  await mkdir(DATA_DIR, { recursive: true });
+  await writeFile(SOURCE_FILE, `${JSON.stringify({ baseUrl }, null, 2)}\n`, {
+    encoding: "utf8",
+    mode: 0o600,
+  });
+  customSource = baseUrl;
+}
+
+export async function resetOcrSource(): Promise<void> {
+  customSource = null;
+  await unlink(SOURCE_FILE).catch(() => undefined);
+}
+
+export function modelFileUrl(id: OcrModelId, file: OcrModelFile): string {
+  return customSource ? `${customSource}/${file.relative}` : file.url;
+}
+
+export function ocrSourceInfo() {
+  const defaultBase = OAR_BASE;
+  return {
+    customBaseUrl: customSource,
+    defaultBaseUrl: defaultBase,
+    officialBaseUrls: { tiny: OAR_BASE, small: HF_BASE, medium: HF_BASE },
+    models: OCR_MODEL_IDS.map((id) => ({
+      id,
+      label: OCR_MODELS[id].label,
+      files: specFiles(OCR_MODELS[id]).map((file) => ({
+        name: file.name,
+        url: modelFileUrl(id, file),
+        bytes: file.bytes,
+      })),
+    })),
+  };
+}
+
+export type OcrSourceProbe = {
+  name: string;
+  url: string;
+  ok: boolean;
+  status: number;
+  bytes: number;
+  error?: string;
+};
+
+async function probeFile(url: string, name: string): Promise<OcrSourceProbe> {
+  let target = url;
+  for (let redirects = 0; redirects <= 3; redirects += 1) {
+    let response: Response;
+    try {
+      response = await fetch(target, {
+        method: "HEAD",
+        redirect: "manual",
+        signal: AbortSignal.timeout(10_000),
+      });
+    } catch {
+      return { name, url, ok: false, status: 0, bytes: 0, error: "无法连接下载源" };
+    }
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get("location");
+      if (!location) {
+        return { name, url, ok: false, status: response.status, bytes: 0, error: "重定向缺少目标" };
+      }
+      if (redirects === 3) {
+        return {
+          name,
+          url,
+          ok: false,
+          status: response.status,
+          bytes: 0,
+          error: "重定向超过 3 次",
+        };
+      }
+      target = new URL(location, target).toString();
+      continue;
+    }
+    const type = response.headers.get("content-type") ?? "";
+    const bytes = Number(response.headers.get("content-length") ?? 0);
+    if (!response.ok) {
+      return {
+        name,
+        url,
+        ok: false,
+        status: response.status,
+        bytes,
+        error: `HTTP ${response.status}`,
+      };
+    }
+    if (/text\/html/i.test(type)) {
+      return {
+        name,
+        url,
+        ok: false,
+        status: response.status,
+        bytes,
+        error: "返回网页而不是模型文件",
+      };
+    }
+    if (bytes > 64 * 1024 * 1024) {
+      return { name, url, ok: false, status: response.status, bytes, error: "文件超过 64MB 上限" };
+    }
+    return { name, url, ok: true, status: response.status, bytes };
+  }
+  return { name, url, ok: false, status: 0, bytes: 0, error: "无法连接下载源" };
+}
+
+export async function testOcrSource(
+  baseUrl: string,
+  id: OcrModelId = "v6-tiny",
+): Promise<{ baseUrl: string; files: OcrSourceProbe[]; ok: boolean }> {
+  const root = normalizeOcrSourceUrl(baseUrl);
+  const spec = OCR_MODELS[id];
+  const files = await Promise.all(
+    specFiles(spec).map((file) =>
+      probeFile(`${root}/${file.relative}`, `${spec.dir}/${file.name}`),
+    ),
+  );
+  return { baseUrl: root, files, ok: files.every((file) => file.ok) };
+}
 
 const WRITABLE_ROOT = process.env.OCR_MODEL_DIR ? path.resolve(process.env.OCR_MODEL_DIR) : null;
 const BUNDLED_ROOT = fileURLToPath(new URL("../models", import.meta.url));
@@ -275,14 +442,15 @@ async function downloadFile(
 
   const part = `${target}.part`;
   await unlink(part).catch(() => undefined);
+  const url = modelFileUrl(id, file);
   let response: Response;
   try {
-    response = await fetch(file.url, {
+    response = await fetch(url, {
       redirect: "follow",
       signal: AbortSignal.timeout(30_000),
     });
   } catch {
-    throw new Error(`无法连接模型下载源（${remoteHost(file.url)}）`);
+    throw new Error(`无法连接模型下载源（${remoteHost(url)}）`);
   }
   if (!response.ok || !response.body) {
     throw new Error(`模型下载失败（${response.status}）`);

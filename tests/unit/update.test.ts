@@ -1,0 +1,31 @@
+import { describe, expect, it } from "vitest";
+import { compareVersions, isPrerelease } from "../../src/lib/update";
+
+describe("update version comparison", () => {
+  it("detects newer stable releases", () => {
+    expect(compareVersions("0.2.0", "0.2.1")).toBe(true);
+    expect(compareVersions("0.2.0", "0.3.0")).toBe(true);
+    expect(compareVersions("0.2.0", "1.0.0")).toBe(true);
+    expect(compareVersions("0.2.1", "0.2.0")).toBe(false);
+    expect(compareVersions("0.2.0", "0.2.0")).toBe(false);
+  });
+
+  it("accepts v-prefixed tags and ignores invalid tags", () => {
+    expect(compareVersions("0.2.0", "v0.2.1")).toBe(true);
+    expect(compareVersions("v0.2.0", "0.2.1")).toBe(true);
+    expect(compareVersions("0.2.0", "latest")).toBe(false);
+    expect(compareVersions("dev", "0.2.1")).toBe(false);
+  });
+
+  it("does not treat an rc build as newer than its release", () => {
+    expect(compareVersions("0.2.0-rc.1", "0.2.0")).toBe(true);
+    expect(compareVersions("0.2.0", "0.2.0-rc.1")).toBe(false);
+    expect(compareVersions("0.2.0-rc.1", "0.2.0-rc.2")).toBe(true);
+  });
+
+  it("flags prerelease versions for the about page", () => {
+    expect(isPrerelease("0.2.0-rc.1")).toBe(true);
+    expect(isPrerelease("0.2.0")).toBe(false);
+    expect(isPrerelease("nope")).toBe(false);
+  });
+});

@@ -1,10 +1,30 @@
 import { useEffect, useRef, useState } from "react";
-import { WinIcon } from "../../components/icons/WinIcon";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { Icon } from "../../components/icons/Icon";
+import { BrandMark } from "../../components/icons/SparkleIcon";
+import { copyText } from "../../lib/clipboard";
+import {
+  checkForUpdates,
+  desktopVersions,
+  isPrerelease,
+  RELEASES_PAGE,
+  REPOSITORY_URL,
+  type UpdateInfo,
+} from "../../lib/update";
 import { fetchModels, saveProviderConfig } from "../../lib/ai/client";
 import { formatTokens } from "../../lib/tokens/estimate";
 import { DEFAULT_PRICING } from "../../lib/tokens/meter";
 import { clearAllLocalData } from "../../lib/storage/db";
-import type { OcrModelId } from "../../lib/ocr/client";
+import {
+  fetchOcrSource,
+  resetOcrSource,
+  saveOcrSource,
+  testOcrSource,
+  type OcrModelId,
+  type OcrModelInfo,
+  type OcrSourceInfo,
+} from "../../lib/ocr/client";
 import { useAssistant } from "../assistant/useAssistantStore";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { useOcr } from "../ocr/useOcrStore";
@@ -15,19 +35,18 @@ import styles from "../../components/Modal.module.css";
 type Props = { open: boolean; onClose: () => void };
 
 const NAV = [
-  { id: "model", label: "模型服务", glyph: "globe" },
-  { id: "interface", label: "界面", glyph: "page" },
-  { id: "appearance", label: "阅读外观", glyph: "theme" },
-  { id: "conversation", label: "对话", glyph: "send" },
-  { id: "ocr", label: "扫描件 OCR", glyph: "search" },
-  { id: "privacy", label: "数据与隐私", glyph: "page" },
-  { id: "about", label: "关于", glyph: "info" },
+  { id: "model", label: "模型服务", glyph: "globe", target: "model" },
+  { id: "reading", label: "阅读", glyph: "page", target: "interface" },
+  { id: "conversation", label: "对话", glyph: "send", target: "conversation" },
+  { id: "ocr", label: "扫描件 OCR", glyph: "search", target: "ocr" },
+  { id: "privacy", label: "隐私与数据", glyph: "lock", target: "privacy" },
+  { id: "about", label: "关于", glyph: "info", target: "about" },
 ] as const;
 
 const SECTION_GROUP: Record<string, string> = {
   model: "model",
-  interface: "interface",
-  appearance: "appearance",
+  interface: "reading",
+  appearance: "reading",
   conversation: "conversation",
   ocr: "ocr",
   privacy: "privacy",
@@ -104,6 +123,20 @@ export function SettingsDialog({ open, onClose }: Props) {
   const [clearKey, setClearKey] = useState(false);
   const [pricingDraft, setPricingDraft] = useState(DEFAULT_PRICING);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [privacyDoc, setPrivacyDoc] = useState<string | null>(null);
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
+  const [updateError, setUpdateError] = useState("");
+  const [diagnosticsCopied, setDiagnosticsCopied] = useState(false);
+  const [pdfjsVersion, setPdfjsVersion] = useState("—");
+  const [pendingModel, setPendingModel] = useState<OcrModelInfo | null>(null);
+  const [sourceInfo, setSourceInfo] = useState<OcrSourceInfo | null>(null);
+  const [sourceMode, setSourceMode] = useState<"default" | "custom">("default");
+  const [sourceDraft, setSourceDraft] = useState("");
+  const [sourceBusy, setSourceBusy] = useState(false);
+  const [sourceVerified, setSourceVerified] = useState(false);
+  const [sourceMessage, setSourceMessage] = useState("");
+  const [sourceError, setSourceError] = useState(false);
   const docName = useViewer((state) => state.docName);
   const contentRef = useRef<HTMLDivElement>(null);
   const scrollLock = useRef(0);
@@ -121,16 +154,38 @@ export function SettingsDialog({ open, onClose }: Props) {
     setApiKey("");
     setClearKey(false);
     setConfirmClear(false);
+    setUpdateInfo(null);
+    setUpdateError("");
+    setCheckingUpdate(false);
+    setDiagnosticsCopied(false);
+    setPendingModel(null);
+    void import("pdfjs-dist")
+      .then((module) => setPdfjsVersion(module.version))
+      .catch(() => undefined);
+    setSourceMessage("");
+    setSourceError(false);
+    setSourceVerified(false);
+    void fetchOcrSource()
+      .then((info) => {
+        setSourceInfo(info);
+        setSourceDraft(info.customBaseUrl ?? "");
+        setSourceMode(info.customBaseUrl ? "custom" : "default");
+      })
+      .catch(() => undefined);
     void refreshOcrStatus();
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.stopPropagation();
+        if (privacyDoc) {
+          setPrivacyDoc(null);
+          return;
+        }
         onClose();
       }
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, [open, onClose, refreshOcrStatus]);
+  }, [open, onClose, refreshOcrStatus, privacyDoc]);
 
   useEffect(() => {
     if (!open || !config) return;
@@ -149,7 +204,7 @@ export function SettingsDialog({ open, onClose }: Props) {
   const goTo = (id: string) => {
     const content = contentRef.current;
     const section = content?.querySelector<HTMLElement>(`[data-settings-section="${id}"]`);
-    section?.scrollIntoView({ behavior: "smooth", block: "start" });
+    section?.scrollIntoView({ behavior: "auto", block: "start" });
     setActiveNav(id);
     scrollLock.current = Date.now() + 550;
   };
@@ -240,13 +295,141 @@ export function SettingsDialog({ open, onClose }: Props) {
   };
 
   const chooseOcrModel = async (id: OcrModelId) => {
+    const info = ocrStatus?.availableModels?.find((item) => item.id === id);
+    if (info && !info.installed) {
+      setPendingModel(info);
+      return;
+    }
+    setPendingModel(null);
     try {
       await setOcrModel(id);
-      const installed = ocrStatus?.availableModels?.find((item) => item.id === id)?.installed;
-      if (!installed) await installOcr(id);
+      await refreshOcrStatus();
     } catch {
       // The store exposes the error in the section below.
     }
+  };
+
+  const confirmOcrModel = async () => {
+    if (!pendingModel) return;
+    const id = pendingModel.id;
+    setPendingModel(null);
+    try {
+      await installOcr(id);
+      await setOcrModel(id);
+      await refreshOcrStatus();
+    } catch {
+      // Keep the previous active model; the store shows the download error.
+    }
+  };
+
+  const testSource = async () => {
+    if (!sourceDraft.trim()) {
+      setSourceError(true);
+      setSourceMessage("请输入镜像根地址");
+      return;
+    }
+    setSourceBusy(true);
+    setSourceMessage("");
+    setSourceError(false);
+    setSourceVerified(false);
+    try {
+      const result = await testOcrSource(sourceDraft, ocrStatus?.activeModel);
+      setSourceVerified(result.ok);
+      setSourceError(!result.ok);
+      setSourceMessage(
+        result.ok
+          ? `3 个文件均可访问（${result.baseUrl}）`
+          : result.files
+              .filter((file) => !file.ok)
+              .map((file) => `${file.name}: ${file.error ?? "不可用"}`)
+              .join(" · "),
+      );
+    } catch (error) {
+      setSourceError(true);
+      setSourceMessage(error instanceof Error ? error.message : "测试失败");
+    } finally {
+      setSourceBusy(false);
+    }
+  };
+
+  const saveSource = async () => {
+    if (!sourceVerified) {
+      setSourceError(true);
+      setSourceMessage("请先测试连接，全部通过后再保存。");
+      return;
+    }
+    setSourceBusy(true);
+    try {
+      const info = await saveOcrSource(sourceDraft);
+      setSourceInfo(info);
+      setSourceMode("custom");
+      setSourceError(false);
+      setSourceMessage("镜像已保存，下一次下载会立即使用。");
+      setSourceVerified(false);
+    } catch (error) {
+      setSourceError(true);
+      setSourceMessage(error instanceof Error ? error.message : "保存失败");
+    } finally {
+      setSourceBusy(false);
+    }
+  };
+
+  const restoreDefaultSource = async () => {
+    setSourceBusy(true);
+    try {
+      const info = await resetOcrSource();
+      setSourceInfo(info);
+      setSourceMode("default");
+      setSourceDraft("");
+      setSourceVerified(false);
+      setSourceMessage("已恢复官方下载源。");
+      setSourceError(false);
+    } catch (error) {
+      setSourceError(true);
+      setSourceMessage(error instanceof Error ? error.message : "恢复默认失败");
+    } finally {
+      setSourceBusy(false);
+    }
+  };
+
+  const openPrivacyDoc = async () => {
+    const module = await import("../../../docs/PRIVACY.md?raw");
+    setPrivacyDoc(module.default);
+  };
+
+  const checkUpdate = async () => {
+    setCheckingUpdate(true);
+    setUpdateError("");
+    setUpdateInfo(null);
+    try {
+      setUpdateInfo(await checkForUpdates(true));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "检查更新失败，请重试。";
+      setUpdateError(message.replace(/^Error invoking remote method '[^']+': (?:Error: )?/, ""));
+    } finally {
+      setCheckingUpdate(false);
+    }
+  };
+
+  const copyDiagnostics = async () => {
+    const versions = desktopVersions();
+    let providerHost = "—";
+    try {
+      providerHost = config?.baseUrl ? new URL(config.baseUrl).host : "—";
+    } catch {
+      providerHost = config?.baseUrl || "—";
+    }
+    const lines = [
+      `纸间 ${__APP_VERSION__} (${__GIT_SHA__}, ${__BUILD_DATE__})`,
+      `平台 ${navigator.platform || "—"}`,
+      `Electron ${versions.electron ?? "—"} · Chromium ${versions.chrome ?? "—"}`,
+      `PDF.js ${pdfjsVersion}`,
+      `Provider ${providerHost}`,
+      `模型 ${model || "—"}`,
+      `OCR ${ocrStatus?.activeModel ?? "—"}`,
+    ];
+    const ok = await copyText(lines.join("\n"));
+    setDiagnosticsCopied(ok);
   };
 
   return (
@@ -265,7 +448,7 @@ export function SettingsDialog({ open, onClose }: Props) {
           <span className={styles.title}>设置</span>
           <span className={styles.headSpacer} />
           <button className={styles.close} onClick={onClose} aria-label="关闭设置">
-            <WinIcon glyph="close" size={15} />
+            <Icon name="close" size={18} />
           </button>
         </div>
         <div className={styles.settingsBody}>
@@ -274,10 +457,10 @@ export function SettingsDialog({ open, onClose }: Props) {
               <button
                 key={item.id}
                 className={`${styles.settingsNavButton} ${activeNav === item.id ? styles.settingsNavActive : ""}`}
-                onClick={() => goTo(item.id)}
+                onClick={() => goTo(item.target)}
                 aria-current={activeNav === item.id ? "page" : undefined}
               >
-                <WinIcon glyph={item.glyph} size={13} />
+                <Icon name={item.glyph} size={16} />
                 {item.label}
               </button>
             ))}
@@ -286,10 +469,16 @@ export function SettingsDialog({ open, onClose }: Props) {
               ，不会进入前端 bundle。
             </div>
           </nav>
-          <div className={styles.settingsContent} ref={contentRef} onScroll={onContentScroll}>
+          <div
+            className={styles.settingsContent}
+            ref={contentRef}
+            onScroll={onContentScroll}
+            tabIndex={0}
+            aria-label="设置内容"
+          >
             <section className={styles.section} data-settings-section="model">
               <div className={styles.sectionTitle}>
-                <WinIcon glyph="globe" size={13} />
+                <Icon name="globe" size={16} />
                 模型服务
                 <span
                   className={`${styles.badge} ${config?.mock ? styles.badgeWarn : styles.badgeOk}`}
@@ -505,7 +694,7 @@ export function SettingsDialog({ open, onClose }: Props) {
 
             <section className={styles.section} data-settings-section="appearance">
               <div className={styles.sectionTitle}>
-                <WinIcon glyph="theme" size={13} />
+                <Icon name="theme" size={16} />
                 阅读外观
               </div>
               <ColorModeControl />
@@ -587,7 +776,7 @@ export function SettingsDialog({ open, onClose }: Props) {
 
             <section className={styles.section} data-settings-section="ocr">
               <div className={styles.sectionTitle}>
-                <WinIcon glyph="search" size={13} />
+                <Icon name="search" size={16} />
                 扫描件 OCR
               </div>
               <div className={styles.rows}>
@@ -623,6 +812,18 @@ export function SettingsDialog({ open, onClose }: Props) {
                   </span>
                 </div>
               </div>
+              <div className={styles.note}>
+                当前：
+                {(() => {
+                  const active = ocrStatus?.availableModels?.find(
+                    (item) => item.id === ocrStatus.activeModel,
+                  );
+                  return active
+                    ? `${active.label} · ${active.installed ? "已安装" : "未下载"}`
+                    : (ocrStatus?.model ?? "正在检查…");
+                })()}
+                。切换未下载的模型会先询问，不会自动开始下载。
+              </div>
               <div className={styles.segmented} style={{ margin: "10px 0 2px" }}>
                 {(ocrStatus?.availableModels ?? []).map((item) => (
                   <button
@@ -639,11 +840,22 @@ export function SettingsDialog({ open, onClose }: Props) {
                   </button>
                 ))}
               </div>
+              {pendingModel ? (
+                <div className={styles.result}>
+                  {pendingModel.label} 尚未下载，约 {mb(pendingModel.approxBytes)}
+                  。是否现在下载并切换？
+                  <button className={styles.linkButton} onClick={() => void confirmOcrModel()}>
+                    下载并切换
+                  </button>
+                  <button className={styles.linkButton} onClick={() => setPendingModel(null)}>
+                    取消
+                  </button>
+                </div>
+              ) : null}
               <div className={styles.note}>
-                当前页没有文字层时，会在后台自动识别；模型首次使用自动准备，不弹窗。行级 OCR
-                文本可拖选、复制、高亮、引用和搜索，并在页面、侧栏和上下文里标注 OCR。
-                识别在本机代理的 worker 线程完成，图片不上传云端。tiny 随桌面版分发，small / medium
-                按需下载。
+                当前页没有文字层时会在后台自动识别，不弹窗、不打断阅读。行级 OCR
+                文本可拖选、复制、高亮、引用和搜索；识别在本机代理的 worker
+                线程完成，图片不上传云端。
               </div>
               <div className={styles.actions}>
                 {!ocrStatus?.installed ? (
@@ -665,48 +877,142 @@ export function SettingsDialog({ open, onClose }: Props) {
                 )}
               </div>
               {ocrError ? <div className={styles.result}>{ocrError}</div> : null}
+
+              <div className={styles.rows} style={{ marginTop: 14 }}>
+                <div className={styles.row}>
+                  <span className={styles.label}>下载源</span>
+                  <span className={styles.segmented}>
+                    <button
+                      className={`${styles.segment} ${sourceMode === "default" ? styles.segmentActive : ""}`}
+                      onClick={() => setSourceMode("default")}
+                    >
+                      默认（官方）
+                    </button>
+                    <button
+                      className={`${styles.segment} ${sourceMode === "custom" ? styles.segmentActive : ""}`}
+                      onClick={() => setSourceMode("custom")}
+                    >
+                      自定义镜像
+                    </button>
+                  </span>
+                </div>
+              </div>
+              {sourceMode === "custom" ? (
+                <div className={styles.field} style={{ marginTop: 8 }}>
+                  <span className={styles.fieldLabel}>镜像根地址（保持官方目录结构）</span>
+                  <input
+                    className={styles.input}
+                    value={sourceDraft}
+                    onChange={(event) => {
+                      setSourceDraft(event.target.value);
+                      setSourceVerified(false);
+                    }}
+                    placeholder="https://mirror.example.com/ppocrv6"
+                    spellCheck={false}
+                  />
+                  <div className={styles.actions}>
+                    <button
+                      className={styles.button}
+                      onClick={() => void testSource()}
+                      disabled={sourceBusy}
+                    >
+                      {sourceBusy ? "处理中…" : "测试连接"}
+                    </button>
+                    <button
+                      className={`${styles.button} ${styles.primary}`}
+                      onClick={() => void saveSource()}
+                      disabled={sourceBusy || !sourceVerified}
+                    >
+                      保存
+                    </button>
+                    <button
+                      className={styles.button}
+                      onClick={() => void restoreDefaultSource()}
+                      disabled={sourceBusy}
+                    >
+                      恢复默认
+                    </button>
+                  </div>
+                  {sourceInfo?.customBaseUrl ? (
+                    <details className={styles.thirdParty}>
+                      <summary>已保存镜像的文件 URL</summary>
+                      <ul>
+                        {(
+                          sourceInfo.models.find(
+                            (item) => item.id === (ocrStatus?.activeModel ?? "v6-tiny"),
+                          )?.files ?? []
+                        ).map((file) => (
+                          <li key={file.name}>
+                            <code>{file.url}</code>
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  ) : null}
+                </div>
+              ) : (
+                <div className={styles.note}>使用官方 GitHub Releases / HuggingFace 下载源。</div>
+              )}
+              {sourceMessage ? (
+                <div className={styles.result} data-source-error={sourceError || undefined}>
+                  {sourceMessage}
+                </div>
+              ) : null}
             </section>
 
             <section className={styles.section} data-settings-section="privacy">
               <div className={styles.sectionTitle}>
-                <WinIcon glyph="page" size={13} />
-                隐私
+                <Icon name="lock" size={16} />
+                隐私与数据
               </div>
+              <p className={styles.sectionLead}>
+                PDF 不离开本机；只有你选中的内容会发给模型。没有遥测，也没有后台统计上报。
+              </p>
               <div className={styles.rows}>
                 <div className={styles.row}>
                   <span className={styles.label}>主 PDF</span>
-                  <span className={styles.value}>只在浏览器本地解析，不上传</span>
+                  <span className={styles.value}>浏览器本地解析，不上传</span>
                 </div>
                 <div className={styles.row}>
-                  <span className={styles.label}>发送内容</span>
-                  <span className={styles.value}>仅你选中的页码、文字、截图与附件</span>
+                  <span className={styles.label}>发送给模型</span>
+                  <span className={styles.value}>
+                    页码文本、选中文字、截图、附件与引用；不发送整份 PDF
+                  </span>
+                </div>
+                <div className={styles.row}>
+                  <span className={styles.label}>本地记录</span>
+                  <span className={styles.value}>
+                    阅读位置、对话、高亮、OCR 文本与最近文档（单文件 ≤24MB，总计 ≤64MB，最多 8 条）
+                  </span>
                 </div>
                 <div className={styles.row}>
                   <span className={styles.label}>密钥</span>
                   <span className={styles.value}>只存本机代理，不进入前端 bundle</span>
                 </div>
                 <div className={styles.row}>
-                  <span className={styles.label}>传输</span>
+                  <span className={styles.label}>网络请求</span>
                   <span className={styles.value}>
-                    默认只监听 127.0.0.1；云端内容受 provider 条款约束
+                    AI provider、OCR 模型下载、手动检查更新；不访问其他服务
                   </span>
                 </div>
                 <div className={styles.row}>
-                  <span className={styles.label}>本地记录</span>
-                  <span className={styles.value}>
-                    阅读位置、对话、高亮与 OCR 文本保存在 IndexedDB
-                  </span>
+                  <span className={styles.label}>云端保留</span>
+                  <span className={styles.value}>由 provider 条款决定</span>
                 </div>
               </div>
               <div className={styles.note}>
-                本地 IndexedDB 未加密；共用电脑时可使用下方“清空所有本地数据”。完全离线可把 Base URL
-                指向本机 Ollama 等 OpenAI 兼容端点。
+                本地 IndexedDB 未加密；共用电脑时可清空所有本地数据。代理默认只监听 127.0.0.1。
+              </div>
+              <div className={styles.actions}>
+                <button className={styles.linkButton} onClick={() => void openPrivacyDoc()}>
+                  查看完整隐私说明 →
+                </button>
               </div>
             </section>
 
             <section className={styles.section} data-settings-section="data">
               <div className={styles.sectionTitle}>
-                <WinIcon glyph="clear" size={13} />
+                <Icon name="clear" size={16} />
                 数据
               </div>
               <div className={styles.note} style={{ marginTop: 0 }}>
@@ -747,30 +1053,141 @@ export function SettingsDialog({ open, onClose }: Props) {
 
             <section className={styles.section} data-settings-section="about">
               <div className={styles.sectionTitle}>
-                <WinIcon glyph="info" size={13} />
+                <Icon name="info" size={16} />
                 关于
               </div>
               <div className={styles.aboutGrid}>
-                <div>
-                  <strong>纸间 · PDF × AI 阅读器</strong>
-                  <p>本地优先的 PDF 阅读器与 AI 阅读助手。主 PDF 不上传，只发送明确选中的内容。</p>
+                <div className={styles.aboutBrand}>
+                  <span className={styles.aboutMark}>
+                    <BrandMark size={48} />
+                  </span>
+                  <div>
+                    <strong>纸间</strong>
+                    <p>本地优先的 PDF 阅读器与 AI 阅读助手。</p>
+                  </div>
                 </div>
                 <div className={styles.aboutMeta}>
-                  <span>版本 0.1.0</span>
-                  <span>pdf.js 6.5.438</span>
-                  <span>React 19 · Vite 8</span>
-                  <span>MIT License</span>
+                  <span>
+                    版本 {__APP_VERSION__} · {__GIT_SHA__} · {__BUILD_DATE__}
+                  </span>
+                  <span>
+                    Electron {desktopVersions().electron ?? "—"} · Chromium{" "}
+                    {desktopVersions().chrome ?? "—"}
+                  </span>
+                  <span>pdf.js {pdfjsVersion}</span>
                 </div>
               </div>
-              <div className={styles.note}>
-                图标来自 lobe-icons（MIT）、Segoe Fluent Icons 与 Lucide（ISC）；状态图标使用
-                Morphicons（MIT）。 PDF
-                内容视为不可信输入，模型不会执行文档中的指令。第三方模型服务由其各自条款约束。
+              <div className={styles.actions}>
+                <button
+                  className={`${styles.button} ${styles.primary}`}
+                  onClick={() => void checkUpdate()}
+                  disabled={checkingUpdate}
+                >
+                  {checkingUpdate ? "检查中…" : "检查更新"}
+                </button>
+                <button className={styles.button} onClick={() => void copyDiagnostics()}>
+                  {diagnosticsCopied ? "已复制" : "复制诊断信息"}
+                </button>
+                <a className={styles.button} href={REPOSITORY_URL} target="_blank" rel="noreferrer">
+                  GitHub
+                </a>
+                <a
+                  className={styles.button}
+                  href={`${REPOSITORY_URL}/issues`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  问题反馈
+                </a>
+                <a
+                  className={styles.button}
+                  href={`${REPOSITORY_URL}/blob/main/SECURITY.md`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  安全策略
+                </a>
+                <a
+                  className={styles.button}
+                  href={`${REPOSITORY_URL}/blob/main/LICENSE`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  许可证
+                </a>
               </div>
+              {isPrerelease(__APP_VERSION__) ? (
+                <div className={styles.note}>
+                  你正在使用预发布版本，正式版发布后可直接覆盖安装。
+                </div>
+              ) : null}
+              {updateInfo ? (
+                <div className={styles.result}>
+                  {updateInfo.hasUpdate
+                    ? `发现新版本 ${updateInfo.latest}`
+                    : `已是最新版本 ${updateInfo.current}`}
+                  {updateInfo.publishedAt ? ` · ${updateInfo.publishedAt.slice(0, 10)}` : ""}
+                  {updateInfo.hasUpdate ? (
+                    <a
+                      className={styles.linkButton}
+                      href={updateInfo.url || RELEASES_PAGE}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      打开发布页
+                    </a>
+                  ) : null}
+                </div>
+              ) : null}
+              {updateError ? <div className={styles.result}>{updateError}</div> : null}
+              <div className={styles.note}>
+                更新只在你点击时检查 GitHub Releases，不后台轮询、不自动下载或安装。主 PDF
+                不上传；模型不会执行文档中的指令。第三方服务由其各自条款约束。
+              </div>
+              <details className={styles.thirdParty}>
+                <summary>第三方声明</summary>
+                <div>
+                  运行时：Electron（MIT）、Chromium（BSD）、pdf.js（Apache-2.0）、React（MIT）、KaTeX（MIT）。
+                </div>
+                <div>
+                  图标：Lucide（ISC）、lobe-icons（MIT）；品牌标记为自制。OCR：PP-OCRv6
+                  （Apache-2.0）、ppu-paddle-ocr（MIT）、ONNX Runtime（MIT）。
+                </div>
+                <a
+                  href={`${REPOSITORY_URL}/blob/main/THIRD_PARTY_NOTICES.md`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  完整第三方声明 →
+                </a>
+              </details>
             </section>
           </div>
         </div>
       </div>
+      {privacyDoc ? (
+        <div
+          className={styles.docBackdrop}
+          onPointerDown={(event) => event.target === event.currentTarget && setPrivacyDoc(null)}
+        >
+          <div className={styles.docCard} role="dialog" aria-modal="true" aria-label="隐私说明">
+            <div className={styles.docHead}>
+              <span className={styles.title}>隐私说明</span>
+              <span className={styles.headSpacer} />
+              <button
+                className={styles.close}
+                onClick={() => setPrivacyDoc(null)}
+                aria-label="关闭隐私说明"
+              >
+                <Icon name="close" size={18} />
+              </button>
+            </div>
+            <div className={styles.docBody}>
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{privacyDoc}</ReactMarkdown>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

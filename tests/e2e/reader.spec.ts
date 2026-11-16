@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import AxeBuilder from "@axe-core/playwright";
 
 test.beforeAll(async ({ request }) => {
   const config = (await (await request.get("http://127.0.0.1:8787/api/config")).json()) as {
@@ -227,8 +228,9 @@ test("smart filter narrows a long PDF to relevant pages", async ({ page }) => {
   await contextButton.click();
   await expect(panel.getByText(/智能筛选 · \d+ 段/)).toBeVisible();
   const smartNote = panel.locator('[class*="smartNote"]');
-  await expect(smartNote).toContainText("已从 32 页中筛选");
-  await expect(smartNote).toContainText("量子纠缠");
+  await expect(smartNote).toContainText("已从 32 页筛出 4 段");
+  await expect(smartNote).toContainText("P4");
+  await expect(smartNote).toHaveAttribute("title", /量子纠缠/);
 
   // 只发送筛选出的段落，而不是整本 32 页。
   const tokenHint = await panel.locator('[title="本次发送的 token 估算"]').innerText();
@@ -907,6 +909,9 @@ test("zoom controls, thinking effort and context budget", async ({ page }) => {
   const settings = page.getByRole("dialog", { name: "设置" });
   const settingsBox = await settings.boundingBox();
   expect(settingsBox!.width).toBeGreaterThan(800);
+  await expect(
+    settings.getByRole("navigation", { name: "设置分类" }).getByRole("button"),
+  ).toHaveCount(6);
   await settings.getByRole("button", { name: "对话", exact: true }).click();
   await settings.getByRole("button", { name: "128k", exact: true }).click();
   await settings.getByRole("button", { name: "关闭", exact: true }).click();
@@ -951,6 +956,281 @@ test("settings dialog traps Tab focus and restores it", async ({ page }) => {
   await expect
     .poll(() => page.evaluate(() => document.activeElement?.getAttribute("aria-label")))
     .toBe("设置");
+});
+
+test("privacy section opens the bundled privacy document", async ({ page }) => {
+  await openSample(page);
+  await page.locator('button[aria-label="设置"]').first().click();
+  const settings = page.getByRole("dialog", { name: "设置" });
+  await settings.getByRole("button", { name: "隐私与数据", exact: true }).click();
+  await settings.getByRole("button", { name: "查看完整隐私说明 →" }).click();
+  const doc = page.getByRole("dialog", { name: "隐私说明" });
+  await expect(doc).toBeVisible();
+  await expect(doc).toContainText("本地处理");
+  await expect(doc).toContainText("不会发送整份 PDF");
+  await page.keyboard.press("Escape");
+  await expect(doc).toBeHidden();
+  await expect(settings).toBeVisible();
+});
+
+test("update check only runs on demand and reports a newer release", async ({ page }) => {
+  const calls: string[] = [];
+  await page.route(
+    "https://api.github.com/repos/salt-fishes/pdf-ai-reader/releases/latest",
+    (route) => {
+      calls.push(route.request().url());
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          tag_name: "v9.9.9",
+          html_url: "https://example.com/releases/v9.9.9",
+          body: "test release",
+          published_at: "2026-12-01T00:00:00Z",
+        }),
+      });
+    },
+  );
+  await openSample(page);
+  await page.locator('button[aria-label="设置"]').first().click();
+  const settings = page.getByRole("dialog", { name: "设置" });
+  await settings.getByRole("button", { name: "关于", exact: true }).click();
+  expect(calls).toHaveLength(0);
+  await settings.getByRole("button", { name: "检查更新" }).click();
+  await expect(settings).toContainText("发现新版本 9.9.9");
+  expect(calls).toHaveLength(1);
+  await expect(settings.getByRole("link", { name: "打开发布页" })).toHaveAttribute(
+    "href",
+    "https://example.com/releases/v9.9.9",
+  );
+});
+
+test("clearing all local data requires a second confirmation and reloads empty", async ({
+  page,
+}) => {
+  await openSample(page);
+  await page.locator('button[aria-label="设置"]').first().click();
+  const settings = page.getByRole("dialog", { name: "设置" });
+  await settings.getByRole("button", { name: "隐私与数据", exact: true }).click();
+  await settings.getByRole("button", { name: "清空所有本地数据" }).click();
+  await expect(settings).toContainText("操作不可撤销");
+  await Promise.all([
+    page.waitForEvent("load"),
+    settings.getByRole("button", { name: "再次点击确认清空所有本地数据" }).click(),
+  ]);
+  await expect(page.getByText("打开 PDF 开始阅读")).toBeVisible();
+});
+
+test("switching to an uninstalled OCR model asks first and cancel keeps the active model", async ({
+  page,
+}) => {
+  let installs = 0;
+  const models = [
+    {
+      id: "v6-tiny",
+      label: "PP-OCRv6 tiny",
+      speed: "fast",
+      note: "",
+      approxBytes: 6_270_385,
+      installed: true,
+      downloading: false,
+      progress: 0,
+    },
+    {
+      id: "v6-small",
+      label: "PP-OCRv6 small",
+      speed: "balanced",
+      note: "",
+      approxBytes: 12_000_000,
+      installed: false,
+      downloading: false,
+      progress: 0,
+    },
+    {
+      id: "v6-medium",
+      label: "PP-OCRv6 medium",
+      speed: "accurate",
+      note: "",
+      approxBytes: 27_000_000,
+      installed: false,
+      downloading: false,
+      progress: 0,
+    },
+  ];
+  await page.route("**/api/ocr/status", (route) =>
+    route.fulfill({
+      json: {
+        installed: true,
+        ready: true,
+        downloading: false,
+        downloaded: 0,
+        total: 0,
+        progress: 0,
+        model: "PP-OCRv6 tiny",
+        activeModel: "v6-tiny",
+        availableModels: models,
+        installedModels: ["v6-tiny"],
+        error: null,
+        dir: "models",
+      },
+    }),
+  );
+  await page.route("**/api/ocr/install", (route) => {
+    installs += 1;
+    return route.fulfill({ json: { ok: true, model: "v6-small" } });
+  });
+  await openSample(page);
+  await page.locator('button[aria-label="设置"]').first().click();
+  const settings = page.getByRole("dialog", { name: "设置" });
+  await settings.getByRole("button", { name: "扫描件 OCR", exact: true }).click();
+  const ocr = settings.locator('[data-settings-section="ocr"]');
+  await expect(ocr).toContainText("PP-OCRv6 tiny · 已安装");
+  await ocr.getByRole("button", { name: "small", exact: true }).click();
+  await expect(ocr).toContainText("尚未下载");
+  expect(installs).toBe(0);
+  await ocr.getByRole("button", { name: "取消", exact: true }).click();
+  await expect(ocr).toContainText("PP-OCRv6 tiny · 已安装");
+  expect(installs).toBe(0);
+});
+
+test("custom OCR mirror must be tested before saving and can be reset", async ({ page }) => {
+  await page.route("**/api/ocr/status", (route) =>
+    route.fulfill({
+      json: {
+        installed: true,
+        ready: true,
+        downloading: false,
+        downloaded: 0,
+        total: 0,
+        progress: 0,
+        model: "PP-OCRv6 tiny",
+        activeModel: "v6-tiny",
+        availableModels: [
+          {
+            id: "v6-tiny",
+            label: "PP-OCRv6 tiny",
+            speed: "fast",
+            note: "",
+            approxBytes: 6_270_385,
+            installed: true,
+            downloading: false,
+            progress: 0,
+          },
+        ],
+        installedModels: ["v6-tiny"],
+        error: null,
+        dir: "models",
+      },
+    }),
+  );
+  const source = {
+    customBaseUrl: null as string | null,
+    defaultBaseUrl: "https://github.com/GreatV/oar-ocr/releases/download/v0.7.0",
+    officialBaseUrls: {
+      tiny: "https://github.com/GreatV/oar-ocr/releases/download/v0.7.0",
+      small: "https://huggingface.co",
+      medium: "https://huggingface.co",
+    },
+    models: [
+      {
+        id: "v6-tiny",
+        label: "PP-OCRv6 tiny",
+        files: [
+          {
+            name: "det.onnx",
+            url: "https://mirror.example.com/ppocrv6/pp-ocrv6_tiny_det.onnx",
+            bytes: 1,
+          },
+        ],
+      },
+    ],
+  };
+  await page.route("**/api/ocr/source", (route) => {
+    if (route.request().method() === "POST") {
+      source.customBaseUrl = "https://mirror.example.com/ppocrv6";
+      return route.fulfill({ json: { ok: true, source } });
+    }
+    return route.fulfill({ json: source });
+  });
+  await page.route("**/api/ocr/source/test", (route) =>
+    route.fulfill({
+      json: {
+        baseUrl: "https://mirror.example.com/ppocrv6",
+        ok: true,
+        files: [
+          {
+            name: "det.onnx",
+            url: "https://mirror.example.com/ppocrv6/pp-ocrv6_tiny_det.onnx",
+            ok: true,
+            status: 200,
+            bytes: 1024,
+          },
+        ],
+      },
+    }),
+  );
+  await page.route("**/api/ocr/source/reset", (route) => {
+    source.customBaseUrl = null;
+    return route.fulfill({ json: { ok: true, source } });
+  });
+
+  await openSample(page);
+  await page.locator('button[aria-label="设置"]').first().click();
+  const settings = page.getByRole("dialog", { name: "设置" });
+  await settings.getByRole("button", { name: "扫描件 OCR", exact: true }).click();
+  const ocr = settings.locator('[data-settings-section="ocr"]');
+  await ocr.getByRole("button", { name: "自定义镜像", exact: true }).click();
+  const input = ocr.locator('input[placeholder*="mirror.example.com"]');
+  await input.fill("https://mirror.example.com/ppocrv6");
+  const save = ocr.getByRole("button", { name: "保存", exact: true });
+  await expect(save).toBeDisabled();
+  await ocr.getByRole("button", { name: "测试连接", exact: true }).click();
+  await expect(ocr).toContainText("3 个文件均可访问");
+  await expect(save).toBeEnabled();
+  await save.click();
+  await expect(ocr).toContainText("镜像已保存");
+  await ocr.getByRole("button", { name: "恢复默认", exact: true }).click();
+  await expect(ocr).toContainText("已恢复官方下载源");
+});
+
+test("axe scan finds no critical or serious issues in empty state and settings", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.waitForSelector("#root > div");
+  let result = await new AxeBuilder({ page }).analyze();
+  expect(
+    result.violations.filter((item) => ["critical", "serious"].includes(item.impact ?? "")),
+  ).toEqual([]);
+
+  await openSample(page);
+  await page.locator('button[aria-label="设置"]').first().click();
+  await page.getByRole("dialog", { name: "设置" }).waitFor();
+  result = await new AxeBuilder({ page }).analyze();
+  expect(
+    result.violations.filter((item) => ["critical", "serious"].includes(item.impact ?? "")),
+  ).toEqual([]);
+});
+
+test("axe scan finds no critical or serious issues in the password dialog", async ({ page }) => {
+  await page.goto("/");
+  await page.waitForSelector("#root > div");
+  await page.evaluate(async () => {
+    const blob = await (await fetch("/samples/sample-encrypted.pdf")).blob();
+    const file = new File([blob], "sample-encrypted.pdf", { type: "application/pdf" });
+    const transfer = new DataTransfer();
+    transfer.items.add(file);
+    document
+      .querySelector("#root > div")
+      ?.dispatchEvent(
+        new DragEvent("drop", { dataTransfer: transfer, bubbles: true, cancelable: true }),
+      );
+  });
+  await page.getByRole("dialog", { name: "输入 PDF 密码" }).waitFor();
+  const result = await new AxeBuilder({ page }).analyze();
+  expect(
+    result.violations.filter((item) => ["critical", "serious"].includes(item.impact ?? "")),
+  ).toEqual([]);
 });
 
 test("keyboard flow: open, minimize, close, search", async ({ page }) => {

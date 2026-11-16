@@ -12,5 +12,5 @@
     "isolatedModules": true,
     "moduleDetection": "force"
   },
-  "include": ["server/src", "tests/unit"]
+  "include": ["server/src"]
 }

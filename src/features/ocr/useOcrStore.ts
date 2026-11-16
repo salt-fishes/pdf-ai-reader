@@ -347,7 +347,10 @@ export const useOcr = create<OcrState>((set, get) => {
               failedInstallModel = target;
               throw new Error(status.error);
             }
-            if (status.installed) {
+            const installed =
+              status.availableModels?.find((item) => item.id === target)?.installed ??
+              status.installed;
+            if (installed) {
               failedInstallModel = null;
               set({ phase: "idle" });
               return;

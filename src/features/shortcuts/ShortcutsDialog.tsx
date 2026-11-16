@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { WinIcon } from "../../components/icons/WinIcon";
+import { Icon } from "../../components/icons/Icon";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import styles from "../../components/Modal.module.css";
 
@@ -82,7 +82,7 @@ export function ShortcutsDialog({ open, onClose }: Props) {
           <span className={styles.title}>快捷键</span>
           <span className={styles.headSpacer} />
           <button className={styles.close} onClick={onClose} aria-label="关闭快捷键面板">
-            <WinIcon glyph="close" size={15} />
+            <Icon name="close" size={18} />
           </button>
         </div>
         <div className={styles.body} style={{ gap: 0 }}>

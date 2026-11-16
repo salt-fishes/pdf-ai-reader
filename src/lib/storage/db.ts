@@ -201,7 +201,30 @@ export async function recordRecentDocument(
   const next = [record, ...current.filter((item) => item.hash !== record.hash)]
     .sort((a, b) => b.updatedAt - a.updatedAt)
     .slice(0, 8);
-  await saveRecentDocuments(next);
+  const fitted = fitRecentBudget(next);
+  await saveRecentDocuments(fitted);
+  return fitted;
+}
+
+export const RECENT_TOTAL_BUDGET = 64 * 1024 * 1024;
+
+/**
+ * Keeps the newest eight records, then drops cached bytes from the oldest
+ * entries until the total cache fits the 64 MB budget. Metadata stays so the
+ * document still appears in the recent list and can ask for a fresh pick.
+ */
+export function fitRecentBudget(
+  records: RecentDocumentRecord[],
+  budget = RECENT_TOTAL_BUDGET,
+): RecentDocumentRecord[] {
+  const next = records.map((item) => ({ ...item }));
+  let total = next.reduce((sum, item) => sum + (item.data?.byteLength ?? 0), 0);
+  for (let index = next.length - 1; index >= 0 && total > budget; index -= 1) {
+    const data = next[index].data;
+    if (!data) continue;
+    total -= data.byteLength;
+    delete next[index].data;
+  }
   return next;
 }
 

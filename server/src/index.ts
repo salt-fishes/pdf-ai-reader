@@ -7,11 +7,17 @@ import { readFile, mkdir, writeFile } from "node:fs/promises";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+  customOcrSource,
   installModels,
   isOcrModelId,
+  normalizeOcrSourceUrl,
+  ocrSourceInfo,
   ocrStatus,
   recognizeImage,
+  resetOcrSource,
+  saveOcrSource,
   setActiveOcrModel,
+  testOcrSource,
   type OcrPriority,
 } from "./ocr";
 
@@ -414,6 +420,52 @@ app.get("/api/models", async (c) => {
 });
 
 app.get("/api/ocr/status", async (c) => c.json(await ocrStatus()));
+
+app.get("/api/ocr/source", (c) => c.json(ocrSourceInfo()));
+
+app.post("/api/ocr/source", async (c) => {
+  if (!isJsonRequest(c)) {
+    return jsonError(415, "invalid_content_type", "请求必须使用 application/json");
+  }
+  if (Number(c.req.header("content-length") ?? 0) > 4 * 1024) {
+    return jsonError(413, "body_too_large", "配置请求体过大");
+  }
+  const body = (await c.req.json().catch(() => null)) as { baseUrl?: unknown } | null;
+  if (!body || typeof body.baseUrl !== "string") {
+    return jsonError(400, "invalid_source", "缺少 baseUrl");
+  }
+  try {
+    await saveOcrSource(body.baseUrl);
+  } catch (error) {
+    return jsonError(400, "invalid_source", error instanceof Error ? error.message : "下载源无效");
+  }
+  return c.json({ ok: true, source: ocrSourceInfo() });
+});
+
+app.post("/api/ocr/source/test", async (c) => {
+  if (!isJsonRequest(c)) {
+    return jsonError(415, "invalid_content_type", "请求必须使用 application/json");
+  }
+  const body = (await c.req.json().catch(() => null)) as {
+    baseUrl?: unknown;
+    model?: unknown;
+  } | null;
+  const baseUrl = typeof body?.baseUrl === "string" ? body.baseUrl : customOcrSource();
+  if (!baseUrl) return jsonError(400, "invalid_source", "缺少 baseUrl");
+  const model = isOcrModelId(body?.model) ? body.model : "v6-tiny";
+  try {
+    normalizeOcrSourceUrl(baseUrl);
+    const result = await testOcrSource(baseUrl, model);
+    return c.json(result);
+  } catch (error) {
+    return jsonError(400, "invalid_source", error instanceof Error ? error.message : "下载源无效");
+  }
+});
+
+app.post("/api/ocr/source/reset", async (c) => {
+  await resetOcrSource();
+  return c.json({ ok: true, source: ocrSourceInfo() });
+});
 
 app.post("/api/ocr/install", async (c) => {
   let requested: unknown;
