@@ -41,6 +41,22 @@ async function openSample(
   }
 }
 
+/** Open another sample without reloading the page, preserving in-memory state. */
+async function dropSample(page: Page, fileName: string): Promise<void> {
+  await page.evaluate(async (name) => {
+    const blob = await (await fetch(`/samples/${name}`)).blob();
+    const file = new File([blob], name, { type: "application/pdf" });
+    const transfer = new DataTransfer();
+    transfer.items.add(file);
+    const root = document.querySelector("#root > div");
+    if (!root) throw new Error("app root missing");
+    root.dispatchEvent(
+      new DragEvent("drop", { dataTransfer: transfer, bubbles: true, cancelable: true }),
+    );
+  }, fileName);
+  await expect(page.locator("header")).toContainText(fileName);
+}
+
 test("reads a Chinese PDF, sends context, cites and jumps", async ({ page }) => {
   const errors: string[] = [];
   page.on("console", (message) => {
@@ -49,7 +65,7 @@ test("reads a Chinese PDF, sends context, cites and jumps", async ({ page }) => 
   page.on("pageerror", (error) => errors.push(error.message));
 
   await openSample(page);
-  await expect(page.locator("[data-page]")).toHaveCount(6);
+  await expect(page.locator('header [class*="pager"]')).toContainText("/ 6");
 
   // Text layer must contain the real Chinese title, not garbled CID bytes.
   const firstPageText = await page.locator('[data-page="1"]').innerText();
@@ -120,7 +136,7 @@ test("reads a Chinese PDF, sends context, cites and jumps", async ({ page }) => 
 
 test("region capture sends only the dragged area", async ({ page }) => {
   await openSample(page);
-  await expect(page.locator("[data-page]")).toHaveCount(6);
+  await expect(page.locator('header [class*="pager"]')).toContainText("/ 6");
 
   await page.locator("[data-assistant-fab]").click();
   const panel = page.locator("[data-assistant-panel]");
@@ -192,7 +208,7 @@ test("smart filter narrows a long PDF to relevant pages", async ({ page }) => {
   page.on("pageerror", (error) => errors.push(error.message));
 
   await openSample(page, "sample-long.pdf");
-  await expect(page.locator("[data-page]")).toHaveCount(32);
+  await expect(page.locator('header [class*="pager"]')).toContainText("/ 32");
 
   await page.locator("[data-assistant-fab]").click();
   const panel = page.locator("[data-assistant-panel]");
@@ -272,77 +288,185 @@ test("keeps multiple chat sessions per document", async ({ page }) => {
   await expect(panel.locator('[class*="sessionRow"]')).toHaveCount(1);
 });
 
-test("recognizes a scanned page with local PP-OCRv6", async ({ page, request }) => {
+test("recognizes a scanned page in the background and builds a selectable OCR layer", async ({
+  page,
+  request,
+}) => {
   const status = (await (
     await request.get("http://127.0.0.1:8787/api/ocr/status")
   ).json()) as { installed?: boolean };
   test.skip(!status.installed, "OCR 模型未下载，跳过实际识别");
 
   await openSample(page);
-  await page.locator("[data-assistant-fab]").click();
-  const panel = page.locator("[data-assistant-panel]");
   const pageInput = page.locator('header input[class*="pageInput"]');
   await pageInput.fill("6");
   await pageInput.press("Enter");
   await expect(page.getByText("当前第 6 页，共 6 页")).toBeAttached({ timeout: 15_000 });
-  await expect(panel).toContainText("没有文字层", { timeout: 15_000 });
 
-  await panel.getByRole("button", { name: "识别文字" }).click();
-  await expect(page.getByText(/已识别第 6 页/)).toBeVisible({ timeout: 60_000 });
-  await expect(panel).not.toContainText("没有文字层");
+  // No button and no dialog: the current scanned page is recognized after a
+  // short idle, then a line-level transparent text layer appears.
+  const ocrLayer = page.locator('[data-page="6"] [data-ocr-layer]');
+  await expect(ocrLayer).toBeVisible({ timeout: 60_000 });
+  await expect(page.locator('[data-page="6"] [class*="ocrBadge"]')).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "扫描件 OCR" })).toHaveCount(0);
+
+  // OCR text participates in full-text search and is labelled.
+  await page.keyboard.press("Control+F");
+  const search = page.getByRole("dialog", { name: "搜索文档" });
+  await search.locator("input").fill("图A-1");
+  const ocrResult = search.locator('[class*="searchResult"]').filter({ hasText: "P6" }).first();
+  await expect(ocrResult).toBeVisible({ timeout: 15_000 });
+  await expect(ocrResult.locator('[class*="searchOcr"]')).toBeVisible();
+  await ocrResult.click();
+  const ocrHit = page.locator('[data-page="6"] span[class*="searchHit"]').first();
+  await expect(ocrHit).toBeVisible({ timeout: 10_000 });
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() => {
+          const viewport = document.querySelector<HTMLElement>("[data-reader]");
+          const hit = document.querySelector<HTMLElement>(
+            '[data-page="6"] span[class*="searchHit"]',
+          );
+          if (!viewport || !hit) return -1;
+          const viewportRect = viewport.getBoundingClientRect();
+          const rect = hit.getBoundingClientRect();
+          const position = (rect.top - viewportRect.top) / viewportRect.height;
+          return position > 0.02 && position < 0.45 ? 1 : 0;
+        }),
+      { timeout: 6_000 },
+    )
+    .toBe(1);
+  await page.keyboard.press("Escape");
+
+  // Select the first OCR line and quote it like native text.
+  await page.evaluate(() => {
+    const line = document.querySelector('[data-page="6"] [data-ocr-line]');
+    if (!line) throw new Error("OCR line missing");
+    const range = document.createRange();
+    range.selectNodeContents(line);
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    document.querySelector("[data-reader]")?.dispatchEvent(
+      new MouseEvent("mouseup", { bubbles: true }),
+    );
+  });
+  const toolbar = page.getByRole("toolbar", { name: "选中文字操作" });
+  await expect(toolbar).toBeVisible();
+  await expect(toolbar).toContainText("OCR");
+  await toolbar.getByRole("button", { name: "引用" }).click();
+
+  const panel = page.locator("[data-assistant-panel]");
   await panel.locator('button[aria-label="上下文详情"]').click();
-  await expect(panel).toContainText("P6 当前页");
+  await expect(panel).toContainText("选中（OCR）", { timeout: 15_000 });
+  await expect(panel).not.toContainText("没有文字层");
 
-  // OCR text is cached and restored after reopening the document.
+  // The line layer is restored from IndexedDB after reopening the document.
   await openSample(page, "sample-cn.pdf", { waitForText: false });
-  await page.locator("[data-assistant-fab]").click();
   await pageInput.fill("6");
   await pageInput.press("Enter");
   await expect(page.getByText("当前第 6 页，共 6 页")).toBeAttached({ timeout: 15_000 });
-  await panel.locator('button[aria-label="上下文详情"]').click();
-  await expect(panel).toContainText("P6 当前页", { timeout: 15_000 });
-  await expect(panel).not.toContainText("没有文字层");
+  await expect(page.locator('[data-page="6"] [data-ocr-layer]')).toBeVisible({
+    timeout: 30_000,
+  });
 });
 
-test("offers an optional OCR model download for scanned pages", async ({ page }) => {
+test("prepares an optional OCR model automatically without a modal", async ({ page }) => {
+  let installed = false;
   await page.route("**/api/ocr/status", (route) =>
     route.fulfill({
       json: {
-        installed: false,
+        installed,
         ready: false,
         downloading: false,
         downloaded: 0,
         total: 6_270_385,
         progress: 0,
         model: "PP-OCRv6 tiny",
+        activeModel: "v6-tiny",
+        availableModels: [
+          {
+            id: "v6-tiny",
+            label: "PP-OCRv6 tiny",
+            speed: "fast",
+            note: "",
+            approxBytes: 6_270_385,
+            installed,
+            downloading: false,
+            progress: 0,
+          },
+        ],
+        installedModels: installed ? ["v6-tiny"] : [],
         error: null,
         dir: "",
+        busy: false,
+        queued: 0,
+      },
+    }),
+  );
+  const installRequest = page.waitForRequest("**/api/ocr/install");
+  await page.route("**/api/ocr/install", (route) => {
+    installed = true;
+    return route.fulfill({ json: { ok: true, model: "v6-tiny" } });
+  });
+  await page.route("**/api/ocr", (route) =>
+    route.fulfill({
+      json: {
+        text: "后台识别文字",
+        lines: [
+          {
+            text: "后台识别文字",
+            confidence: 0.9,
+            box: { x: 20, y: 20, width: 200, height: 20 },
+          },
+        ],
+        ms: 10,
       },
     }),
   );
 
   await openSample(page);
-  await page.locator("[data-assistant-fab]").click();
-  const panel = page.locator("[data-assistant-panel]");
   const pageInput = page.locator('header input[class*="pageInput"]');
   await pageInput.fill("6");
   await pageInput.press("Enter");
-  await expect(page.getByText("当前第 6 页，共 6 页")).toBeAttached({ timeout: 15_000 });
-  await expect(panel).toContainText("没有文字层", { timeout: 15_000 });
+  await installRequest;
+  await expect(page.getByRole("dialog", { name: "扫描件 OCR" })).toHaveCount(0);
+  await expect(page.locator('[data-page="6"] [data-ocr-layer]')).toContainText("后台识别文字", {
+    timeout: 30_000,
+  });
+});
 
-  await panel.getByRole("button", { name: "识别文字" }).click();
-  const dialog = page.getByRole("dialog", { name: "扫描件 OCR" });
-  await expect(dialog).toBeVisible();
-  await expect(dialog).toContainText("首次使用才下载");
-  await expect(dialog).toContainText("PP-OCRv6 tiny");
-  await expect(dialog.getByRole("button", { name: /下载并识别第 6 页/ })).toBeVisible();
-  await dialog.getByRole("button", { name: "取消" }).click();
-  await expect(dialog).toBeHidden();
+test("opens a password-protected PDF without losing the current document", async ({ page }) => {
+  await openSample(page);
+  await page.evaluate(async () => {
+    const blob = await (await fetch("/samples/sample-encrypted.pdf")).blob();
+    const file = new File([blob], "sample-encrypted.pdf", { type: "application/pdf" });
+    const transfer = new DataTransfer();
+    transfer.items.add(file);
+    document
+      .querySelector("#root > div")
+      ?.dispatchEvent(new DragEvent("drop", { dataTransfer: transfer, bubbles: true, cancelable: true }));
+  });
+
+  const dialog = page.getByRole("dialog", { name: "输入 PDF 密码" });
+  await expect(dialog).toBeVisible({ timeout: 15_000 });
+  await dialog.getByLabel("PDF 密码").fill("wrong");
+  await dialog.getByRole("button", { name: "打开文档" }).click();
+  await expect(dialog).toContainText("密码不正确", { timeout: 15_000 });
+  await dialog.getByLabel("PDF 密码").fill("reader");
+  await dialog.getByRole("button", { name: "打开文档" }).click();
+  await expect(dialog).toBeHidden({ timeout: 20_000 });
+  await expect(page.locator("header")).toContainText("sample-encrypted.pdf");
+  await expect(page.locator('header [class*="pager"]')).toContainText("/ 3");
+  await expect(page.locator('[data-page="1"] .textLayer span').first()).toBeVisible({
+    timeout: 20_000,
+  });
 });
 
 test("page thumbnails load and jump", async ({ page }) => {
   await openSample(page, "sample-long.pdf");
-  await expect(page.locator("[data-page]")).toHaveCount(32);
+  await expect(page.locator('header [class*="pager"]')).toContainText("/ 32");
 
   await page.locator('[aria-label="页面"]').click();
   const sidebar = page.locator('aside[aria-label="页面"]');
@@ -661,6 +785,62 @@ test("color modes recolor pages, sync chrome and persist strength", async ({ pag
   await expect(page.locator("[data-theme]").first()).toHaveAttribute("data-color-mode", "grayscale");
 });
 
+test("virtualizes pages and mounts the jump target", async ({ page }) => {
+  await openSample(page, "sample-long.pdf");
+  const mounted = await page.locator("[data-page]").count();
+  expect(mounted).toBeLessThan(10);
+  expect(mounted).toBeGreaterThan(0);
+
+  const pageInput = page.locator('header input[class*="pageInput"]');
+  await pageInput.fill("30");
+  await pageInput.press("Enter");
+  await expect(page.getByText("当前第 30 页，共 32 页")).toBeAttached({ timeout: 10_000 });
+  await expect(page.locator('[data-page="30"]')).toBeVisible({ timeout: 10_000 });
+  await expect(page.locator('[data-page="1"]')).toHaveCount(0);
+  expect(await page.locator("[data-page]").count()).toBeLessThan(10);
+});
+
+test("virtualizes mixed page sizes without shifting the scroll height", async ({ page }) => {
+  await openSample(page, "sample-mixed.pdf");
+  const input = page.locator('header input[class*="pageInput"]');
+  await input.fill("4");
+  await input.press("Enter");
+  await expect(page.getByText("当前第 4 页，共 40 页")).toBeAttached({ timeout: 10_000 });
+  const tall = await page.locator('[data-page="4"]').evaluate((element) => {
+    const viewport = document.querySelector<HTMLElement>("[data-reader]")!;
+    return {
+      height: element.getBoundingClientRect().height,
+      scrollHeight: viewport.scrollHeight,
+    };
+  });
+
+  await input.fill("5");
+  await input.press("Enter");
+  await expect(page.getByText("当前第 5 页，共 40 页")).toBeAttached({ timeout: 10_000 });
+  const short = await page.locator('[data-page="5"]').evaluate((element) => {
+    const viewport = document.querySelector<HTMLElement>("[data-reader]")!;
+    return {
+      height: element.getBoundingClientRect().height,
+      scrollHeight: viewport.scrollHeight,
+    };
+  });
+
+  expect(tall.height).toBeGreaterThan(short.height * 2);
+  expect(Math.abs(tall.scrollHeight - short.scrollHeight)).toBeLessThan(5);
+});
+
+test("reopens a recent document from the local cache", async ({ page }) => {
+  await openSample(page, "sample-small.pdf");
+  await page.locator('button[aria-label="更多"]').click();
+  await page.getByRole("menuitem", { name: /关闭文档/ }).click();
+  await expect(page.getByText("最近文档")).toBeVisible({ timeout: 15_000 });
+  const recent = page.locator('[class*="recentItem"]').filter({ hasText: "sample-small.pdf" });
+  await expect(recent).toBeVisible();
+  await recent.click();
+  await expect(page.locator("header")).toContainText("sample-small.pdf", { timeout: 15_000 });
+  await expect(page.locator('header [class*="pager"]')).toContainText("/ 3");
+});
+
 test("search highlights matches in the text layer", async ({ page }) => {
   await openSample(page);
   await page.keyboard.press("Control+F");
@@ -671,9 +851,29 @@ test("search highlights matches in the text layer", async ({ page }) => {
   await expect(result).toBeVisible({ timeout: 15_000 });
   await result.click();
 
-  const hits = page.locator('[data-page="2"] [class*="searchHit"]');
+  const hits = page.locator('[data-page="2"] span[class*="searchHit"]');
   await expect(hits.first()).toBeVisible({ timeout: 10_000 });
   expect(await hits.count()).toBeGreaterThan(0);
+
+  // The clicked occurrence is scrolled into the upper-middle of the viewport,
+  // not just the page top.
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() => {
+          const viewport = document.querySelector<HTMLElement>("[data-reader]");
+          const hit = document.querySelector<HTMLElement>(
+            '[data-page="2"] span[class*="searchHit"]',
+          );
+          if (!viewport || !hit) return -1;
+          const viewportRect = viewport.getBoundingClientRect();
+          const rect = hit.getBoundingClientRect();
+          const position = (rect.top - viewportRect.top) / viewportRect.height;
+          return position > 0.02 && position < 0.45 ? 1 : 0;
+        }),
+      { timeout: 6_000 },
+    )
+    .toBe(1);
 
   await page.keyboard.press("Escape");
   await expect(page.locator('[class*="searchHit"]')).toHaveCount(0);
@@ -722,6 +922,25 @@ test("zoom controls, thinking effort and context budget", async ({ page }) => {
   await panel.locator('button[aria-label="发送"]').click();
   await expect(panel).toContainText("本地 mock 模型", { timeout: 20_000 });
   expect(effort).toBe("none");
+});
+
+test("settings dialog traps Tab focus and restores it", async ({ page }) => {
+  await openSample(page);
+  const trigger = page.locator('button[aria-label="设置"]').first();
+  await trigger.click();
+  const dialog = page.getByRole("dialog", { name: "设置" });
+  await expect(dialog).toBeVisible();
+  for (let index = 0; index < 8; index += 1) {
+    await page.keyboard.press("Tab");
+    expect(
+      await page.evaluate(() => Boolean(document.activeElement?.closest('[role="dialog"]'))),
+    ).toBe(true);
+  }
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect
+    .poll(() => page.evaluate(() => document.activeElement?.getAttribute("aria-label")))
+    .toBe("设置");
 });
 
 test("keyboard flow: open, minimize, close, search", async ({ page }) => {
@@ -887,6 +1106,112 @@ test("highlights persist across reload and export as Markdown", async ({ page })
   await openSample(page);
   await page.locator('[aria-label="高亮"]').first().click();
   await expect(page.locator('aside[aria-label="高亮"]')).toContainText(selectedText.slice(0, 4));
+});
+
+test("highlight jump lands on the highlighted line, not the page top", async ({ page }) => {
+  await openSample(page);
+  const page2 = page.locator('[data-page="2"]');
+  await page2.scrollIntoViewIfNeeded();
+  await expect(page2.locator(".textLayer span").first()).toBeVisible({ timeout: 15_000 });
+
+  const selectedText = await page.evaluate(() => {
+    const pageElement = document.querySelector<HTMLElement>('[data-page="2"]');
+    const spans = [...(pageElement?.querySelectorAll<HTMLElement>(".textLayer span") ?? [])];
+    const target = spans.find((element) => (element.textContent ?? "").includes("阅读"));
+    if (!target) return "";
+    const range = document.createRange();
+    range.selectNodeContents(target);
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    pageElement?.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+    return selection?.toString() ?? "";
+  });
+  expect(selectedText.length).toBeGreaterThan(2);
+
+  const toolbar = page.locator('[class*="selectionToolbar"]');
+  await toolbar.getByRole("button", { name: /高亮/ }).click();
+  await page.locator('[aria-label="高亮"]').first().click();
+  const sidebar = page.locator('aside[aria-label="高亮"]');
+  await expect(sidebar).toContainText(selectedText.slice(0, 4));
+
+  // Scroll far away, then jump from the sidebar.
+  const pageInput = page.locator('header input[class*="pageInput"]');
+  await pageInput.fill("5");
+  await pageInput.press("Enter");
+  await expect(page.getByText("当前第 5 页，共 6 页")).toBeAttached({ timeout: 10_000 });
+  await sidebar.locator('[class*="highlightItem"]').first().click();
+
+  const highlightPosition = () =>
+    page.evaluate(() => {
+      const viewport = document.querySelector<HTMLElement>("[data-reader]");
+      const highlight = document.querySelector<HTMLElement>(
+        '[data-page="2"] [class*="highlight"]',
+      );
+      if (!viewport || !highlight) return -1;
+      const viewportRect = viewport.getBoundingClientRect();
+      const rect = highlight.getBoundingClientRect();
+      return (rect.top - viewportRect.top) / viewportRect.height;
+    });
+
+  await expect
+    .poll(
+      async () => {
+        const position = await highlightPosition();
+        return position > 0.06 && position < 0.45;
+      },
+      { timeout: 6_000 },
+    )
+    .toBe(true);
+});
+
+test("restores the saved scroll offset, not just the page number", async ({ page }) => {
+  await openSample(page, "sample-long.pdf");
+  await page.evaluate(() => {
+    const viewport = document.querySelector<HTMLElement>("[data-reader]");
+    if (viewport) viewport.scrollTop = 1800;
+  });
+  await page.waitForTimeout(1000);
+
+  await openSample(page, "sample-long.pdf", { waitForText: false });
+  await expect
+    .poll(
+      () =>
+        page.evaluate(
+          () => document.querySelector<HTMLElement>("[data-reader]")?.scrollTop ?? 0,
+        ),
+      { timeout: 8_000 },
+    )
+    .toBeGreaterThan(1750);
+});
+
+test("document switch keeps the old answer and does not leak it into the new document", async ({
+  page,
+}) => {
+  await openSample(page);
+  await page.locator("[data-assistant-fab]").click();
+  const panel = page.locator("[data-assistant-panel]");
+  const question = "第一个文档的问题：这篇文档讲了什么？";
+  await panel.locator("textarea").fill(question);
+  await panel.locator('button[aria-label="发送"]').click();
+  await expect(panel.locator('button[aria-label="停止生成"]')).toBeVisible();
+
+  // Switch while the first answer is still streaming.
+  await dropSample(page, "sample-long.pdf");
+  await expect(panel).toContainText("直接提问，或从下面开始。", { timeout: 20_000 });
+  await expect(panel).not.toContainText(question);
+
+  // The new document can start its own run immediately.
+  await panel.locator("textarea").fill("第二个文档的问题：总结当前页。");
+  await panel.locator('button[aria-label="发送"]').click();
+  await expect(panel).toContainText("本地 mock 模型", { timeout: 20_000 });
+  await expect(panel.locator('button[aria-label="发送"]')).toBeVisible({ timeout: 20_000 });
+
+  // Switching back restores the first document's partial answer.
+  await dropSample(page, "sample-cn.pdf");
+  await expect(panel).toContainText(question, { timeout: 20_000 });
+  await expect(panel).toContainText("已停止生成", { timeout: 20_000 });
+  await expect(panel).not.toContainText("第二个文档的问题");
 });
 
 test("panel can be dragged, resized and restored after reload", async ({ page }) => {

@@ -127,6 +127,29 @@ describe("buildRequest", () => {
   it("allows citations only for context pages", () => {
     expect(request.allowedPages).toEqual([2, 3, 4]);
   });
+
+  it("labels OCR selections and warns the model about recognition errors", () => {
+    const ocrRequest = buildRequest({
+      docName: "扫描件.pdf",
+      totalPages: 10,
+      context: {
+        ...context,
+        selection: {
+          page: 2,
+          text: "识别出的一句话",
+          source: "ocr",
+          pages: [{ page: 2, text: "识别出的一句话", source: "ocr" }],
+        },
+      },
+      history: [],
+      question: "这句话什么意思？",
+    });
+    const content = String(ocrRequest.messages[1].content);
+    expect(content).toContain('<selection source="ocr">');
+    expect(content).toContain('<page n="2" source="ocr">');
+    expect(content).toContain("<ocr_note>");
+    expect(content).toContain("以页面图像为准");
+  });
 });
 
 describe("buildRequest with smart excerpts", () => {

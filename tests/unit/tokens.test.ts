@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_PRICING,
   EMPTY_USAGE,
+  addUsage,
   envelopeHash,
   estimateCost,
   estimateSurface,
@@ -20,6 +21,23 @@ describe("estimateText", () => {
 
   it("counts CJK punctuation as CJK", () => {
     expect(estimateText("你好，世界。")).toBe(8); // ceil(6 * .6) + 4
+  });
+});
+
+describe("addUsage", () => {
+  it("sums every bucket independently", () => {
+    expect(
+      addUsage(
+        { uncachedInput: 10, cacheRead: 2, cacheWrite: 1, output: 3, imageTokens: 4 },
+        { uncachedInput: 5, cacheRead: 7, cacheWrite: 0, output: 8, imageTokens: 1 },
+      ),
+    ).toEqual({
+      uncachedInput: 15,
+      cacheRead: 9,
+      cacheWrite: 1,
+      output: 11,
+      imageTokens: 5,
+    });
   });
 });
 
