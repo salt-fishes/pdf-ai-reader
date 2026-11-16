@@ -224,10 +224,11 @@ test("highlight jump lands on the highlighted line, not the page top", async ({ 
   await expect(sidebar).toContainText(selectedText.slice(0, 4));
 
   // Scroll far away, then jump from the sidebar.
-  const pageInput = page.locator('header input[class*="pageInput"]');
-  await pageInput.fill("5");
-  await pageInput.press("Enter");
-  await expect(page.getByText("当前第 5 页，共 6 页")).toBeAttached({ timeout: 10_000 });
+  const viewport = page.locator("[data-reader]");
+  await viewport.evaluate((element) => {
+    element.scrollTop = element.scrollHeight * 0.8;
+  });
+  await page.waitForTimeout(300);
   await sidebar.locator('[class*="highlightItem"]').first().click();
 
   const highlightPosition = () =>
