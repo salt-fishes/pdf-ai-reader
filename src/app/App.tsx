@@ -1,5 +1,6 @@
 import { Suspense, lazy, useEffect, useMemo, useState, type CSSProperties, type DragEvent } from "react";
 import { Header } from "./Header";
+import { PasswordDialog } from "./PasswordDialog";
 import { Rail } from "./Rail";
 import { Sidebar } from "./Sidebar";
 import { SearchOverlay } from "./SearchOverlay";
@@ -9,7 +10,6 @@ import { REGION_EVENT, type RegionSelectionDetail } from "../features/viewer/reg
 import { AssistantFab } from "../features/assistant/AssistantFab";
 import { SelectionToolbar } from "../features/assistant/SelectionToolbar";
 import { useAssistant } from "../features/assistant/useAssistantStore";
-import { OcrDialog } from "../features/assistant/OcrDialog";
 import { closePanel, minimizePanel } from "../features/assistant/panelControl";
 import { SettingsDialog } from "../features/settings/SettingsDialog";
 import { ShortcutsDialog } from "../features/shortcuts/ShortcutsDialog";
@@ -42,6 +42,15 @@ export function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [dragging, setDragging] = useState(false);
+  // The assistant chunk is ~500KB. Keep it unmounted until the panel is first
+  // opened; once loaded, keep it mounted so close/minimize animations work.
+  const [assistantMounted, setAssistantMounted] = useState(
+    () => useAssistant.getState().status === "open",
+  );
+
+  useEffect(() => {
+    if (status === "open") setAssistantMounted(true);
+  }, [status]);
 
   useEffect(() => {
     void bootstrap();
@@ -270,15 +279,17 @@ export function App() {
       </div>
 
       <AssistantFab />
-      <Suspense fallback={null}>
-        <AssistantPanel />
-      </Suspense>
+      {assistantMounted ? (
+        <Suspense fallback={null}>
+          <AssistantPanel />
+        </Suspense>
+      ) : null}
       <SelectionToolbar />
       <SearchOverlay />
 
+      <PasswordDialog />
       <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       <ShortcutsDialog open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
-      <OcrDialog />
 
       {toast ? (
         <div

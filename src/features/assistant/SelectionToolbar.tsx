@@ -13,6 +13,7 @@ export function SelectionToolbar() {
   const notify = useAssistant((state) => state.notify);
 
   if (!selection) return null;
+  const ocr = selection.source === "ocr" || selection.source === "mixed";
 
   const clear = () => {
     window.getSelection()?.removeAllRanges();
@@ -27,14 +28,26 @@ export function SelectionToolbar() {
       aria-label="选中文字操作"
       onMouseDown={(event) => event.preventDefault()}
     >
+      {ocr ? (
+        <span className={styles.selectionOcr} title="这段文字由本机 OCR 识别，可能有误差">
+          OCR
+        </span>
+      ) : null}
       <button
         className={styles.selectionButton}
         onClick={async () => {
           const ok = await copyText(selection.text);
-          notify(ok ? "已复制原文" : "复制失败", ok ? "success" : "error");
+          notify(
+            ok
+              ? ocr
+                ? "已复制 OCR 文字（可能有误差）"
+                : "已复制原文"
+              : "复制失败",
+            ok ? "success" : "error",
+          );
           clear();
         }}
-        title="复制原文"
+        title={ocr ? "复制 OCR 识别文字" : "复制原文"}
       >
         <WinIcon glyph="copy" size={13} />
         复制
@@ -45,7 +58,12 @@ export function SelectionToolbar() {
           addSelection(
             selection.page,
             selection.text,
-            selection.pages?.map((page) => ({ page: page.page, text: page.text })),
+            selection.pages?.map((page) => ({
+              page: page.page,
+              text: page.text,
+              source: page.source,
+            })),
+            selection.source,
           );
           clear();
         }}
@@ -60,7 +78,7 @@ export function SelectionToolbar() {
         onClick={() => {
           addHighlight(selection);
           clear();
-          notify("已添加高亮", "success");
+          notify(ocr ? "已添加 OCR 高亮" : "已添加高亮", "success");
         }}
         title="高亮这段文字"
       >

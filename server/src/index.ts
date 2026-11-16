@@ -6,7 +6,14 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import { readFile, mkdir, writeFile } from "node:fs/promises";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { installModels, modelsInstalled, ocrStatus, recognizeImage } from "./ocr";
+import {
+  installModels,
+  isOcrModelId,
+  ocrStatus,
+  recognizeImage,
+  setActiveOcrModel,
+  type OcrPriority,
+} from "./ocr";
 
 // Load server/.env first; a root .env remains a fallback. Existing env wins.
 loadEnv({ path: fileURLToPath(new URL("../.env", import.meta.url)) });
@@ -87,6 +94,36 @@ async function saveProvider(next: {
 const MODEL_RE = /^[a-zA-Z0-9._:/-]{1,96}$/;
 const MAX_BODY_BYTES = 25 * 1024 * 1024;
 const MAX_IMAGES = 4;
+
+/**
+ * Mutating endpoints are only reachable from the app itself. A browser always
+ * sends Origin for POST, so a missing Origin is accepted only for local
+ * scripts/tests; cross-site and same-site (subdomain) requests are rejected
+ * before they can change the provider URL or spend tokens.
+ */
+const ALLOWED_ORIGINS = new Set([
+  APP_ORIGIN,
+  `http://127.0.0.1:${PORT}`,
+  `http://localhost:${PORT}`,
+  "http://127.0.0.1:5173",
+  "http://localhost:5173",
+]);
+
+function trustedMutation(c: {
+  req: { header: (name: string) => string | undefined };
+}): boolean {
+  const origin = c.req.header("origin");
+  if (origin && !ALLOWED_ORIGINS.has(origin)) return false;
+  const site = c.req.header("sec-fetch-site");
+  if (site === "cross-site" || site === "same-site") return false;
+  return true;
+}
+
+function isJsonRequest(c: {
+  req: { header: (name: string) => string | undefined };
+}): boolean {
+  return /^application\/json\b/i.test(c.req.header("content-type") ?? "");
+}
 
 type ChatMessage = {
   role?: string;
@@ -228,6 +265,13 @@ function publicConfig() {
   };
 }
 
+app.use("/api/*", async (c, next) => {
+  if (c.req.method !== "GET" && c.req.method !== "HEAD" && !trustedMutation(c)) {
+    return jsonError(403, "cross_site_blocked", "已阻止跨站请求", "只允许本机阅读器修改配置");
+  }
+  await next();
+});
+
 app.use("*", async (c, next) => {
   await next();
   c.header("X-Content-Type-Options", "nosniff");
@@ -235,7 +279,9 @@ app.use("*", async (c, next) => {
   c.header("X-Frame-Options", "DENY");
   c.header(
     "Content-Security-Policy",
-    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; worker-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+    // pdf.js uses WebAssembly for image decoding and some ICC paths; without
+    // 'wasm-unsafe-eval' production falls back to slower JS and logs errors.
+    "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; worker-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
   );
 });
 
@@ -244,6 +290,12 @@ app.get("/api/health", (c) => c.json({ ok: true }));
 app.get("/api/config", (c) => c.json(publicConfig()));
 
 app.post("/api/provider", async (c) => {
+  if (!isJsonRequest(c)) {
+    return jsonError(415, "invalid_content_type", "请求必须使用 application/json");
+  }
+  if (Number(c.req.header("content-length") ?? 0) > 64 * 1024) {
+    return jsonError(413, "body_too_large", "配置请求体过大");
+  }
   let body: Record<string, unknown>;
   try {
     body = (await c.req.json()) as Record<string, unknown>;
@@ -253,6 +305,21 @@ app.post("/api/provider", async (c) => {
   const baseUrl = normalizeBaseUrl(
     typeof body.baseUrl === "string" ? body.baseUrl : provider.baseUrl,
   );
+  const previousHost = (() => {
+    try {
+      return new URL(provider.baseUrl).host;
+    } catch {
+      return "";
+    }
+  })();
+  const nextHost = (() => {
+    try {
+      return new URL(baseUrl).host;
+    } catch {
+      return "";
+    }
+  })();
+  const hostChanged = Boolean(previousHost && nextHost && previousHost !== nextHost);
   try {
     const url = new URL(baseUrl);
     if (url.protocol !== "http:" && url.protocol !== "https:") throw new Error("protocol");
@@ -271,17 +338,30 @@ app.post("/api/provider", async (c) => {
   }
   let runtimeKey = provider.apiKey;
   let savedKey: string | undefined = apiKeyFromFile ? provider.apiKey : undefined;
+  let keyCleared = false;
+
   if (body.clearKey === true) {
     runtimeKey = "";
     savedKey = "";
+    keyCleared = true;
   }
-  if (typeof body.apiKey === "string" && body.apiKey.trim()) {
-    if (body.apiKey.length > 512) {
+
+  const providedKey =
+    typeof body.apiKey === "string" && body.apiKey.trim() ? body.apiKey.trim() : "";
+  if (providedKey) {
+    if (providedKey.length > 512) {
       return jsonError(400, "invalid_key", "API Key 过长");
     }
-    runtimeKey = body.apiKey.trim();
-    savedKey = runtimeKey;
+    runtimeKey = providedKey;
+    savedKey = providedKey;
+  } else if (hostChanged && body.clearKey !== true) {
+    // Never forward a key to a different host silently. Changing the base URL
+    // without supplying a key clears it; the UI asks for the new key.
+    runtimeKey = "";
+    savedKey = "";
+    keyCleared = true;
   }
+
   const next: ProviderState = { baseUrl, apiKey: runtimeKey, model, modelAllow };
   try {
     await saveProvider({ baseUrl, model, modelAllow, apiKey: savedKey });
@@ -291,7 +371,7 @@ app.post("/api/provider", async (c) => {
   }
   apiKeyFromFile = savedKey !== undefined;
   Object.assign(provider, next);
-  return c.json({ ok: true, config: publicConfig() });
+  return c.json({ ok: true, keyCleared, config: publicConfig() });
 });
 
 app.get("/api/models", async (c) => {
@@ -330,40 +410,76 @@ app.get("/api/models", async (c) => {
 app.get("/api/ocr/status", async (c) => c.json(await ocrStatus()));
 
 app.post("/api/ocr/install", async (c) => {
+  let requested: unknown;
+  if (isJsonRequest(c)) {
+    const body = (await c.req.json().catch(() => ({}))) as { model?: unknown };
+    requested = body.model;
+  }
+  if (requested !== undefined && !isOcrModelId(requested)) {
+    return jsonError(400, "invalid_model", "未知的 OCR 模型");
+  }
   try {
-    if (!(await modelsInstalled())) {
-      void installModels().catch(() => undefined);
+    const status = await ocrStatus();
+    const model = isOcrModelId(requested) ? requested : status.activeModel;
+    const info = status.availableModels.find((item) => item.id === model);
+    if (!info?.installed) {
+      void installModels(model).catch(() => undefined);
     }
-    return c.json({ ok: true }, 202);
+    return c.json({ ok: true, model }, 202);
   } catch (error) {
     const message = error instanceof Error ? error.message : "无法启动模型下载";
-    return jsonError(500, "ocr_install_failed", message, "检查网络或 OCR_MODEL_BASE_URL");
+    return jsonError(500, "ocr_install_failed", message, "检查网络或 OCR_MODELS_ROOT");
   }
 });
 
+app.post("/api/ocr/config", async (c) => {
+  if (!isJsonRequest(c)) {
+    return jsonError(415, "invalid_content_type", "请求必须使用 application/json");
+  }
+  if (Number(c.req.header("content-length") ?? 0) > 16 * 1024) {
+    return jsonError(413, "body_too_large", "配置请求体过大");
+  }
+  const body = (await c.req.json().catch(() => null)) as { model?: unknown } | null;
+  if (!body || !isOcrModelId(body.model)) {
+    return jsonError(400, "invalid_model", "未知的 OCR 模型");
+  }
+  const status = await setActiveOcrModel(body.model);
+  return c.json({ ok: true, config: status });
+});
+
 app.post("/api/ocr", async (c) => {
-  const length = Number(c.req.header("content-length") ?? 0);
-  if (length > 12 * 1024 * 1024) {
+  const headerLength = Number(c.req.header("content-length") ?? 0);
+  if (headerLength > 12 * 1024 * 1024) {
     return jsonError(413, "body_too_large", "图片超过 12MB", "降低页面渲染分辨率");
   }
-  if (!(await modelsInstalled())) {
-    return jsonError(409, "ocr_not_installed", "OCR 模型尚未下载", "在设置中下载 PP-OCRv6 tiny 模型");
+  const status = await ocrStatus();
+  if (!status.installed) {
+    return jsonError(409, "ocr_not_installed", "OCR 模型尚未下载", "在设置中下载 OCR 模型");
   }
 
-  let body: { image?: unknown };
-  try {
-    body = (await c.req.json()) as { image?: unknown };
-  } catch {
-    return jsonError(400, "invalid_json", "请求体不是合法 JSON");
+  let bytes: Buffer;
+  const contentType = c.req.header("content-type") ?? "";
+  if (isJsonRequest(c)) {
+    let body: { image?: unknown };
+    try {
+      body = (await c.req.json()) as { image?: unknown };
+    } catch {
+      return jsonError(400, "invalid_json", "请求体不是合法 JSON");
+    }
+    if (typeof body.image !== "string") {
+      return jsonError(400, "invalid_image", "缺少 image 数据");
+    }
+    const match = /^data:image\/(?:png|jpeg|webp);base64,([A-Za-z0-9+/=\s]+)$/.exec(body.image);
+    if (!match) {
+      return jsonError(400, "invalid_image", "image 必须是 PNG/JPEG data URL");
+    }
+    bytes = Buffer.from(match[1], "base64");
+  } else if (/^(image\/jpeg|image\/png|image\/webp|application\/octet-stream)\b/i.test(contentType)) {
+    bytes = Buffer.from(await c.req.arrayBuffer());
+  } else {
+    return jsonError(415, "invalid_content_type", "请发送 JPEG/PNG 图片字节");
   }
-  if (typeof body.image !== "string") {
-    return jsonError(400, "invalid_image", "缺少 image 数据");
-  }
-  const match = /^data:image\/(?:png|jpeg|webp);base64,([A-Za-z0-9+/=\s]+)$/.exec(body.image);
-  if (!match) {
-    return jsonError(400, "invalid_image", "image 必须是 PNG/JPEG data URL");
-  }
-  const bytes = Buffer.from(match[1], "base64");
+
   if (bytes.byteLength < 64) {
     return jsonError(400, "invalid_image", "图片数据为空");
   }
@@ -371,23 +487,36 @@ app.post("/api/ocr", async (c) => {
     return jsonError(413, "image_too_large", "图片超过 8MB", "降低页面渲染分辨率");
   }
 
+  const priorityHeader = c.req.header("x-ocr-priority");
+  const priority: OcrPriority =
+    priorityHeader === "high" || priorityHeader === "low" ? priorityHeader : "normal";
+
   try {
     const arrayBuffer = bytes.buffer.slice(
       bytes.byteOffset,
       bytes.byteOffset + bytes.byteLength,
     ) as ArrayBuffer;
-    const result = await recognizeImage(arrayBuffer);
+    const result = await recognizeImage(arrayBuffer, {
+      priority,
+      signal: c.req.raw.signal,
+    });
     return c.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : "OCR 失败";
     if (message.includes("尚未下载")) {
-      return jsonError(409, "ocr_not_installed", message, "在设置中下载 PP-OCRv6 tiny 模型");
+      return jsonError(409, "ocr_not_installed", message, "在设置中下载 OCR 模型");
+    }
+    if (message.includes("取消")) {
+      return jsonError(499, "ocr_cancelled", message);
     }
     return jsonError(500, "ocr_failed", message, "检查模型文件是否完整，或重新下载");
   }
 });
 
 app.post("/api/chat", async (c) => {
+  if (!isJsonRequest(c)) {
+    return jsonError(415, "invalid_content_type", "请求必须使用 application/json");
+  }
   if (!provider.apiKey && !MOCK_AI) {
     return jsonError(503, "missing_key", "服务端未配置 AI_API_KEY", "在设置 → 模型服务中填入密钥");
   }

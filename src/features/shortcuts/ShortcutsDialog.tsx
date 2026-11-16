@@ -1,5 +1,6 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { WinIcon } from "../../components/icons/WinIcon";
+import { useFocusTrap } from "../../hooks/useFocusTrap";
 import styles from "../../components/Modal.module.css";
 
 type Props = { open: boolean; onClose: () => void };
@@ -49,6 +50,8 @@ const GROUPS: Array<{ title: string; items: Array<{ keys: string[]; label: strin
 ];
 
 export function ShortcutsDialog({ open, onClose }: Props) {
+  const cardRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(cardRef, open);
   useEffect(() => {
     if (!open) return;
     const onKey = (event: KeyboardEvent) => {
@@ -65,7 +68,7 @@ export function ShortcutsDialog({ open, onClose }: Props) {
 
   return (
     <div className={styles.backdrop} onPointerDown={(event) => event.target === event.currentTarget && onClose()}>
-      <div className={styles.card} role="dialog" aria-modal="true" aria-label="快捷键">
+      <div ref={cardRef} className={styles.card} role="dialog" aria-modal="true" aria-label="快捷键">
         <div className={styles.head}>
           <span className={styles.title}>快捷键</span>
           <span className={styles.headSpacer} />

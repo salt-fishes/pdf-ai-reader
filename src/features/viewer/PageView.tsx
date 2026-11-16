@@ -1,7 +1,24 @@
-import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { attachTextLayer, getActiveDocument, getPageLinks, getPageSize, type PageLink } from "../../lib/pdf/pdf";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
+import { useShallow } from "zustand/react/shallow";
+import {
+  attachTextLayer,
+  getActiveDocument,
+  getNativePageText,
+  getPageLinks,
+  getPageSize,
+  type PageLink,
+} from "../../lib/pdf/pdf";
 import { PDF_TO_CSS_UNITS } from "../../lib/pdf/units";
 import { getColorMode } from "../../lib/reading/color";
+import { useOcr } from "../ocr/useOcrStore";
+import { OcrTextLayer } from "./OcrTextLayer";
 import { emitRegionSelection } from "./region";
 import { renderPixelRatio } from "./renderRatio";
 import { usePixelRatio } from "./usePixelRatio";
@@ -34,6 +51,8 @@ function collectSearchRects(
     const node = current as Text;
     const value = node.nodeValue ?? "";
     if (!value) continue;
+    // Ignore page labels/badges; only real text layers participate.
+    if (!node.parentElement?.closest(".textLayer, [data-ocr-layer]")) continue;
     nodes.push({ node, start: text.length, end: text.length + value.length });
     text += value;
   }
@@ -139,7 +158,7 @@ function smartMask(base: HTMLCanvasElement): HTMLCanvasElement {
   return mask;
 }
 
-export function PageView({ pageNumber, zoom, visible, sizeHint }: Props) {
+function PageViewBase({ pageNumber, zoom, visible, sizeHint }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
   const baseRef = useRef<HTMLCanvasElement | null>(null);
@@ -151,10 +170,18 @@ export function PageView({ pageNumber, zoom, visible, sizeHint }: Props) {
   const [renderVersion, setRenderVersion] = useState(0);
   const colorMode = useViewer((state) => state.colorMode);
   const colorIntensity = useViewer((state) => state.colorIntensity);
-  const highlights = useViewer((state) => state.highlights);
+  const highlights = useViewer(
+    useShallow((state) => state.highlights.filter((item) => item.page === pageNumber)),
+  );
+  const focusedHighlight = useViewer((state) => state.focusedHighlight);
   const regionPage = useViewer((state) => state.regionPage);
   const searchOpen = useViewer((state) => state.searchOpen);
   const searchQuery = useViewer((state) => state.searchQuery);
+  const searchFocus = useViewer((state) => state.searchFocus);
+  const handledSearchFocus = useRef(0);
+  const ocrPage = useOcr((state) => state.pages[pageNumber]);
+  const ocrEnabled = useOcr((state) => state.enabled);
+  const [nativeChars, setNativeChars] = useState<number | null>(null);
   const active = regionPage === pageNumber;
   const [layerVersion, setLayerVersion] = useState(0);
   const [links, setLinks] = useState<PageLink[]>([]);
@@ -250,10 +277,24 @@ export function PageView({ pageNumber, zoom, visible, sizeHint }: Props) {
 
     const timer = setTimeout(() => {
       const pageRect = pageElement.getBoundingClientRect();
-      setSearchRects(collectSearchRects(container, pageRect, query));
+      setSearchRects(collectSearchRects(pageElement, pageRect, query));
     }, 60);
     return () => clearTimeout(timer);
-  }, [visible, searchOpen, searchQuery, pageNumber, layerVersion]);
+  }, [visible, searchOpen, searchQuery, pageNumber, layerVersion, ocrPage, ocrEnabled]);
+
+  useEffect(() => {
+    const focus = searchFocus;
+    if (!focus || focus.page !== pageNumber || !visible) return;
+    if (handledSearchFocus.current === focus.at) return;
+    const rect = searchRects[focus.occurrence] ?? searchRects[0];
+    if (!rect) return;
+    handledSearchFocus.current = focus.at;
+    useViewer.getState().requestLocation({
+      page: pageNumber,
+      y: rect.y,
+      align: "top",
+    });
+  }, [searchFocus, searchRects, pageNumber, visible]);
 
   useEffect(() => {
     if (active) return;
@@ -274,6 +315,10 @@ export function PageView({ pageNumber, zoom, visible, sizeHint }: Props) {
     getPageSize(pdf, pageNumber).then((next) => {
       if (alive) setSize(next);
     });
+    void getNativePageText(pdf, pageNumber).then((text) => {
+      if (alive) setNativeChars(text.replace(/\s+/g, "").length);
+    });
+    void useOcr.getState().hydrate(pageNumber);
     return () => {
       alive = false;
     };
@@ -493,7 +538,13 @@ export function PageView({ pageNumber, zoom, visible, sizeHint }: Props) {
     };
   }, [pageNumber, zoom, visible, paint, pixelRatio]);
 
-  const rects = highlights.filter((item) => item.page === pageNumber);
+  const rects = highlights;
+  const showOcrLayer =
+    visible &&
+    ocrEnabled &&
+    ocrPage &&
+    ocrPage.lines.length > 0 &&
+    (nativeChars === null || nativeChars < 20);
 
   return (
     <div
@@ -511,7 +562,9 @@ export function PageView({ pageNumber, zoom, visible, sizeHint }: Props) {
           highlight.rects.map((rect, index) => (
             <span
               key={`${highlight.id}_${index}`}
-              className={styles.highlight}
+              className={`${styles.highlight} ${
+                highlight.source ? styles.highlightOcr : ""
+              } ${focusedHighlight?.id === highlight.id ? styles.highlightFocus : ""}`}
               style={{
                 left: `${rect.x * 100}%`,
                 top: `${rect.y * 100}%`,
@@ -527,7 +580,11 @@ export function PageView({ pageNumber, zoom, visible, sizeHint }: Props) {
           {searchRects.map((rect, index) => (
             <span
               key={`${index}_${Math.round(rect.x * 1000)}_${Math.round(rect.y * 1000)}`}
-              className={styles.searchHit}
+              className={`${styles.searchHit} ${
+                searchFocus?.page === pageNumber && index === searchFocus.occurrence
+                  ? styles.searchHitFocus
+                  : ""
+              }`}
               style={{
                 left: `${rect.x * 100}%`,
                 top: `${rect.y * 100}%`,
@@ -572,6 +629,14 @@ export function PageView({ pageNumber, zoom, visible, sizeHint }: Props) {
         </div>
       ) : null}
       <div ref={textRef} className="textLayer" />
+      {showOcrLayer ? (
+        <OcrTextLayer
+          lines={ocrPage.lines}
+          width={size.width * zoom * PDF_TO_CSS_UNITS}
+          height={size.height * zoom * PDF_TO_CSS_UNITS}
+          page={pageNumber}
+        />
+      ) : null}
       {active ? (
         <div
           className={styles.regionLayer}
@@ -605,7 +670,16 @@ export function PageView({ pageNumber, zoom, visible, sizeHint }: Props) {
           ) : null}
         </div>
       ) : null}
-      <span className={styles.label}>{pageNumber}</span>
+      <span className={styles.label}>
+        {pageNumber}
+        {ocrPage ? (
+          <span className={styles.ocrBadge} title="本页文字由本机 OCR 识别，可能有误差">
+            OCR
+          </span>
+        ) : null}
+      </span>
     </div>
   );
 }
+
+export const PageView = memo(PageViewBase);

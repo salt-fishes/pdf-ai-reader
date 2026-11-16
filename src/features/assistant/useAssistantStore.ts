@@ -18,6 +18,7 @@ import type { AiError, ApiMessage, Attachment, ChatMessage, ChatSession, Context
 import {
   DEFAULT_PRICING,
   EMPTY_USAGE,
+  addUsage,
   envelopeHash,
   estimateSurface,
   projectTokens,
@@ -54,6 +55,7 @@ import {
   type OcrStatus,
 } from "../../lib/ocr/client";
 import { useViewer } from "../viewer/useViewerStore";
+import { useOcr } from "../ocr/useOcrStore";
 
 export type AssistantStatus = "open" | "minimized" | "closed";
 
@@ -92,6 +94,8 @@ type AssistantState = {
   messages: ChatMessage[];
   sessions: ChatSession[];
   activeSessionId: string;
+  /** Document these messages belong to; survives a viewer doc switch. */
+  boundDocHash: string;
   context: ContextState;
   draft: string;
   streamingId: string | null;
@@ -155,8 +159,14 @@ type AssistantState = {
   removePageRange: () => void;
   smartFilter: () => Promise<void>;
   removeSmartFilter: () => void;
-  addSelection: (page: number, text: string, pages?: Array<{ page: number; text: string }>) => void;
+  addSelection: (
+    page: number,
+    text: string,
+    pages?: Array<{ page: number; text: string; source?: "ocr" | "mixed" }>,
+    source?: "ocr" | "mixed",
+  ) => void;
   removeSelection: () => void;
+  markOcrPage: (page: number) => void;
   refreshOcrStatus: () => Promise<void>;
   openOcrDialog: (page?: number) => void;
   closeOcrDialog: () => void;
@@ -199,6 +209,42 @@ const initialBudget =
 let streamAbort: AbortController | null = null;
 let summaryAbort: AbortController | null = null;
 let pageToken = 0;
+
+type ForegroundRun = {
+  id: number;
+  kind: "chat" | "summary";
+  epoch: number;
+  hash: string;
+  controller: AbortController;
+};
+
+let docEpoch = 0;
+let runSequence = 0;
+let foregroundRun: ForegroundRun | null = null;
+
+function beginForeground(
+  kind: ForegroundRun["kind"],
+  hash: string,
+  controller: AbortController,
+): ForegroundRun | null {
+  if (foregroundRun) return null;
+  foregroundRun = {
+    id: ++runSequence,
+    kind,
+    epoch: docEpoch,
+    hash,
+    controller,
+  };
+  return foregroundRun;
+}
+
+function isForegroundCurrent(run: ForegroundRun): boolean {
+  return foregroundRun?.id === run.id && run.epoch === docEpoch;
+}
+
+function endForeground(run: ForegroundRun): void {
+  if (foregroundRun?.id === run.id) foregroundRun = null;
+}
 let filterToken = 0;
 let toastTimer: ReturnType<typeof setTimeout> | null = null;
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -316,6 +362,9 @@ function surfaceOf(state: AssistantState): {
 
 function messageNote(context: ContextState): string | undefined {
   const notes: string[] = [];
+  if (context.selection?.source) {
+    notes.push("选中文字包含 OCR 识别内容");
+  }
   if (context.smart) {
     notes.push(`智能筛选：${context.smart.chunks} 段 / ${context.smart.pages.length} 页`);
   }
@@ -332,8 +381,8 @@ function messageNote(context: ContextState): string | undefined {
 }
 
 function chatRecordFrom(state: AssistantState) {
-  const viewer = useViewer.getState();
-  if (!viewer.docHash) return null;
+  const hash = state.boundDocHash;
+  if (!hash) return null;
   const activeMessages = state.messages.filter((message) => message.status !== "streaming");
   const sessions = state.sessions.map((session) =>
     session.id === state.activeSessionId
@@ -341,7 +390,7 @@ function chatRecordFrom(state: AssistantState) {
       : session,
   );
   return {
-    hash: viewer.docHash,
+    hash,
     sessions: sessions.map((session) => ({
       id: session.id,
       title: session.title,
@@ -365,7 +414,7 @@ function saveChatNow(state: AssistantState): void {
 }
 
 function persistChat(state: AssistantState): void {
-  if (!useViewer.getState().docHash) return;
+  if (!state.boundDocHash) return;
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     saveTimer = null;
@@ -412,6 +461,7 @@ export const useAssistant = create<AssistantState>((set, get) => {
     messages: [],
     sessions: [initialSession],
     activeSessionId: initialSession.id,
+    boundDocHash: "",
     context: { ...EMPTY_CONTEXT },
     draft: "",
     streamingId: null,
@@ -473,7 +523,6 @@ export const useAssistant = create<AssistantState>((set, get) => {
           configError: error instanceof Error ? error.message : "无法连接本地代理",
         });
       }
-      void get().refreshOcrStatus();
     },
 
     refreshConfig: async () => {
@@ -618,6 +667,7 @@ export const useAssistant = create<AssistantState>((set, get) => {
       if (!pdf) return;
       const mine = ++pageToken;
       try {
+        await useOcr.getState().hydrate(page);
         const text = await getPageText(pdf, page);
         if (mine !== pageToken || !get().autoCurrentPage) return;
         const scanned = text.length < 20 ? [page] : [];
@@ -657,6 +707,7 @@ export const useAssistant = create<AssistantState>((set, get) => {
       }
       const pdf = getActiveDocument();
       if (!pdf) return { ok: false, message: "请先打开 PDF" };
+      await useOcr.getState().hydratePages(pages);
       const result = await getPagesText(pdf, pages);
       set((state) => ({
         autoCurrentPage: false,
@@ -676,6 +727,7 @@ export const useAssistant = create<AssistantState>((set, get) => {
     setPageRange: async (pages) => {
       const pdf = getActiveDocument();
       if (!pdf || pages.length === 0) return;
+      await useOcr.getState().hydratePages(pages);
       const result = await getPagesText(pdf, pages);
       set((state) => ({
         autoCurrentPage: false,
@@ -739,6 +791,9 @@ export const useAssistant = create<AssistantState>((set, get) => {
 
       try {
         const pages: Array<{ page: number; text: string }> = [];
+        await useOcr
+          .getState()
+          .hydratePages(Array.from({ length: scan }, (_, index) => index + 1));
         for (let page = 1; page <= scan; page += 1) {
           pages.push({ page, text: await getPageText(pdf, page) });
           if (page % 8 === 0 || page === scan) {
@@ -791,12 +846,13 @@ export const useAssistant = create<AssistantState>((set, get) => {
       recalc();
     },
 
-    addSelection: (page, text, pages) => {
+    addSelection: (page, text, pages, source) => {
       const clean = text.trim();
       if (!clean) return;
       const selection: Selection = {
         page,
         text: clean,
+        source,
         pages: pages?.length ? pages : undefined,
       };
       set((state) => ({ context: { ...state.context, selection } }));
@@ -808,6 +864,17 @@ export const useAssistant = create<AssistantState>((set, get) => {
     removeSelection: () => {
       set((state) => ({ context: { ...state.context, selection: null } }));
       recalc();
+    },
+
+    markOcrPage: (page) => {
+      set((state) => ({
+        scannedPages: state.scannedPages.filter((item) => item !== page),
+      }));
+      if (useViewer.getState().currentPage === page) {
+        void get().syncCurrentPage(page);
+      } else {
+        recalc();
+      }
     },
 
     refreshOcrStatus: async () => {
@@ -1174,9 +1241,20 @@ export const useAssistant = create<AssistantState>((set, get) => {
     },
 
     loadForDoc: async (hash) => {
-      summaryAbort?.abort();
+      // Finish the outgoing document first so its partial answer is written
+      // under its own hash, not under the document we are about to load.
+      const outgoing = get();
+      if (outgoing.summary) get().stopSummary();
+      else if (outgoing.streamingId) get().stop();
+      // A run whose state flag was already cleared must still be aborted.
+      if (foregroundRun) {
+        foregroundRun.controller.abort();
+        foregroundRun = null;
+      }
+      docEpoch += 1;
+      streamAbort = null;
       summaryAbort = null;
-      set({ loadingChat: true, summary: null, streamingId: null });
+      set({ loadingChat: true, summary: null, streamingId: null, boundDocHash: hash });
       filterToken += 1;
       try {
         const record = await loadChatRecord(hash);
@@ -1248,7 +1326,18 @@ export const useAssistant = create<AssistantState>((set, get) => {
         });
         get().refreshEstimate();
       } catch {
-        set({ loadingChat: false });
+        const fallback = createSession(get().model);
+        set({
+          sessions: [fallback],
+          activeSessionId: fallback.id,
+          messages: [],
+          boundDocHash: hash,
+          context: { ...EMPTY_CONTEXT },
+          autoCurrentPage: true,
+          streamingId: null,
+          loadingChat: false,
+          filtering: null,
+        });
       }
     },
 
@@ -1370,7 +1459,7 @@ export const useAssistant = create<AssistantState>((set, get) => {
     send: async (question) => {
       const text = question.trim();
       const state = get();
-      if (!text || state.streamingId) return;
+      if (!text || state.streamingId || foregroundRun) return;
       const viewer = useViewer.getState();
       if (!viewer.docHash) {
         get().notify("请先打开一个 PDF", "error");
@@ -1403,6 +1492,15 @@ export const useAssistant = create<AssistantState>((set, get) => {
         return;
       }
       set({ sendError: null });
+
+      const runHash = state.boundDocHash || viewer.docHash;
+      const controller = new AbortController();
+      const run = beginForeground("chat", runHash, controller);
+      if (!run) return;
+      const stale = () =>
+        !isForegroundCurrent(run) ||
+        docEpoch !== run.epoch ||
+        get().boundDocHash !== run.hash;
 
       const now = Date.now();
       const userId = `u_${now.toString(36)}`;
@@ -1443,6 +1541,7 @@ export const useAssistant = create<AssistantState>((set, get) => {
             : session,
         ),
         draft: "",
+        boundDocHash: runHash,
         streamingId: assistantId,
         error: null,
         sendError: null,
@@ -1452,8 +1551,6 @@ export const useAssistant = create<AssistantState>((set, get) => {
         contextCollapseAt: Date.now(),
       }));
       saveChatNow(get());
-
-      const controller = new AbortController();
       streamAbort = controller;
 
       let content = "";
@@ -1463,7 +1560,7 @@ export const useAssistant = create<AssistantState>((set, get) => {
       let flushTimer: ReturnType<typeof setTimeout> | null = null;
 
       const flush = () => {
-        if (!dirty) return;
+        if (!dirty || stale()) return;
         dirty = false;
         lastFlush = Date.now();
         patchMessage(assistantId, {
@@ -1493,10 +1590,12 @@ export const useAssistant = create<AssistantState>((set, get) => {
           state.thinking,
           {
             onDelta: (delta) => {
+              if (stale()) return;
               content += delta;
               schedule();
             },
             onReasoning: (delta) => {
+              if (stale()) return;
               reasoning += delta;
               schedule();
             },
@@ -1508,6 +1607,7 @@ export const useAssistant = create<AssistantState>((set, get) => {
         );
         if (flushTimer) clearTimeout(flushTimer);
         flush();
+        if (stale()) return;
 
         if (result.usage) usageRaw = result.usage;
 
@@ -1549,6 +1649,7 @@ export const useAssistant = create<AssistantState>((set, get) => {
       } catch (error) {
         if (flushTimer) clearTimeout(flushTimer);
         flush();
+        if (stale()) return;
         const info = describeError(error);
         set({
           error: {
@@ -1567,6 +1668,8 @@ export const useAssistant = create<AssistantState>((set, get) => {
           patchMessage(assistantId, { status: "stopped" });
         }
       } finally {
+        if (!isForegroundCurrent(run)) return;
+        endForeground(run);
         streamAbort = null;
         set({ streamingId: null });
         persistChat(get());
@@ -1575,19 +1678,45 @@ export const useAssistant = create<AssistantState>((set, get) => {
     },
 
     stop: () => {
-      streamAbort?.abort();
+      const run = foregroundRun;
+      if (run?.kind === "summary") return;
+      if (run) {
+        run.controller.abort();
+        foregroundRun = null;
+      } else {
+        streamAbort?.abort();
+      }
+      streamAbort = null;
       const id = get().streamingId;
       if (id) {
-        patchMessage(id, { status: "stopped" });
+        const message = get().messages.find((item) => item.id === id);
+        patchMessage(id, {
+          status: "stopped",
+          content: message?.content || "（已停止）",
+        });
       }
       set({ streamingId: null });
+      // Persist the partial answer under the document it belongs to before a
+      // doc switch replaces the current messages.
+      saveChatNow(get());
     },
 
     stopSummary: () => {
-      summaryAbort?.abort();
+      const run = foregroundRun;
+      if (run?.kind === "summary") {
+        run.controller.abort();
+        foregroundRun = null;
+      } else {
+        summaryAbort?.abort();
+      }
+      summaryAbort = null;
       const id = get().streamingId;
       if (id) {
-        patchMessage(id, { status: "stopped" });
+        const message = get().messages.find((item) => item.id === id);
+        patchMessage(id, {
+          status: "stopped",
+          content: message?.content || "（已停止整本总结）",
+        });
       } else if (get().summary) {
         const now = Date.now();
         const message: ChatMessage = {
@@ -1606,9 +1735,9 @@ export const useAssistant = create<AssistantState>((set, get) => {
               : session,
           ),
         }));
-        saveChatNow(get());
       }
       set({ streamingId: null, summary: null });
+      saveChatNow(get());
     },
 
     summarizeDocument: async () => {
@@ -1618,12 +1747,21 @@ export const useAssistant = create<AssistantState>((set, get) => {
         get().notify("请先打开一个 PDF", "error");
         return;
       }
-      if (state.summary || state.streamingId) return;
+      if (state.summary || state.streamingId || foregroundRun) return;
       const pdf = getActiveDocument();
       if (!pdf) {
         get().notify("PDF 还没有加载完成", "error");
         return;
       }
+
+      const hash = state.boundDocHash || viewer.docHash;
+      const controller = new AbortController();
+      const run = beginForeground("summary", hash, controller);
+      if (!run) return;
+      const stale = () =>
+        !isForegroundCurrent(run) ||
+        docEpoch !== run.epoch ||
+        get().boundDocHash !== run.hash;
 
       if (get().status !== "open") set({ status: "open", origin: null, toast: null });
       const allPages = Array.from({ length: viewer.numPages }, (_, index) => index + 1);
@@ -1632,7 +1770,6 @@ export const useAssistant = create<AssistantState>((set, get) => {
       const assistantId = `a_${now.toString(36)}`;
       const model = state.model;
       const effort = state.thinking;
-      const hash = viewer.docHash;
       const userMessage: ChatMessage = {
         id: userId,
         role: "user",
@@ -1667,11 +1804,11 @@ export const useAssistant = create<AssistantState>((set, get) => {
         streamingId: null,
         error: null,
         sendError: null,
+        boundDocHash: hash,
         summary: { stage: "reading", done: 0, total: allPages.length },
         contextCollapseAt: Date.now(),
       }));
       saveChatNow(get());
-      const controller = new AbortController();
       summaryAbort = controller;
 
       const addAssistant = () => {
@@ -1687,8 +1824,15 @@ export const useAssistant = create<AssistantState>((set, get) => {
         }));
       };
 
-      const runSection = async (messages: ApiMessage[], sectionEffort: ThinkingEffort) => {
+      let sectionUsage: UsageBuckets = { ...EMPTY_USAGE };
+      let hasSectionUsage = false;
+
+      const runSection = async (
+        messages: ApiMessage[],
+        sectionEffort: ThinkingEffort,
+      ): Promise<string> => {
         let content = "";
+        let usageRaw: unknown = null;
         await streamChat(
           messages,
           model,
@@ -1698,11 +1842,20 @@ export const useAssistant = create<AssistantState>((set, get) => {
               content += delta;
             },
             onReasoning: () => undefined,
-            onUsage: () => undefined,
+            onUsage: (usage) => {
+              usageRaw = usage;
+            },
           },
           controller.signal,
         );
-        if (controller.signal.aborted) throw new DOMException("aborted", "AbortError");
+        if (controller.signal.aborted || stale()) {
+          throw new DOMException("aborted", "AbortError");
+        }
+        const usage = usageFromProvider(usageRaw);
+        if (usage) {
+          sectionUsage = addUsage(sectionUsage, usage);
+          hasSectionUsage = true;
+        }
         return content.trim();
       };
 
@@ -1714,10 +1867,15 @@ export const useAssistant = create<AssistantState>((set, get) => {
         let pendingPages: number[] = [];
         let pendingChars = 0;
         let readableChars = 0;
+        await useOcr.getState().hydratePages(allPages);
+        if (stale()) throw new DOMException("aborted", "AbortError");
         for (let index = 0; index < allPages.length; index += 1) {
-          if (controller.signal.aborted) throw new DOMException("aborted", "AbortError");
+          if (controller.signal.aborted || stale()) {
+            throw new DOMException("aborted", "AbortError");
+          }
           const page = allPages[index];
           const text = await getPageText(pdf, page);
+          if (stale()) throw new DOMException("aborted", "AbortError");
           readableChars += text.trim().length;
           if (pendingPages.length && pendingChars + text.length > SUMMARY_CHUNK_CHARS) {
             chunks.push({
@@ -1768,6 +1926,7 @@ export const useAssistant = create<AssistantState>((set, get) => {
         const sectionSummaries: string[] = [];
         const cacheRecord: SummaryRecord =
           (await loadSummaryRecord(hash)) ?? { hash, chunks: {} };
+        if (stale()) throw new DOMException("aborted", "AbortError");
         const cached = cacheRecord.chunks;
 
         if (direct) {
@@ -1778,7 +1937,9 @@ export const useAssistant = create<AssistantState>((set, get) => {
           addAssistant();
         } else {
           for (let index = 0; index < chunks.length; index += 1) {
-            if (controller.signal.aborted) throw new DOMException("aborted", "AbortError");
+            if (controller.signal.aborted || stale()) {
+              throw new DOMException("aborted", "AbortError");
+            }
             const chunk = chunks[index];
             const key = `${model}:${chunk.start}-${chunk.end}`;
             const hit = cached[key];
@@ -1804,6 +1965,7 @@ export const useAssistant = create<AssistantState>((set, get) => {
                 updatedAt: Date.now(),
               };
               await saveSummaryRecord(cacheRecord);
+              if (stale()) throw new DOMException("aborted", "AbortError");
             }
             set((prev) => ({
               summary: prev.summary
@@ -1821,7 +1983,9 @@ export const useAssistant = create<AssistantState>((set, get) => {
             if (batches.length === 1 && merged.join("\n\n").length <= SUMMARY_REDUCE_CHARS) break;
             const next: string[] = [];
             for (let index = 0; index < batches.length; index += 1) {
-              if (controller.signal.aborted) throw new DOMException("aborted", "AbortError");
+              if (controller.signal.aborted || stale()) {
+                throw new DOMException("aborted", "AbortError");
+              }
               const text = await runSection(
                 [
                   { role: "system", content: SUMMARY_FINAL_SYSTEM },
@@ -1862,6 +2026,7 @@ export const useAssistant = create<AssistantState>((set, get) => {
         let content = "";
         let usageRaw: unknown = null;
         let lastFlush = 0;
+        if (stale()) throw new DOMException("aborted", "AbortError");
         const result = await streamChat(
           [
             { role: "system", content: SUMMARY_FINAL_SYSTEM },
@@ -1871,6 +2036,7 @@ export const useAssistant = create<AssistantState>((set, get) => {
           effort,
           {
             onDelta: (delta) => {
+              if (stale()) return;
               content += delta;
               const now = Date.now();
               if (now - lastFlush < 60) return;
@@ -1887,6 +2053,7 @@ export const useAssistant = create<AssistantState>((set, get) => {
           },
           controller.signal,
         );
+        if (stale()) return;
         if (result.usage) usageRaw = result.usage;
 
         if (result.aborted) {
@@ -1895,8 +2062,9 @@ export const useAssistant = create<AssistantState>((set, get) => {
             content: content || "（已停止）",
           });
         } else {
-          const buckets = usageFromProvider(usageRaw) ?? EMPTY_USAGE;
-          const hasUsage = Boolean(usageFromProvider(usageRaw));
+          const finalUsage = usageFromProvider(usageRaw);
+          const buckets = finalUsage ? addUsage(sectionUsage, finalUsage) : sectionUsage;
+          const hasUsage = Boolean(finalUsage) || hasSectionUsage;
           const cited = [
             ...new Set(
               [...content.matchAll(/\[\[p\.(\d+)\]\]|\[p\.(\d+)\]/g)].map((match) =>
@@ -1911,11 +2079,31 @@ export const useAssistant = create<AssistantState>((set, get) => {
             usage: hasUsage ? buckets : undefined,
             note: direct ? "整本总结" : `整本总结 · ${chunks.length} 段`,
           });
+          if (hasUsage) {
+            const anchor: Anchor = {
+              envelopeHash: currentHash(model, get().config?.baseUrlHost ?? ""),
+              promptTokens: buckets.uncachedInput + buckets.cacheRead + buckets.cacheWrite,
+              surfaceEstimate: get().surface,
+              usage: buckets,
+              at: Date.now(),
+            };
+            set((prev) => ({
+              anchor,
+              usage: buckets,
+              sessions: prev.sessions.map((session) =>
+                session.id === prev.activeSessionId
+                  ? { ...session, anchor, model, updatedAt: Date.now() }
+                  : session,
+              ),
+            }));
+          }
         }
+        if (stale()) return;
         set({ summary: null, streamingId: null });
         saveChatNow(get());
         get().refreshEstimate();
       } catch (error) {
+        if (stale()) return;
         const aborted =
           controller.signal.aborted ||
           (error instanceof DOMException && error.name === "AbortError");
@@ -1941,6 +2129,8 @@ export const useAssistant = create<AssistantState>((set, get) => {
         set({ summary: null, streamingId: null });
         saveChatNow(get());
       } finally {
+        if (!isForegroundCurrent(run)) return;
+        endForeground(run);
         summaryAbort = null;
         if (get().summary) set({ summary: null });
       }
@@ -1971,6 +2161,9 @@ export const useAssistant = create<AssistantState>((set, get) => {
     },
 
     clearAll: () => {
+      foregroundRun?.controller.abort();
+      foregroundRun = null;
+      docEpoch += 1;
       streamAbort?.abort();
       streamAbort = null;
       summaryAbort?.abort();

@@ -24,6 +24,16 @@ export const EMPTY_USAGE: UsageBuckets = {
   imageTokens: 0,
 };
 
+export function addUsage(a: UsageBuckets, b: UsageBuckets): UsageBuckets {
+  return {
+    uncachedInput: a.uncachedInput + b.uncachedInput,
+    cacheRead: a.cacheRead + b.cacheRead,
+    cacheWrite: a.cacheWrite + b.cacheWrite,
+    output: a.output + b.output,
+    imageTokens: a.imageTokens + b.imageTokens,
+  };
+}
+
 /** Stable, cheap fingerprint for the request envelope (model + base URL + system prompt). */
 export function envelopeHash(parts: Array<string | number | undefined | null>): string {
   const input = parts.filter((part) => part != null).join("\u0000");

@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { homedir } from "node:os";
@@ -29,9 +29,25 @@ function psCopy(source, destination) {
 
 psCopy(electronDist, out);
 
+// Keep only the UI locales this app ships; the other 53 .pak files are ~45MB.
+const localesDir = join(out, "locales");
+execFileSync("powershell", [
+  "-NoProfile",
+  "-Command",
+  `Get-ChildItem -LiteralPath '${localesDir.replace(/'/g, "''")}' -File | Where-Object { $_.Name -notin @('zh-CN.pak','en-US.pak') } | Remove-Item -Force -ErrorAction SilentlyContinue`,
+]);
+
 const appDir = join(out, "resources", "app");
 mkdirSync(appDir, { recursive: true });
-for (const item of ["dist", "server/dist", "electron", "package.json", "LICENSE", "README.md"]) {
+for (const item of [
+  "dist",
+  "server/dist",
+  "server/models",
+  "electron",
+  "package.json",
+  "LICENSE",
+  "README.md",
+]) {
   const source = join(root, item);
   if (!existsSync(source)) continue;
   psCopy(source, join(appDir, item));
@@ -61,6 +77,40 @@ for (const platform of ["darwin", "linux"]) {
     "-NoProfile",
     "-Command",
     `Remove-Item -LiteralPath '${target.replace(/'/g, "''")}' -Recurse -Force -ErrorAction SilentlyContinue`,
+  ]);
+}
+const arm64Dir = join(
+  appDir,
+  "node_modules",
+  "onnxruntime-node",
+  "bin",
+  "napi-v6",
+  "win32",
+  "arm64",
+);
+execFileSync("powershell", [
+  "-NoProfile",
+  "-Command",
+  `if (Test-Path -LiteralPath '${arm64Dir.replace(/'/g, "''")}') { Remove-Item -LiteralPath '${arm64Dir.replace(/'/g, "''")}' -Recurse -Force }`,
+]);
+
+// OCR uses the CPU execution provider. DirectML/dxcompiler are only needed
+// for GPU inference and add ~35MB to the portable build.
+for (const file of ["DirectML.dll", "dxcompiler.dll"]) {
+  const target = join(
+    appDir,
+    "node_modules",
+    "onnxruntime-node",
+    "bin",
+    "napi-v6",
+    "win32",
+    "x64",
+    file,
+  );
+  execFileSync("powershell", [
+    "-NoProfile",
+    "-Command",
+    `if (Test-Path -LiteralPath '${target.replace(/'/g, "''")}') { Remove-Item -LiteralPath '${target.replace(/'/g, "''")}' -Force }`,
   ]);
 }
 

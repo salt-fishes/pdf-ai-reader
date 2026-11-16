@@ -4,7 +4,10 @@ import { fetchModels, saveProviderConfig } from "../../lib/ai/client";
 import { formatTokens } from "../../lib/tokens/estimate";
 import { DEFAULT_PRICING } from "../../lib/tokens/meter";
 import { clearAllLocalData } from "../../lib/storage/db";
+import type { OcrModelId } from "../../lib/ocr/client";
 import { useAssistant } from "../assistant/useAssistantStore";
+import { useFocusTrap } from "../../hooks/useFocusTrap";
+import { useOcr } from "../ocr/useOcrStore";
 import { ColorModeControl } from "../viewer/ColorModeControl";
 import { useViewer } from "../viewer/useViewerStore";
 import styles from "../../components/Modal.module.css";
@@ -51,6 +54,10 @@ function splitModels(value: string): string[] {
   return [...new Set(value.split(/[,，\s]+/).map((item) => item.trim()).filter(Boolean))];
 }
 
+function mb(bytes: number): string {
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
 export function SettingsDialog({ open, onClose }: Props) {
   const config = useAssistant((state) => state.config);
   const configError = useAssistant((state) => state.configError);
@@ -58,9 +65,11 @@ export function SettingsDialog({ open, onClose }: Props) {
   const mode = useAssistant((state) => state.mode);
   const setMode = useAssistant((state) => state.setMode);
   const refreshConfig = useAssistant((state) => state.refreshConfig);
-  const ocrStatus = useAssistant((state) => state.ocrStatus);
-  const ocrError = useAssistant((state) => state.ocrError);
-  const ocrInstalling = useAssistant((state) => state.ocrInstalling);
+  const ocrStatus = useOcr((state) => state.status);
+  const ocrError = useOcr((state) => state.error);
+  const ocrInstalling = useOcr((state) => state.installing);
+  const ocrEnabled = useOcr((state) => state.enabled);
+  const setOcrEnabled = useOcr((state) => state.setEnabled);
   const thinking = useAssistant((state) => state.thinking);
   const setThinking = useAssistant((state) => state.setThinking);
   const contextBudget = useAssistant((state) => state.budget);
@@ -69,9 +78,12 @@ export function SettingsDialog({ open, onClose }: Props) {
   const setHistoryLimit = useAssistant((state) => state.setHistoryLimit);
   const pricing = useAssistant((state) => state.pricing);
   const setPricing = useAssistant((state) => state.setPricing);
-  const refreshOcrStatus = useAssistant((state) => state.refreshOcrStatus);
-  const installOcr = useAssistant((state) => state.installOcr);
+  const refreshOcrStatus = useOcr((state) => state.refreshStatus);
+  const installOcr = useOcr((state) => state.install);
+  const setOcrModel = useOcr((state) => state.setModel);
   const clearAll = useAssistant((state) => state.clearAll);
+  const cardRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(cardRef, open);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState("");
   const [testError, setTestError] = useState(false);
@@ -220,9 +232,25 @@ export function SettingsDialog({ open, onClose }: Props) {
     });
   };
 
+  const chooseOcrModel = async (id: OcrModelId) => {
+    try {
+      await setOcrModel(id);
+      const installed = ocrStatus?.availableModels?.find((item) => item.id === id)?.installed;
+      if (!installed) await installOcr(id);
+    } catch {
+      // The store exposes the error in the section below.
+    }
+  };
+
   return (
     <div className={styles.backdrop} onPointerDown={(event) => event.target === event.currentTarget && onClose()}>
-      <div className={`${styles.card} ${styles.settingsCard}`} role="dialog" aria-modal="true" aria-label="设置">
+      <div
+        ref={cardRef}
+        className={`${styles.card} ${styles.settingsCard}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label="设置"
+      >
         <div className={styles.head}>
           <span className={styles.title}>设置</span>
           <span className={styles.headSpacer} />
@@ -536,7 +564,7 @@ export function SettingsDialog({ open, onClose }: Props) {
               <div className={styles.rows}>
                 <div className={styles.row}>
                   <span className={styles.label}>模型</span>
-                  <span className={styles.value}>PP-OCRv6 tiny · 约 6.0 MB</span>
+                  <span className={styles.value}>{ocrStatus?.model ?? "正在检查…"}</span>
                 </div>
                 <div className={styles.row}>
                   <span className={styles.label}>状态</span>
@@ -545,31 +573,65 @@ export function SettingsDialog({ open, onClose }: Props) {
                       ocrStatus?.installed ? styles.ok : ocrStatus?.downloading ? styles.warn : ""
                     }`}
                   >
-                    {ocrStatus?.installed
-                      ? "已安装"
-                      : ocrStatus?.downloading
-                        ? `下载中 ${Math.round((ocrStatus.progress ?? 0) * 100)}%`
+                    {ocrStatus?.downloading
+                      ? `下载中 ${Math.round((ocrStatus.progress ?? 0) * 100)}%`
+                      : ocrStatus?.installed
+                        ? "已安装"
                         : ocrStatus
                           ? "未下载"
                           : "正在检查…"}
                   </span>
                 </div>
+                <div className={styles.row}>
+                  <span className={styles.label}>OCR 文本层</span>
+                  <span className={styles.value}>
+                    <button
+                      className={`${styles.segment} ${ocrEnabled ? styles.segmentActive : ""}`}
+                      onClick={() => setOcrEnabled(!ocrEnabled)}
+                    >
+                      {ocrEnabled ? "已开启" : "已关闭"}
+                    </button>
+                  </span>
+                </div>
+              </div>
+              <div className={styles.segmented} style={{ margin: "10px 0 2px" }}>
+                {(ocrStatus?.availableModels ?? []).map((item) => (
+                  <button
+                    key={item.id}
+                    className={`${styles.segment} ${
+                      ocrStatus?.activeModel === item.id ? styles.segmentActive : ""
+                    }`}
+                    onClick={() => void chooseOcrModel(item.id)}
+                    disabled={ocrInstalling || item.downloading}
+                    title={`${item.note} 约 ${mb(item.approxBytes)}`}
+                  >
+                    {item.label.replace("PP-OCRv6 ", "")}
+                    {item.downloading ? ` ${Math.round(item.progress * 100)}%` : ""}
+                  </button>
+                ))}
               </div>
               <div className={styles.note}>
-                首次使用才下载；识别在本机代理进程完成，图片不上传云端。扫描页提示条可直接识别当前页，结果会写入当前页文本缓存，供提问、搜索和智能筛选使用。当前不会在画布上绘制 OCR 命中框。
+                当前页没有文字层时，会在后台自动识别；模型首次使用自动准备，不弹窗。行级 OCR
+                文本可拖选、复制、高亮、引用和搜索，并在页面、侧栏和上下文里标注 OCR。
+                识别在本机代理的 worker 线程完成，图片不上传云端。tiny 随桌面版分发，small /
+                medium 按需下载。
               </div>
               <div className={styles.actions}>
-                {ocrStatus?.installed ? (
-                  <button className={styles.button} onClick={() => void refreshOcrStatus()}>
-                    重新检查
-                  </button>
-                ) : (
+                {!ocrStatus?.installed ? (
                   <button
                     className={`${styles.button} ${styles.primary}`}
-                    onClick={() => void installOcr()}
+                    onClick={() => {
+                      // The store exposes the failure through `ocrError`; do not
+                      // let a rejected install become an unhandled rejection.
+                      void installOcr(ocrStatus?.activeModel).catch(() => undefined);
+                    }}
                     disabled={Boolean(ocrStatus?.downloading) || ocrInstalling}
                   >
-                    {ocrStatus?.downloading || ocrInstalling ? "正在下载…" : "下载模型"}
+                    {ocrStatus?.downloading || ocrInstalling ? "正在下载…" : "下载当前模型"}
+                  </button>
+                ) : (
+                  <button className={styles.button} onClick={() => void refreshOcrStatus()}>
+                    重新检查
                   </button>
                 )}
               </div>

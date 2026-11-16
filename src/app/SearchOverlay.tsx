@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { WinIcon } from "../components/icons/WinIcon";
 import { useViewer } from "../features/viewer/useViewerStore";
+import { useOcr } from "../features/ocr/useOcrStore";
 import styles from "./Chrome.module.css";
 
 export function SearchOverlay() {
@@ -12,7 +13,8 @@ export function SearchOverlay() {
   const setQuery = useViewer((state) => state.setSearchQuery);
   const runSearch = useViewer((state) => state.runSearch);
   const closeSearch = useViewer((state) => state.closeSearch);
-  const requestScroll = useViewer((state) => state.requestScroll);
+  const focusSearchResult = useViewer((state) => state.focusSearchResult);
+  const textVersion = useOcr((state) => state.textVersion);
   const inputRef = useRef<HTMLInputElement>(null);
   const boxRef = useRef<HTMLDivElement>(null);
 
@@ -36,9 +38,10 @@ export function SearchOverlay() {
 
   useEffect(() => {
     if (!open) return;
-    const timer = setTimeout(() => void runSearch(), 320);
+    // Re-run after an OCR page lands so newly recognized text joins results.
+    const timer = setTimeout(() => void runSearch(), 420);
     return () => clearTimeout(timer);
-  }, [query, open, runSearch]);
+  }, [query, open, runSearch, textVersion]);
 
   if (!open) return null;
 
@@ -74,9 +77,14 @@ export function SearchOverlay() {
             <button
               key={`${result.page}_${result.index}_${index}`}
               className={styles.searchResult}
-              onClick={() => requestScroll(result.page)}
+              onClick={() =>
+                focusSearchResult(result.page, result.occurrence, query.trim())
+              }
             >
-              <span className={styles.searchPage}>P{result.page}</span>
+              <span className={styles.searchPage}>
+                P{result.page}
+                {result.source ? <span className={styles.searchOcr}>OCR</span> : null}
+              </span>
               <span className={styles.searchExcerpt}>{result.excerpt}</span>
             </button>
           ))

@@ -90,6 +90,7 @@ export function Sidebar() {
   const outline = useViewer((state) => state.outline);
   const highlights = useViewer((state) => state.highlights);
   const requestScroll = useViewer((state) => state.requestScroll);
+  const requestLocation = useViewer((state) => state.requestLocation);
   const removeHighlight = useViewer((state) => state.removeHighlight);
   const setPageRange = useAssistant((state) => state.setPageRange);
   const chapters = useMemo(() => chapterRanges(outline, numPages), [outline, numPages]);
@@ -135,7 +136,8 @@ export function Sidebar() {
       for (const [page, items] of byPage) {
         lines.push(`## 第 ${page} 页`, "");
         for (const item of items) {
-          lines.push(`> ${item.text.replace(/\n+/g, "\n> ")}`, "");
+          const label = item.source ? `[${item.source === "ocr" ? "OCR" : "OCR 混合"}]\n` : "";
+          lines.push(`> ${label}${item.text.replace(/\n+/g, "\n> ")}`, "");
         }
       }
       downloadText(`${safeFileName(docName)}-highlights.md`, lines.join("\n"), "text/markdown;charset=utf-8");
@@ -213,20 +215,41 @@ export function Sidebar() {
                 <button onClick={() => exportHighlights("md")}>Markdown</button>
                 <button onClick={() => exportHighlights("json")}>JSON</button>
               </div>
-              {highlights.map((highlight) => (
+              {highlights.map((highlight) => {
+                const top = highlight.rects.length
+                  ? Math.max(0, Math.min(...highlight.rects.map((rect) => rect.y)))
+                  : undefined;
+                const jump = () =>
+                  requestLocation({
+                    page: highlight.page,
+                    y: top,
+                    focusId: highlight.id,
+                    align: "top",
+                  });
+                return (
                 <div
                   key={highlight.id}
                   className={styles.highlightItem}
                   role="button"
                   tabIndex={0}
-                  onClick={() => requestScroll(highlight.page)}
+                  onClick={jump}
                   onKeyDown={(event) => {
-                    if (event.key === "Enter") requestScroll(highlight.page);
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      jump();
+                    }
                   }}
                 >
                   <div className={styles.highlightText}>{highlight.text}</div>
                   <div className={styles.highlightMeta}>
-                    <span>第 {highlight.page} 页</span>
+                    <span>
+                      第 {highlight.page} 页
+                      {highlight.source ? (
+                        <span className={styles.highlightOcr} title="该高亮来自 OCR 识别文字">
+                          OCR
+                        </span>
+                      ) : null}
+                    </span>
                     <button
                       aria-label="删除高亮"
                       onClick={(event) => {
@@ -238,7 +261,8 @@ export function Sidebar() {
                     </button>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div className={styles.emptySidebar}>

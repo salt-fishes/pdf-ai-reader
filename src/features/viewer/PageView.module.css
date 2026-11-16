@@ -66,9 +66,33 @@
   mix-blend-mode: multiply;
 }
 
+.highlightOcr {
+  background: rgb(91 91 214 / 26%);
+}
+
+.highlightFocus {
+  animation: highlight-focus 1.7s ease-out;
+}
+
+@keyframes highlight-focus {
+  0% {
+    box-shadow: 0 0 0 0 rgb(245 158 11 / 75%);
+  }
+  65% {
+    box-shadow: 0 0 0 6px rgb(245 158 11 / 0%);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgb(245 158 11 / 0%);
+  }
+}
+
 :global([data-theme="night"]) .highlight {
   background: rgb(251 191 36 / 30%);
   mix-blend-mode: screen;
+}
+
+:global([data-theme="night"]) .highlightOcr {
+  background: rgb(185 185 255 / 28%);
 }
 
 .searchHits {
@@ -77,6 +101,22 @@
   z-index: 2;
   pointer-events: none;
   overflow: hidden;
+}
+
+.searchHitFocus {
+  animation: search-focus 1.7s ease-out;
+}
+
+@keyframes search-focus {
+  0% {
+    box-shadow: 0 0 0 0 rgb(91 91 214 / 55%);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgb(91 91 214 / 0%);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgb(91 91 214 / 0%);
+  }
 }
 
 .searchHit {
@@ -137,6 +177,19 @@
   font-size: 11px;
   letter-spacing: 0.02em;
   user-select: none;
+}
+
+.ocrBadge {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 0 3px;
+  border-radius: 3px;
+  background: rgb(91 91 214 / 12%);
+  color: rgb(70 70 170);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  vertical-align: 1px;
 }
 
 /* ---------- Region capture ---------- */

@@ -62,11 +62,22 @@ export function buildContextBlock(input: BuildInput): string {
     const pages = context.selection.pages?.length
       ? context.selection.pages
       : [{ page: context.selection.page, text: context.selection.text }];
+    const source = context.selection.source
+      ? ` source="${context.selection.source}"`
+      : "";
     blocks.push(
-      `<selection>\n${pages
-        .map((page) => `<page n="${page.page}">\n${page.text}\n</page>`)
+      `<selection${source}>\n${pages
+        .map((page) => {
+          const pageSource = page.source ? ` source="${page.source}"` : "";
+          return `<page n="${page.page}"${pageSource}>\n${page.text}\n</page>`;
+        })
         .join("\n")}\n</selection>`,
     );
+    if (context.selection.source === "ocr" || context.selection.source === "mixed") {
+      blocks.push(
+        '<ocr_note>选中的文字包含本机 OCR 识别结果，可能有错字或漏字；引用原文时请以页面图像为准。</ocr_note>',
+      );
+    }
   }
 
   for (const quote of context.quotes) {

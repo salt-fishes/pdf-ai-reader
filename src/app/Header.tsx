@@ -18,6 +18,8 @@ export function Header({ onOpenSettings, onOpenShortcuts, onOpenSearch }: Props)
   const currentPage = useViewer((state) => state.currentPage);
   const zoom = useViewer((state) => state.zoom);
   const openFile = useViewer((state) => state.openFile);
+  const recent = useViewer((state) => state.recent);
+  const openRecent = useViewer((state) => state.openRecent);
   const closeDocument = useViewer((state) => state.closeDocument);
   const requestScroll = useViewer((state) => state.requestScroll);
   const zoomBy = useViewer((state) => state.zoomBy);
@@ -219,6 +221,21 @@ export function Header({ onOpenSettings, onOpenShortcuts, onOpenSearch }: Props)
                 打开 PDF
                 <span className={styles.menuKey}>Ctrl O</span>
               </button>
+              {recent.slice(0, 3).map((item) => (
+                <button
+                  key={item.hash}
+                  className={styles.menuItem}
+                  role="menuitem"
+                  title={`${item.name} · ${item.pages} 页`}
+                  onClick={() => {
+                    setMenuOpen(false);
+                    void openRecent(item.hash);
+                  }}
+                >
+                  <WinIcon glyph="history" size={14} />
+                  <span className={styles.menuRecentName}>{item.name}</span>
+                </button>
+              ))}
               <button
                 className={styles.menuItem}
                 role="menuitem"

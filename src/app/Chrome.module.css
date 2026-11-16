@@ -255,6 +255,12 @@
   font-size: 10.5px;
 }
 
+.menuRecentName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .menuSep {
   height: 1px;
   margin: 4px 6px;
@@ -580,6 +586,19 @@
   overflow: hidden;
 }
 
+.highlightOcr {
+  display: inline-block;
+  margin-left: 5px;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: rgb(91 91 214 / 12%);
+  color: rgb(70 70 170);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  vertical-align: 1px;
+}
+
 .highlightMeta {
   display: flex;
   justify-content: space-between;
@@ -676,6 +695,17 @@
   font-size: 10.5px;
   color: var(--accent);
   font-variant-numeric: tabular-nums;
+}
+
+.searchOcr {
+  margin-left: 3px;
+  padding: 0 3px;
+  border-radius: 3px;
+  background: rgb(91 91 214 / 12%);
+  color: rgb(70 70 170);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
 }
 
 .searchExcerpt {

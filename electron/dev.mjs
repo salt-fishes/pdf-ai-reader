@@ -8,6 +8,8 @@ const isWindows = process.platform === "win32";
 const dev = spawn(isWindows ? "npm.cmd" : "npm", ["run", "dev:all"], {
   stdio: "inherit",
   env: process.env,
+  // Windows needs shell: true for .cmd shims; without it Node throws EINVAL.
+  shell: isWindows,
 });
 
 async function waitFor(url, timeoutMs = 45_000) {

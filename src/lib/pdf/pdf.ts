@@ -30,7 +30,8 @@ let session: {
 
 let generation = 0;
 
-const textCache = new WeakMap<PDFDocumentProxy, Map<number, string>>();
+const nativeTextCache = new WeakMap<PDFDocumentProxy, Map<number, string>>();
+const ocrTextCache = new WeakMap<PDFDocumentProxy, Map<number, string>>();
 const pageSizeCache = new WeakMap<PDFDocumentProxy, Map<number, { width: number; height: number }>>();
 const thumbCache = new WeakMap<PDFDocumentProxy, Map<number, string>>();
 
@@ -38,15 +39,44 @@ export function getActiveDocument(): PDFDocumentProxy | null {
   return session?.doc ?? null;
 }
 
-export async function openPdf(bytes: ArrayBuffer): Promise<PDFDocumentProxy> {
+export async function openPdf(
+  bytes: ArrayBuffer,
+  password?: string,
+): Promise<PDFDocumentProxy> {
   const mine = ++generation;
   const { getDocument } = await loadPdfjs();
   const loadingTask = getDocument({
-    data: new Uint8Array(bytes),
+    // pdf.js transfers the buffer to its worker; copy it so a password retry
+    // can reuse the original bytes instead of a detached ArrayBuffer.
+    data: new Uint8Array(bytes.slice(0)),
     ...PDF_ASSETS,
     useSystemFonts: true,
   });
-  const doc = await loadingTask.promise;
+  let passwordRejected: Promise<never> | null = null;
+  if (password !== undefined) {
+    let attempts = 0;
+    let rejectPassword: ((error: Error) => void) | null = null;
+    passwordRejected = new Promise<never>((_, reject) => {
+      rejectPassword = reject;
+    });
+    loadingTask.onPassword = (updatePassword: (value: string) => void) => {
+      attempts += 1;
+      if (attempts > 1) {
+        const error = new DOMException("密码不正确", "PasswordException");
+        rejectPassword?.(error);
+        void loadingTask.destroy().catch(() => undefined);
+        return;
+      }
+      updatePassword(password);
+    };
+  }
+  const doc = await (passwordRejected
+    ? Promise.race([loadingTask.promise, passwordRejected])
+    : loadingTask.promise
+  ).catch((error) => {
+    void loadingTask.destroy().catch(() => undefined);
+    throw error;
+  });
   if (mine !== generation) {
     // Another document was opened while this one was parsing.
     loadingTask.destroy().catch(() => {});
@@ -97,34 +127,46 @@ function normalizeText(raw: string): string {
     .trim();
 }
 
-export async function getPageText(pdf: PDFDocumentProxy, pageNumber: number): Promise<string> {
-  let cache = textCache.get(pdf);
+export function getNativePageText(
+  pdf: PDFDocumentProxy,
+  pageNumber: number,
+): Promise<string> {
+  let cache = nativeTextCache.get(pdf);
   if (!cache) {
     cache = new Map();
-    textCache.set(pdf, cache);
+    nativeTextCache.set(pdf, cache);
   }
   const hit = cache.get(pageNumber);
-  if (hit != null) return hit;
+  if (hit != null) return Promise.resolve(hit);
 
-  const page = await pdf.getPage(pageNumber);
-  const content = await page.getTextContent();
-  let text = "";
-  for (const item of content.items) {
-    if (!("str" in item)) continue;
-    text += item.str;
-    if (item.hasEOL) text += "\n";
-  }
-  const normalized = normalizeText(text);
-  cache.set(pageNumber, normalized);
-  return normalized;
+  return pdf
+    .getPage(pageNumber)
+    .then((page) => page.getTextContent())
+    .then((content) => {
+      let text = "";
+      for (const item of content.items) {
+        if (!("str" in item)) continue;
+        text += item.str;
+        if (item.hasEOL) text += "\n";
+      }
+      const normalized = normalizeText(text);
+      cache!.set(pageNumber, normalized);
+      return normalized;
+    });
 }
 
-/** Put OCR text into the same cache used by search, prompts and BM25. */
+export async function getPageText(pdf: PDFDocumentProxy, pageNumber: number): Promise<string> {
+  const ocr = ocrTextCache.get(pdf)?.get(pageNumber);
+  if (ocr != null) return ocr;
+  return getNativePageText(pdf, pageNumber);
+}
+
+/** OCR text overrides the native layer for search, prompts and BM25. */
 export function setPageText(pdf: PDFDocumentProxy, pageNumber: number, text: string): void {
-  let cache = textCache.get(pdf);
+  let cache = ocrTextCache.get(pdf);
   if (!cache) {
     cache = new Map();
-    textCache.set(pdf, cache);
+    ocrTextCache.set(pdf, cache);
   }
   cache.set(pageNumber, normalizeText(text));
 }
@@ -216,6 +258,26 @@ export async function renderPageImage(
   const result = await renderPageToCanvas(page, scale, 1);
   const dataUrl = result.canvas.toDataURL("image/jpeg", 0.86);
   return { dataUrl, width: result.canvas.width, height: result.canvas.height };
+}
+
+/**
+ * Render a page to a JPEG Blob for the OCR endpoint. Blob uploads avoid the
+ * base64 expansion and let the server transfer the bytes to its worker.
+ */
+export async function renderPageImageBlob(
+  pdf: PDFDocumentProxy,
+  pageNumber: number,
+  maxEdge = 1600,
+): Promise<{ blob: Blob; width: number; height: number }> {
+  const page = await pdf.getPage(pageNumber);
+  const base = page.getViewport({ scale: 1 });
+  const scale = Math.min(2.2, Math.max(1, maxEdge / Math.max(base.width, base.height)));
+  const result = await renderPageToCanvas(page, scale, 1);
+  const blob = await new Promise<Blob | null>((resolve) => {
+    result.canvas.toBlob(resolve, "image/jpeg", 0.86);
+  });
+  if (!blob) throw new Error("无法生成页面图片");
+  return { blob, width: result.canvas.width, height: result.canvas.height };
 }
 
 export type PageLink = {

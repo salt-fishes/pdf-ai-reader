@@ -1,5 +1,6 @@
 import { clear, get, set } from "idb-keyval";
 import type { ColorMode } from "../reading/color";
+import type { OcrModelId } from "../ocr/client";
 
 export type DocumentRecord = {
   hash: string;
@@ -40,6 +41,53 @@ export type OcrRecord = {
   updatedAt?: number;
 };
 
+/** One OCR line, normalized to 0–1 inside the rendered page. */
+export type StoredOcrLine = {
+  text: string;
+  confidence: number;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+};
+
+export type OcrPageRecord = {
+  hash: string;
+  page: number;
+  text: string;
+  lines: StoredOcrLine[];
+  model: string;
+  /** Dimensions of the image used for OCR; useful for debugging alignment. */
+  imageWidth: number;
+  imageHeight: number;
+  updatedAt?: number;
+};
+
+export type OcrIndexRecord = {
+  hash: string;
+  pages: number[];
+  updatedAt?: number;
+};
+
+export type PageMetricsRecord = {
+  hash: string;
+  /** [width, height] in PDF units, one entry per page. */
+  sizes: Array<[number, number]>;
+  updatedAt?: number;
+};
+
+export type RecentDocumentRecord = {
+  hash: string;
+  name: string;
+  pages: number;
+  size: number;
+  updatedAt: number;
+  /** Cached bytes for small files, so they can be reopened without a picker. */
+  data?: ArrayBuffer;
+};
+
+export type RecentDocumentMeta = Omit<RecentDocumentRecord, "data">;
+
 export type SummaryChunk = {
   start: number;
   end: number;
@@ -59,6 +107,7 @@ export type StoredHighlight = {
   page: number;
   rects: Array<{ x: number; y: number; w: number; h: number }>;
   text: string;
+  source?: "ocr" | "mixed";
   createdAt: number;
 };
 
@@ -71,6 +120,10 @@ export type HighlightsRecord = {
 const docKey = (hash: string) => `doc:${hash}`;
 const chatKey = (hash: string) => `chat:${hash}`;
 const ocrKey = (hash: string) => `ocr:${hash}`;
+const ocrPageKey = (hash: string, page: number) => `ocrpage:${hash}:${page}`;
+const ocrIndexKey = (hash: string) => `ocrindex:${hash}`;
+const pageMetricsKey = (hash: string) => `metrics:${hash}`;
+const recentKey = "recent:documents:v1";
 const summaryKey = (hash: string) => `summary:${hash}`;
 const highlightsKey = (hash: string) => `highlights:${hash}`;
 
@@ -100,6 +153,67 @@ export async function loadOcrRecord(hash: string): Promise<OcrRecord | null> {
 
 export async function saveOcrRecord(record: OcrRecord): Promise<void> {
   await set(ocrKey(record.hash), { ...record, updatedAt: Date.now() });
+}
+
+export async function loadOcrPage(
+  hash: string,
+  page: number,
+): Promise<OcrPageRecord | null> {
+  return (await get<OcrPageRecord>(ocrPageKey(hash, page))) ?? null;
+}
+
+export async function loadOcrIndex(hash: string): Promise<OcrIndexRecord | null> {
+  return (await get<OcrIndexRecord>(ocrIndexKey(hash))) ?? null;
+}
+
+export async function saveOcrPage(record: OcrPageRecord): Promise<void> {
+  await set(ocrPageKey(record.hash, record.page), {
+    ...record,
+    updatedAt: Date.now(),
+  });
+  const index = (await loadOcrIndex(record.hash)) ?? { hash: record.hash, pages: [] };
+  if (!index.pages.includes(record.page)) {
+    await set(ocrIndexKey(record.hash), {
+      hash: record.hash,
+      pages: [...index.pages, record.page].sort((a, b) => a - b),
+      updatedAt: Date.now(),
+    });
+  }
+}
+
+export async function loadPageMetrics(hash: string): Promise<PageMetricsRecord | null> {
+  return (await get<PageMetricsRecord>(pageMetricsKey(hash))) ?? null;
+}
+
+export async function savePageMetrics(record: PageMetricsRecord): Promise<void> {
+  await set(pageMetricsKey(record.hash), { ...record, updatedAt: Date.now() });
+}
+
+export async function loadRecentDocuments(): Promise<RecentDocumentRecord[]> {
+  return (await get<RecentDocumentRecord[]>(recentKey)) ?? [];
+}
+
+export async function saveRecentDocuments(records: RecentDocumentRecord[]): Promise<void> {
+  await set(recentKey, records);
+}
+
+export async function recordRecentDocument(
+  record: RecentDocumentRecord,
+): Promise<RecentDocumentRecord[]> {
+  const current = await loadRecentDocuments();
+  const next = [
+    record,
+    ...current.filter((item) => item.hash !== record.hash),
+  ]
+    .sort((a, b) => b.updatedAt - a.updatedAt)
+    .slice(0, 8);
+  await saveRecentDocuments(next);
+  return next;
+}
+
+export async function loadRecentBytes(hash: string): Promise<RecentDocumentRecord | null> {
+  const records = await loadRecentDocuments();
+  return records.find((item) => item.hash === hash) ?? null;
 }
 
 export async function loadSummaryRecord(hash: string): Promise<SummaryRecord | null> {
@@ -145,6 +259,8 @@ export type StoredSettings = {
   historyLimit?: number;
   pricing?: { inputMiss: number; inputHit: number; output: number };
   showShortcuts?: boolean;
+  ocrTextLayer?: boolean;
+  ocrModel?: OcrModelId;
 };
 
 export function loadSettings(): StoredSettings {

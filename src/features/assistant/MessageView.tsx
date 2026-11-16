@@ -80,7 +80,7 @@ export function MessageView({ message, onQuote, onContextMenu }: Props) {
   };
 
   const jump = (page: number) => {
-    useViewer.getState().requestScroll(page);
+    useViewer.getState().requestCitation(page);
   };
 
   const markdown = message.role === "assistant" ? normalizeMath(markdownWithCitations(message.content, allowed)) : "";

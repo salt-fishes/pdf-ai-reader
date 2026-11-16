@@ -1333,6 +1333,14 @@
   font-size: 10.5px;
 }
 
+.ocrHint {
+  flex: none;
+  margin-left: auto;
+  color: rgb(138 90 0 / 65%);
+  font-size: 9.5px;
+  white-space: nowrap;
+}
+
 .ocrAction:hover {
   background: rgb(245 158 11 / 28%);
 }
@@ -2227,6 +2235,16 @@
 .selectionButton:hover {
   background: rgb(91 91 214 / 9%);
   color: var(--accent-deep);
+}
+
+.selectionOcr {
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: rgb(91 91 214 / 12%);
+  color: rgb(70 70 170);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
 }
 
 .selectionSep {

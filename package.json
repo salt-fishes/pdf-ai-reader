@@ -24,7 +24,7 @@
     "dev:server:watch": "tsx watch server/src/index.ts",
     "dev:all": "concurrently -n web,api -c cyan,magenta \"npm:dev\" \"npm:dev:server\"",
     "build": "tsc -b && vite build",
-    "build:server": "esbuild server/src/index.ts --bundle --platform=node --format=esm --target=node22 --outfile=server/dist/index.mjs --external:onnxruntime-node --external:ppu-paddle-ocr --banner:js=\"import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);\"",
+    "build:server": "esbuild server/src/index.ts --bundle --platform=node --format=esm --target=node22 --outfile=server/dist/index.mjs --external:onnxruntime-node --external:ppu-paddle-ocr --banner:js=\"import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);\" && esbuild server/src/ocrWorker.ts --bundle --platform=node --format=esm --target=node22 --outfile=server/dist/ocr-worker.mjs --external:onnxruntime-node --external:ppu-paddle-ocr",
     "desktop:dev": "node electron/dev.mjs",
     "desktop": "npm run build && npm run build:server && electron .",
     "build:desktop": "npm run build && npm run build:server && electron-builder --win --x64",
@@ -81,6 +81,7 @@
     "productName": "纸间",
     "artifactName": "paper-reader-${version}-${arch}.${ext}",
     "asar": false,
+    "electronLanguages": ["zh-CN", "en-US"],
     "directories": {
       "output": "release",
       "buildResources": "build"

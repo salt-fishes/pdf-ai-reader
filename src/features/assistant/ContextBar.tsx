@@ -8,6 +8,7 @@ import { formatChars, formatTokens } from "../../lib/tokens/estimate";
 import { estimateCost, formatCny } from "../../lib/tokens/meter";
 import { formatPageList } from "../../lib/pdf/range";
 import { useViewer } from "../viewer/useViewerStore";
+import { useOcr } from "../ocr/useOcrStore";
 import { PagePicker } from "./PagePicker";
 import { useAssistant, useContextCount } from "./useAssistantStore";
 import { TokenRing } from "./TokenRing";
@@ -34,8 +35,12 @@ export function ContextBar() {
   const allPagesBusy = useAssistant((state) => state.allPagesBusy);
   const setBoostContext = useAssistant((state) => state.setBoostContext);
   const collapseAt = useAssistant((state) => state.contextCollapseAt);
-  const recognizePage = useAssistant((state) => state.recognizePage);
-  const ocrBusyPage = useAssistant((state) => state.ocrBusyPage);
+  const ocrEnabled = useOcr((state) => state.enabled);
+  const ocrRunning = useOcr((state) => state.running);
+  const ocrPreparing = useOcr((state) => state.phase === "preparing");
+  const ocrQueued = useOcr((state) =>
+    state.queue.some((item) => item.page === context.currentPage),
+  );
 
   const count = useContextCount();
   const [expanded, setExpanded] = useState(false);
@@ -100,15 +105,18 @@ export function ContextBar() {
       {autoCurrentPage && context.currentPage && scannedPages.includes(context.currentPage) ? (
         <div className={styles.scannedBanner}>
           <WinIcon glyph="info" size={12} />
-          <span>第 {context.currentPage} 页没有文字层，可能是扫描件。</span>
-          <button
-            className={styles.ocrAction}
-            onClick={() => void recognizePage(context.currentPage!)}
-            disabled={ocrBusyPage !== null}
-            title="用本机 PP-OCRv6 识别这一页"
-          >
-            {ocrBusyPage === context.currentPage ? "识别中…" : "识别文字"}
-          </button>
+          <span>
+            {!ocrEnabled
+              ? `第 ${context.currentPage} 页没有文字层；OCR 文本层已在设置中关闭。`
+              : ocrRunning === context.currentPage
+                ? `第 ${context.currentPage} 页正在后台识别文字…`
+                : ocrPreparing
+                  ? "正在准备 OCR 模型…"
+                  : ocrQueued
+                    ? `第 ${context.currentPage} 页已加入后台识别队列。`
+                    : `第 ${context.currentPage} 页没有文字层，扫描件可自动识别。`}
+          </span>
+          <span className={styles.ocrHint}>不影响阅读</span>
         </div>
       ) : null}
       <button
@@ -234,7 +242,8 @@ export function ContextBar() {
                   onClick={() => jump(context.selection!.page)}
                   title={context.selection.text}
                 >
-                  选中 · {selectionLabel} · {formatChars(context.selection.text.length)}
+                  选中{context.selection.source ? "（OCR）" : ""} · {selectionLabel} ·{" "}
+                  {formatChars(context.selection.text.length)}
                 </button>
                 <button className={styles.chipRemove} onClick={removeSelection} aria-label="移除选中文字">
                   <WinIcon glyph="close" size={10} />

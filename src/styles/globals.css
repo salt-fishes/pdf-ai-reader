@@ -155,6 +155,41 @@ button:disabled {
   cursor: default;
 }
 
+/* Line-level OCR text layer for scanned pages. */
+.ocrTextLayer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow: clip;
+  line-height: 1;
+  text-align: initial;
+  letter-spacing: normal;
+  word-spacing: normal;
+  text-size-adjust: none;
+  forced-color-adjust: none;
+  transform-origin: 0 0;
+  caret-color: transparent;
+}
+
+.ocrTextLayer .ocrLine {
+  position: absolute;
+  display: block;
+  color: transparent;
+  white-space: pre;
+  overflow: hidden;
+  cursor: text;
+  transform-origin: 0 0;
+  user-select: text;
+}
+
+.ocrTextLayer .ocrLine::selection {
+  background: rgb(91 91 214 / 26%);
+}
+
+[data-theme="night"] .ocrTextLayer .ocrLine::selection {
+  background: rgb(185 185 255 / 30%);
+}
+
 /* Segoe Fluent Icons glyphs */
 .win {
   font-family: "Segoe Fluent Icons", "Segoe MDL2 Assets", sans-serif;

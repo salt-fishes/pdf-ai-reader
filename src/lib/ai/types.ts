@@ -63,11 +63,15 @@ export type ChatSession = {
   anchor: Anchor | null;
 };
 
+export type SelectionSource = "ocr" | "mixed";
+
 export type Selection = {
   page: number;
   text: string;
+  /** Set when any part of the selection came from the OCR text layer. */
+  source?: SelectionSource;
   /** Multiple pages when the browser selection crosses page boundaries. */
-  pages?: Array<{ page: number; text: string }>;
+  pages?: Array<{ page: number; text: string; source?: SelectionSource }>;
 };
 
 /** Locally selected, question-relevant excerpts from a long document. */
