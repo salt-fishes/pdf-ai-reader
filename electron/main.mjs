@@ -1,11 +1,12 @@
 import { app, BrowserWindow, dialog, ipcMain, net, session, shell } from "electron";
 import { execFile, spawn } from "node:child_process";
-import { dirname, join } from "node:path";
+import { readFile, unlink } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import {
-  associationEntries,
-  associationRemovals,
+  associationPowerShellScript,
   pdfAssociationStatus,
   registerPdfAssociation,
   removePdfAssociation,
@@ -111,64 +112,61 @@ function psQuote(value) {
  * in an elevated PowerShell process so the app shows up in Settings too.
  */
 function associationScript(scope, mode) {
-  const lines = [
-    "$ErrorActionPreference = 'Stop'",
-    "$reg = Join-Path $env:SystemRoot 'System32\\reg.exe'",
-  ];
-  if (mode === "register") {
-    for (const entry of associationEntries(process.execPath, scope)) {
-      const args = ["& $reg", "add", psQuote(entry.key)];
-      if (entry.name) args.push("/v", psQuote(entry.name));
-      else args.push("/ve");
-      args.push("/t", entry.type ?? "REG_SZ", "/f");
-      if (entry.value !== null && entry.value !== undefined) {
-        args.push("/d", psQuote(entry.value));
-      }
-      lines.push(args.join(" "));
-      lines.push("if ($LASTEXITCODE -ne 0) { throw 'registry write failed' }");
-    }
-    // A Start Menu link makes the portable build look like an installed app,
-    // which Windows 11's Default Apps page expects when listing Win32 entries.
-    const startMenu =
-      scope === "machine"
-        ? "$env:ProgramData\\Microsoft\\Windows\\Start Menu\\Programs"
-        : "$env:APPDATA\\Microsoft\\Windows\\Start Menu\\Programs";
-    lines.push("$ws = New-Object -ComObject WScript.Shell");
-    lines.push(`$lnk = $ws.CreateShortcut((Join-Path ${psQuote(startMenu)} '纸间.lnk'))`);
-    lines.push(`$lnk.TargetPath = ${psQuote(process.execPath)}`);
-    lines.push(`$lnk.WorkingDirectory = ${psQuote(dirname(process.execPath))}`);
-    lines.push(`$lnk.IconLocation = ${psQuote(`${process.execPath},0`)}`);
-    lines.push("$lnk.Save()");
-  } else {
-    const removals = associationRemovals(scope);
-    for (const key of removals.keys) {
-      lines.push(`& $reg delete ${psQuote(key)} /f 2>$null`);
-    }
-    for (const [key, name] of removals.values) {
-      lines.push(`& $reg delete ${psQuote(key)} /v ${psQuote(name)} /f 2>$null`);
-    }
-  }
-  return lines.join("\r\n");
+  return associationPowerShellScript({ exePath: process.execPath, scope, mode });
 }
 
 async function runElevatedAssociation(scope, mode) {
-  const encoded = Buffer.from(associationScript(scope, mode), "utf16le").toString("base64");
+  const stamp = `${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const logFile = join(tmpdir(), `paper-reader-assoc-${stamp}.log`);
+  // Start-Process cannot combine -Verb RunAs with redirected output, so the
+  // elevated script writes its own log. This is the only way to surface the
+  // real error (for example a registry permission failure) to the UI.
+  const wrapped = [
+    "$ErrorActionPreference = 'Stop'",
+    `$log = ${psQuote(logFile)}`,
+    "try {",
+    `  'starting' | Set-Content -Path $log -Encoding utf8`,
+    ...associationScript(scope, mode)
+      .split("\r\n")
+      .map((line) => `  ${line}`),
+    `  'ok' | Add-Content -Path $log -Encoding utf8`,
+    "} catch {",
+    "  ($_ | Out-String) | Add-Content -Path $log -Encoding utf8",
+    "  exit 1",
+    "}",
+  ].join("\r\n");
+  const encoded = Buffer.from(wrapped, "utf16le").toString("base64");
   const command = [
-    "$p = Start-Process -FilePath powershell.exe -Verb RunAs -Wait -PassThru",
-    `-ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-EncodedCommand','${encoded}')`,
-    "; exit $p.ExitCode",
-  ].join(" ");
+    "$ErrorActionPreference = 'Stop'",
+    "try {",
+    `  $p = Start-Process -FilePath powershell.exe -Verb RunAs -Wait -PassThru -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-EncodedCommand','${encoded}')`,
+    "} catch {",
+    "  if ($_.Exception.NativeErrorCode -eq 1223 -or ($_.Exception.HResult -band 0xFFFF) -eq 1223) { exit 1223 }",
+    "  [Console]::Error.WriteLine($_.Exception.Message)",
+    "  exit 1",
+    "}",
+    "exit $p.ExitCode",
+  ].join("\r\n");
   try {
     await exec(POWERSHELL, ["-NoProfile", "-Command", command], {
       windowsHide: true,
       timeout: 120_000,
+      maxBuffer: 256 * 1024,
     });
   } catch (error) {
     const code = error?.code ?? error?.status;
     if (code === 1223 || /canceled|cancelled|已取消/i.test(String(error?.message))) {
       throw new Error("已取消管理员授权，未修改系统级关联。");
     }
-    throw new Error(`系统级注册失败：${error instanceof Error ? error.message : "需要管理员权限"}`);
+    const output = (await readFile(logFile, "utf8").catch(() => "")).trim();
+    const detail = output
+      ? output.slice(-1600)
+      : error instanceof Error
+        ? error.message
+        : "需要管理员权限";
+    throw new Error(`系统级注册失败：${detail}`);
+  } finally {
+    await unlink(logFile).catch(() => undefined);
   }
 }
 

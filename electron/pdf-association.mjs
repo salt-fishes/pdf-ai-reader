@@ -178,6 +178,89 @@ export async function removePdfAssociation(exePath, scope = "user") {
   return pdfAssociationStatus(exePath);
 }
 
+function psQuote(value) {
+  return `'${String(value).replace(/'/g, "''")}'`;
+}
+
+/** Turn `HKLM\Software\...` into the PowerShell provider path `HKLM:\Software\...`. */
+function registryProviderPath(key) {
+  return key.replace(/^HKLM\\/i, "HKLM:\\").replace(/^HKCU\\/i, "HKCU:\\");
+}
+
+/**
+ * Build the PowerShell script used for the elevated HKLM registration or
+ * removal. String values go through the registry provider because PowerShell
+ * 5.1 mangles embedded quotes when they are passed to reg.exe as command-line
+ * arguments; REG_NONE values have no data and still use reg.exe.
+ */
+export function associationPowerShellScript({ exePath, scope = "machine", mode = "register" }) {
+  const lines = [
+    "$ErrorActionPreference = 'Stop'",
+    "$reg = Join-Path $env:SystemRoot 'System32\\reg.exe'",
+  ];
+  if (mode === "register") {
+    for (const entry of associationEntries(exePath, scope)) {
+      if (entry.type === "REG_NONE") {
+        const args = ["& $reg", "add", psQuote(entry.key)];
+        if (entry.name) args.push("/v", psQuote(entry.name));
+        else args.push("/ve");
+        args.push("/t", "REG_NONE", "/f");
+        lines.push(args.join(" "));
+        lines.push(
+          `if ($LASTEXITCODE -ne 0) { throw ${psQuote(`registry write failed: ${entry.key}`)} }`,
+        );
+        continue;
+      }
+      const providerPath = registryProviderPath(entry.key);
+      const valueName = entry.name ? psQuote(entry.name) : "'(default)'";
+      lines.push(`$key = ${psQuote(providerPath)}`);
+      lines.push("New-Item -Path $key -Force | Out-Null");
+      lines.push(
+        `Set-ItemProperty -Path $key -Name ${valueName} -Value ${psQuote(entry.value ?? "")}`,
+      );
+    }
+    // A Start Menu link makes the portable build look like an installed app,
+    // which Windows 11's Default Apps page expects when listing Win32 entries.
+    // The link is helpful but not part of the registry contract; never fail
+    // the whole registration because Explorer or security software refuses it.
+    const startMenu =
+      scope === "machine"
+        ? "[Environment]::GetFolderPath([Environment+SpecialFolder]::CommonStartMenu)"
+        : "[Environment]::GetFolderPath([Environment+SpecialFolder]::StartMenu)";
+    lines.push(`$startMenu = ${startMenu}`);
+    lines.push("try {");
+    lines.push("  $ws = New-Object -ComObject WScript.Shell");
+    lines.push("  $lnk = $ws.CreateShortcut((Join-Path $startMenu '纸间.lnk'))");
+    lines.push(`  $lnk.TargetPath = ${psQuote(exePath)}`);
+    lines.push(`  $lnk.WorkingDirectory = ${psQuote(path.dirname(exePath))}`);
+    lines.push(`  $lnk.IconLocation = ${psQuote(`${exePath},0`)}`);
+    lines.push("  $lnk.Save()");
+    lines.push("} catch {");
+    lines.push("  [Console]::Error.WriteLine('shortcut skipped: ' + $_.Exception.Message)");
+    lines.push("}");
+  } else {
+    const removals = associationRemovals(scope);
+    for (const key of removals.keys) {
+      lines.push(
+        `Remove-Item -Path ${psQuote(registryProviderPath(key))} -Recurse -Force -ErrorAction SilentlyContinue`,
+      );
+    }
+    for (const [key, name] of removals.values) {
+      lines.push(
+        `Remove-ItemProperty -Path ${psQuote(registryProviderPath(key))} -Name ${psQuote(name)} -Force -ErrorAction SilentlyContinue`,
+      );
+    }
+    if (scope === "machine") {
+      lines.push(
+        "$startMenu = [Environment]::GetFolderPath([Environment+SpecialFolder]::CommonStartMenu)",
+      );
+      lines.push("$lnk = Join-Path $startMenu '纸间.lnk'");
+      lines.push("Remove-Item -Path $lnk -Force -ErrorAction SilentlyContinue");
+    }
+  }
+  return lines.join("\r\n");
+}
+
 export function associationRemovals(scope = "user") {
   const k = keys(scope);
   return {

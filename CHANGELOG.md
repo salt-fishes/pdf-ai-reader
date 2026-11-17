@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.7.2] — 2026-11-17
+
+### 修复
+
+- **系统级 PDF 注册失败并留下半截注册表项**：PowerShell 5.1 把带引号的
+  `"C:\Program Files\...\PaperReader.exe" "%1"` 传给 `reg.exe /d` 时会拆成多个参数，
+  `reg add` 报“无效语法”。字符串值改用 PowerShell 注册表 provider 写入，`REG_NONE`
+  空值继续走 `reg.exe`；系统级注册现在能完整写入 ProgID、Applications、Capabilities、
+  RegisteredApplications 与 OpenWithProgids。
+- 系统级注册的开始菜单快捷方式改用 `CommonStartMenu` 的真实路径，创建失败也不再让
+  整个注册流程失败。
+- 提权脚本把错误写入临时日志并回传到设置页；UAC 取消会明确提示“已取消管理员授权”，
+  不再只显示一行 `Command failed`。
+- 系统级移除同样改用 provider，并删除公共开始菜单里的“纸间”快捷方式。
+
 ## [0.7.1] — 2026-11-17
 
 ### 修复
