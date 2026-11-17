@@ -26,6 +26,12 @@ app.use("/api/*", async (c, next) => {
 app.use("*", async (c, next) => {
   await next();
   applySecurityHeaders({ set: (name, value) => c.header(name, value) });
+  // The reader is a local SPA. Never let Chromium reuse a previous version's
+  // index.html and hashed chunks after an update; local files are already fast.
+  c.header(
+    "Cache-Control",
+    c.req.path.startsWith("/assets/") ? "public, max-age=31536000, immutable" : "no-store",
+  );
 });
 
 app.get("/api/health", (c) => c.json({ ok: true }));
@@ -39,6 +45,11 @@ const distIndex = fileURLToPath(new URL("../../dist/index.html", import.meta.url
 if (existsSync(distIndex)) {
   app.use("/*", serveStatic({ root: "./dist" }));
   app.get("*", async (c) => {
+    // A missing hashed chunk must 404 instead of receiving index.html with a
+    // 200, which previously let a stale cached page look healthy.
+    if (c.req.path.startsWith("/assets/") || c.req.path.startsWith("/pdfjs/")) {
+      return c.notFound();
+    }
     const html = await readFile(distIndex, "utf8");
     return c.html(html);
   });

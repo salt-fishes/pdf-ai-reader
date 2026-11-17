@@ -14,7 +14,8 @@ describe("associationPowerShellScript", () => {
     expect(script).not.toContain(
       "& $reg add 'HKLM\\Software\\Classes\\PaperReader.pdf\\shell\\open\\command'",
     );
-    expect(script).toContain("CommonStartMenu");
+    expect(script).toContain("oldCommon");
+    expect(script).toContain("SpecialFolder]::StartMenu");
     expect(script).toContain("'纸间.lnk'");
   });
 

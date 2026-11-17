@@ -42,11 +42,11 @@ npm run build:installers
 ## 发布
 
 ```bash
-npm version 0.7.2 --no-git-tag-version
-# 更新 CHANGELOG 的 [0.7.2] 段
-npm run check:version -- 0.7.2
-git add -A && git commit -m "release: v0.7.2"
-git tag -a v0.7.2 -m "纸间 v0.7.2"
+npm version 0.7.3 --no-git-tag-version
+# 更新 CHANGELOG 的 [0.7.3] 段
+npm run check:version -- 0.7.3
+git add -A && git commit -m "release: v0.7.3"
+git tag -a v0.7.3 -m "纸间 v0.7.3"
 git push origin main --tags
 ```
 

@@ -221,16 +221,25 @@ export function associationPowerShellScript({ exePath, scope = "machine", mode =
     }
     // A Start Menu link makes the portable build look like an installed app,
     // which Windows 11's Default Apps page expects when listing Win32 entries.
-    // The link is helpful but not part of the registry contract; never fail
-    // the whole registration because Explorer or security software refuses it.
-    const startMenu =
-      scope === "machine"
-        ? "[Environment]::GetFolderPath([Environment+SpecialFolder]::CommonStartMenu)"
-        : "[Environment]::GetFolderPath([Environment+SpecialFolder]::StartMenu)";
-    lines.push(`$startMenu = ${startMenu}`);
+    // Per-user installs belong in the user's Start Menu; a previous system-wide
+    // MSI may have left a broken common link, so remove that stale copy.
+    if (scope === "machine") {
+      lines.push(
+        "$commonStartMenu = [Environment]::GetFolderPath([Environment+SpecialFolder]::CommonStartMenu)",
+      );
+      lines.push("$oldCommon = Join-Path $commonStartMenu '纸间.lnk'");
+      lines.push(
+        "if (Test-Path $oldCommon) { Remove-Item -Path $oldCommon -Force -ErrorAction SilentlyContinue }",
+      );
+    }
+    lines.push("$startMenu = [Environment]::GetFolderPath([Environment+SpecialFolder]::StartMenu)");
+    lines.push("$lnkPath = Join-Path $startMenu '纸间.lnk'");
     lines.push("try {");
+    lines.push(
+      "  if (Test-Path $lnkPath) { Remove-Item -Path $lnkPath -Force -ErrorAction SilentlyContinue }",
+    );
     lines.push("  $ws = New-Object -ComObject WScript.Shell");
-    lines.push("  $lnk = $ws.CreateShortcut((Join-Path $startMenu '纸间.lnk'))");
+    lines.push("  $lnk = $ws.CreateShortcut($lnkPath)");
     lines.push(`  $lnk.TargetPath = ${psQuote(exePath)}`);
     lines.push(`  $lnk.WorkingDirectory = ${psQuote(path.dirname(exePath))}`);
     lines.push(`  $lnk.IconLocation = ${psQuote(`${exePath},0`)}`);
@@ -250,12 +259,15 @@ export function associationPowerShellScript({ exePath, scope = "machine", mode =
         `Remove-ItemProperty -Path ${psQuote(registryProviderPath(key))} -Name ${psQuote(name)} -Force -ErrorAction SilentlyContinue`,
       );
     }
+    lines.push("$startMenu = [Environment]::GetFolderPath([Environment+SpecialFolder]::StartMenu)");
+    lines.push("$lnk = Join-Path $startMenu '纸间.lnk'");
+    lines.push("Remove-Item -Path $lnk -Force -ErrorAction SilentlyContinue");
     if (scope === "machine") {
       lines.push(
-        "$startMenu = [Environment]::GetFolderPath([Environment+SpecialFolder]::CommonStartMenu)",
+        "$commonStartMenu = [Environment]::GetFolderPath([Environment+SpecialFolder]::CommonStartMenu)",
       );
-      lines.push("$lnk = Join-Path $startMenu '纸间.lnk'");
-      lines.push("Remove-Item -Path $lnk -Force -ErrorAction SilentlyContinue");
+      lines.push("$commonLnk = Join-Path $commonStartMenu '纸间.lnk'");
+      lines.push("Remove-Item -Path $commonLnk -Force -ErrorAction SilentlyContinue");
     }
   }
   return lines.join("\r\n");

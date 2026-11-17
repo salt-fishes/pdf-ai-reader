@@ -358,7 +358,10 @@ async function createWindow() {
   const splashAt = Date.now() - started;
   const origin = await serverReady;
   const serverAt = Date.now() - started;
-  await window.loadURL(origin);
+  // Include the app version in the initial URL so an older Chromium cache
+  // cannot keep serving the previous release's index.html after an update.
+  const appUrl = isDev ? origin : `${origin}/?v=${encodeURIComponent(app.getVersion())}`;
+  await window.loadURL(appUrl);
   console.log(
     `[startup] splash ${splashAt}ms · proxy ${serverAt}ms · app ${Date.now() - started}ms`,
   );
