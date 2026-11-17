@@ -93,7 +93,7 @@
   background: rgb(245 158 11 / 34%);
   box-shadow: 0 0 0 1px rgb(245 158 11 / 42%);
   mix-blend-mode: multiply;
-  animation: citation-flash 2.6s var(--ease-out) forwards;
+  animation: citation-flash var(--motion-citation) var(--ease-out) forwards;
 }
 
 :global([data-theme="night"]) .citationFlash {
@@ -105,7 +105,7 @@
 .citationPageFlash {
   outline: 2px solid rgb(245 158 11 / 55%);
   outline-offset: 3px;
-  animation: citation-outline 2.6s var(--ease-out) forwards;
+  animation: citation-outline var(--motion-citation) var(--ease-out) forwards;
 }
 
 :global([data-theme="night"]) .citationPageFlash {

@@ -10,6 +10,21 @@ npm run desktop:dev
 
 脚本会启动 `npm run dev:all`，等 Vite 就绪后打开 Electron，加载 <http://127.0.0.1:5173>。关闭 Electron 会尝试结束 Vite/API 子进程。
 
+## 窗口与标题栏
+
+- Windows 使用 `titleBarStyle: "hidden"` + `titleBarOverlay`，只保留一条 52px 的应用标题栏，右侧是系统原生最小化/最大化/关闭按钮。
+- 标题栏空白区可拖动、双击最大化；按钮、输入框与菜单自动排除拖拽。
+- 亮色标题栏为 `#f6f5f2`，夜间为 `#0f131b`；主题切换时通过 IPC 同步系统按钮颜色。
+- 窗口图标与安装包图标来自 `build/icon.ico`；运行时的 PNG 图标来自 `public/icon.png`（由 `npm run icons` 生成，`prebuild` 会自动执行）。
+- 不要调用 `app.setName("纸间")`：`app.getPath("userData")` 依赖应用名，改名会让配置、OCR 组件与模型换目录。
+
+## 打开 PDF
+
+- 安装器把 `.pdf` 的打开命令写成 `"PaperReader.exe" "%1"`。
+- 启动时主进程从 `process.argv` 中筛出存在的 `.pdf` 文件；第二次启动通过 `second-instance` 复用窗口并聚焦。
+- 渲染进程挂载后先注册文件事件，再调用 `rendererReady`，最后取走唯一一份待打开文件；文件只读取一次，上限 128MB。
+- 不暴露通用的“按任意路径读文件”IPC；只接受启动参数中的 PDF。
+
 ## 启动
 
 桌面版先显示品牌启动页，同时并行启动本地代理；代理健康检查通过后切换到应用。健康检查每
@@ -42,16 +57,19 @@ npm run package:desktop
 
 安装包由 electron-builder 生成：
 
-- NSIS：`release/paper-reader-v0.7.3-x64.exe`，支持选择安装目录、创建桌面与开始菜单快捷方式。
+- NSIS：`release/paper-reader-v0.8.0-x64.exe`，支持选择安装目录、创建桌面与开始菜单快捷方式。
+  安装器、卸载器、exe、桌面/开始菜单快捷方式使用同一套纸间图标。
   安装向导增加“PDF 打开方式”页：
   - 默认勾选“在 PDF 的‘打开方式’中显示纸间”，只写 OpenWith 声明，不影响默认应用。
   - 可选“安装完成后打开 Windows 默认应用设置”，默认不勾选；勾选后仍需在系统设置里确认。
   - 静默安装 `/S` 不显示该页，也不会自动写声明。
-- MSI：`release/paper-reader-v0.7.3-x64.msi`，使用 `build/zh-CN.wxl` 的 GBK 代码页；中文产品名、快捷方式与卸载项正常。
-  MSI 暂不提供该勾选页，安装后可在 设置 → 关于 中注册。
+- MSI：`release/paper-reader-v0.8.0-x64.msi`，使用 `build/zh-CN.wxl` 的 GBK 代码页；中文产品名、快捷方式与卸载项正常。
+  MSI 暂不提供该勾选页，安装后可在 设置 → 关于 中注册。`.msi` 文件本身的图标由 Windows Installer 决定；
+  electron-builder 26 只通过 `win.icon` 控制 exe、快捷方式与控制面板图标。
 - 两者都按当前用户安装到 `%LOCALAPPDATA%\Programs\PaperReader`，安装后的可执行文件为
   `PaperReader.exe`，快捷方式显示“纸间”；不包含 `node_modules` 或 OCR 组件。
 - 首次构建 MSI 会下载 WiX，需能访问 GitHub；网络受限时先配置系统代理或 `HTTPS_PROXY`。
+- `signExecutable: false` 只跳过代码签名，仍由 electron-builder 内置 resedit 写入图标、产品名与版本，不需要下载 winCodeSign。
 - 未做代码签名，SmartScreen 会提示未知发布者。
 
 `build:desktop` 需要 electron-builder 下载 NSIS/winCodeSign 工具；网络受限时优先用 `package:desktop`。产物在 `release/`，图标在 `build/icon.ico`（由 `build/icon.svg` 经 `npm run icons` 生成）。
@@ -61,7 +79,7 @@ npm run package:desktop
 桌面版把可写数据放在 Electron `userData`：
 
 - provider 配置：`<userData>/data/provider.json`（含 API Key，权限 0600）
-- OCR 运行时：`<userData>/ocr-runtime`；被 360 等安全软件拦截 DLL 写入时回退到 `%TEMP%/paper-reader-ocr/<version>`
+- OCR 运行时：`<userData>/ocr-runtime`；被 360 等安全软件拦截 DLL 写入时回退到 `%TEMP%/paper-reader-ocr/runtime-v1`。旧版本按应用版本命名的临时目录会被识别并继续复用。
 - OCR 模型：`<userData>/ocr-models`
 - 阅读位置、对话、高亮、OCR 文本：Chromium IndexedDB（按 `http://127.0.0.1:8787` 原点）
 
@@ -101,4 +119,5 @@ npm run package:desktop
 - 未做自动更新安装与代码签名；公开分发前需要配置证书。
 - 基础包约 146.5MB；OCR 是独立的 26MB 组件包，不下载也能正常阅读 PDF，只是没有扫描件文字层。
 - OCR 组件与模型都需要联网下载；模型也可以手动放到 `<userData>/ocr-models`。
+- 应用升级不会让已安装的 OCR 运行时失效：运行时由独立的格式版本标识；只有格式不兼容或组件文件缺失时才需要重新下载。
 - 安全软件可能拦截未签名进程向用户目录写 DLL；应用会回退到临时目录，再次启动时若临时目录被清理，需要重新下载组件。

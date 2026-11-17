@@ -50,9 +50,41 @@ test("privacy section opens the bundled privacy document", async ({ page }) => {
   await expect(doc).toBeVisible();
   await expect(doc).toContainText("本地处理");
   await expect(doc).toContainText("不会发送整份 PDF");
+  for (let index = 0; index < 10; index += 1) {
+    await page.keyboard.press("Tab");
+    expect(
+      await page.evaluate(() =>
+        document.activeElement?.closest('[role="dialog"]')?.getAttribute("aria-label"),
+      ),
+    ).toBe("隐私说明");
+  }
   await page.keyboard.press("Escape");
   await expect(doc).toBeHidden();
   await expect(settings).toBeVisible();
+  await expect
+    .poll(() => page.evaluate(() => document.activeElement?.textContent?.trim()))
+    .toContain("查看完整隐私说明");
+});
+
+test("settings navigation keeps six buttons and moves with the keyboard", async ({ page }) => {
+  await openSample(page);
+  await page.locator('button[aria-label="设置"]').first().click();
+  const settings = page.getByRole("dialog", { name: "设置" });
+  const nav = settings.getByRole("navigation", { name: "设置分类" });
+  await expect(nav.getByRole("button")).toHaveCount(6);
+
+  const about = nav.getByRole("button", { name: "关于", exact: true });
+  await about.click();
+  await expect(about).toHaveAttribute("aria-current", "page");
+  await page.keyboard.press("Home");
+  const model = nav.getByRole("button", { name: "模型服务", exact: true });
+  await expect(model).toHaveAttribute("aria-current", "page");
+  await expect(model).toBeFocused();
+
+  await nav.getByRole("button", { name: "隐私与数据", exact: true }).click();
+  for (const term of ["IndexedDB", "localStorage", "server/data", "bundle"]) {
+    await expect(settings).not.toContainText(term);
+  }
 });
 
 test("update check only runs on demand and reports a newer release", async ({ page }) => {
@@ -94,11 +126,11 @@ test("clearing all local data requires a second confirmation and reloads empty",
   await page.locator('button[aria-label="设置"]').first().click();
   const settings = page.getByRole("dialog", { name: "设置" });
   await settings.getByRole("button", { name: "隐私与数据", exact: true }).click();
-  await settings.getByRole("button", { name: "清空所有本地数据" }).click();
+  await settings.getByRole("button", { name: "清空阅读数据" }).click();
   await expect(settings).toContainText("操作不可撤销");
   await Promise.all([
     page.waitForEvent("load"),
-    settings.getByRole("button", { name: "再次点击确认清空所有本地数据" }).click(),
+    settings.getByRole("button", { name: "再次点击确认清空阅读数据" }).click(),
   ]);
   await expect(page.getByText("打开 PDF 开始阅读")).toBeVisible();
 });

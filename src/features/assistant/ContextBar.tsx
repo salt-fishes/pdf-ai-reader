@@ -360,45 +360,47 @@ export function ContextBar() {
             </div>
           ) : null}
 
-          <div className={styles.buckets}>
-            <div className={styles.bucket}>
-              <span>锚点提示</span>
-              <span className={styles.bucketValue}>
-                {anchor ? formatTokens(anchor.promptTokens) : "—"}
-              </span>
+          <details className={styles.usageDetails}>
+            <summary>用量详情</summary>
+            <div className={styles.buckets}>
+              <div className={styles.bucket}>
+                <span>上次发送</span>
+                <span className={styles.bucketValue}>
+                  {anchor ? formatTokens(anchor.promptTokens) : "—"}
+                </span>
+              </div>
+              <div className={styles.bucket}>
+                <span>本次新增</span>
+                <span className={styles.bucketValue}>
+                  {formatTokens(anchor ? Math.max(0, projected - anchor.promptTokens) : projected)}
+                </span>
+              </div>
+              <div className={styles.bucket}>
+                <span>缓存命中</span>
+                <span className={styles.bucketValue}>
+                  {usage ? formatTokens(usage.cacheRead) : "—"}
+                </span>
+              </div>
+              <div className={styles.bucket}>
+                <span>输入</span>
+                <span className={styles.bucketValue}>
+                  {usage ? formatTokens(usage.uncachedInput) : "—"}
+                </span>
+              </div>
+              <div className={styles.bucket}>
+                <span>输出</span>
+                <span className={styles.bucketValue}>
+                  {usage ? formatTokens(usage.output) : "—"}
+                </span>
+              </div>
+              <div className={styles.bucket}>
+                <span>预计费用</span>
+                <span className={styles.bucketValue}>
+                  {usage ? formatCny(estimateCost(usage, pricing)) : "—"}
+                </span>
+              </div>
             </div>
-            <div className={styles.bucket}>
-              <span>本次新增</span>
-              <span className={styles.bucketValue}>
-                {formatTokens(anchor ? Math.max(0, projected - anchor.promptTokens) : projected)}
-              </span>
-            </div>
-            <div className={styles.bucket}>
-              <span>缓存命中</span>
-              <span className={styles.bucketValue}>
-                {usage ? formatTokens(usage.cacheRead) : "—"}
-              </span>
-            </div>
-            <div className={styles.bucket}>
-              <span>未命中输入</span>
-              <span className={styles.bucketValue}>
-                {usage ? formatTokens(usage.uncachedInput) : "—"}
-              </span>
-            </div>
-            <div className={styles.bucket}>
-              <span>输出</span>
-              <span className={styles.bucketValue}>{usage ? formatTokens(usage.output) : "—"}</span>
-            </div>
-            <div className={styles.bucket}>
-              <span>预计费用</span>
-              <span className={styles.bucketValue}>
-                {usage ? formatCny(estimateCost(usage, pricing)) : "—"}
-              </span>
-            </div>
-            <div className={styles.bucketNote}>
-              预算 {formatTokens(budget)} 仅作提示，实际上限由模型上下文决定。
-            </div>
-          </div>
+          </details>
         </div>
       ) : null}
 

@@ -831,7 +831,7 @@
   border-radius: 3px;
   background: transparent;
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-2xs);
   font-weight: 500;
   line-height: 1;
   vertical-align: super;
@@ -867,7 +867,7 @@
   border-radius: 999px;
   background: transparent;
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-2xs);
   line-height: 1;
   opacity: 0.62;
   transition:
@@ -920,7 +920,7 @@
 
 .citationWhere {
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-2xs);
   letter-spacing: 0.01em;
 }
 
@@ -1451,6 +1451,29 @@
   background: var(--amber-soft);
   color: #8a5a00;
   font-size: var(--text-xs);
+}
+
+.usageDetails {
+  margin-top: 9px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--line-strong);
+}
+
+.usageDetails > summary {
+  color: var(--muted);
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+
+.usageDetails[open] > summary {
+  margin-bottom: 7px;
+}
+
+.usageDetails .buckets {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+  animation: status-in var(--motion-fast) var(--ease-out);
 }
 
 .buckets {
@@ -2125,10 +2148,20 @@
 }
 
 .modelEmpty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
   padding: 10px 8px;
   color: var(--muted);
   font-size: var(--text-xs);
   line-height: 1.6;
+}
+
+.linkButton {
+  color: var(--accent-deep);
+  font-size: var(--text-xs);
+  text-decoration: underline;
 }
 
 /* ---------- Clear confirm ---------- */

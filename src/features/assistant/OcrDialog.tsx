@@ -138,9 +138,8 @@ export function OcrDialog() {
           <section className={modal.section}>
             <div className={modal.sectionTitle}>说明</div>
             <div className={modal.note}>
-              识别在本机代理进程中完成；模型缺失时可把 ONNX 文件放入
-              <code>server/models/ppocrv6</code>，或在设置中下载。 扫描页本身仍是图片，OCR
-              只补充可检索的文本。
+              识别在本机完成，图片不会上传。如果缺少模型，可在设置 → 扫描件 OCR
+              中下载。扫描页本身仍是图片，OCR 只补充可检索的文本。
             </div>
           </section>
         </div>

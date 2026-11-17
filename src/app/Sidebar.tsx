@@ -205,7 +205,10 @@ export function Sidebar() {
               ))}
             </div>
           ) : (
-            <div className={styles.emptySidebar}>这份文档没有目录。</div>
+            <div className={styles.emptySidebar}>
+              <Icon name="outline" size={22} />
+              <span>这份文档没有目录。</span>
+            </div>
           )
         ) : null}
 
@@ -268,7 +271,8 @@ export function Sidebar() {
             </div>
           ) : (
             <div className={styles.emptySidebar}>
-              还没有高亮。选中文字后点“高亮”，就会出现在这里。
+              <Icon name="highlightList" size={22} />
+              <span>还没有高亮。选中文字后点“高亮”，就会出现在这里。</span>
             </div>
           )
         ) : null}

@@ -65,12 +65,13 @@
   --radius-chip: 8px;
   --radius-button: 7px;
 
-  --text-xs: 12px;
-  --text-sm: 13px;
-  --text-md: 14px;
-  --text-lg: 16px;
-  --text-xl: 20px;
-  --text-2xl: 24px;
+  --text-2xs: 12px;
+  --text-xs: 13px;
+  --text-sm: 14px;
+  --text-md: 15px;
+  --text-lg: 17px;
+  --text-xl: 24px;
+  --text-2xl: 28px;
 
   --font-ui:
     "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", system-ui,
@@ -88,14 +89,16 @@
   --motion-skeleton: 1400ms;
   --motion-pulse: 1400ms;
   --motion-attention: 1400ms;
+  --motion-citation: 2600ms;
+  --motion-stagger: 20ms;
   --motion-fab: 3800ms;
   --motion-fab-busy: 2800ms;
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-in: cubic-bezier(0.4, 0, 1, 1);
 
-  --header-h: 48px;
-  --rail-w: 48px;
+  --header-h: 52px;
+  --rail-w: 52px;
   --panel-w: 380px;
   --panel-h: 460px;
 }

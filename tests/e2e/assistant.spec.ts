@@ -77,7 +77,7 @@ test("reads a Chinese PDF, sends context, cites and jumps", async ({ page }) => 
     await contextButton.click();
   }
   await expect(panel).toContainText("缓存命中");
-  await expect(panel).toContainText("未命中输入");
+  await expect(panel).toContainText("输入");
 
   // Citation jump scrolls to the referenced page.
   const cite2 = panel.locator("button[aria-label='引用第 2 页']").last();

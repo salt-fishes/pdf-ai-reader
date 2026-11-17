@@ -85,12 +85,12 @@ export async function streamChat(
       error?: { code?: string; message?: string; hint?: string };
     } | null;
     const hints: Record<number, string> = {
-      401: "检查 server/.env 中的 AI_API_KEY 是否正确",
+      401: "请到设置 → 模型服务检查 API Key 是否正确",
       403: "密钥无权访问该模型，检查账号权限",
-      404: "检查 AI_BASE_URL 与模型名",
+      404: "检查模型服务地址与模型名",
       413: "上下文过大，缩小页码或减少截图",
       429: "请求过快或额度不足，稍后重试",
-      503: "服务端未配置密钥，检查 server/.env",
+      503: "模型服务尚未配置密钥，请到设置 → 模型服务中填写",
     };
     const error: AiError = {
       code: payload?.error?.code ?? `http_${response.status}`,

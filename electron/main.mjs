@@ -1,5 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain, net, session, shell } from "electron";
 import { execFile, spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 import { readFile, unlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -12,6 +13,7 @@ import {
   removePdfAssociation,
   unsupportedPdfAssociation,
 } from "./pdf-association.mjs";
+import { pdfArgFrom, readPdfPayload } from "./pdf-args.mjs";
 
 const exec = promisify(execFile);
 
@@ -29,6 +31,48 @@ const POWERSHELL = join(
   "v1.0",
   "powershell.exe",
 );
+const IS_WINDOWS = process.platform === "win32";
+const TITLEBAR_HEIGHT = 52;
+const TITLEBAR_COLORS = {
+  light: { color: "#f6f5f2", symbolColor: "#18202f" },
+  dark: { color: "#0f131b", symbolColor: "#e8eaf1" },
+};
+
+let serverProcess = null;
+let window = null;
+let rendererReady = false;
+/** One-slot queue shared by startup and second-instance file opens. */
+let pendingPdf = null;
+/** Startup path, read lazily after the app is ready. */
+let pendingPdfPath = pdfArgFrom(process.argv);
+
+function appIconPath() {
+  const appDir = app.getAppPath();
+  const production = join(appDir, "dist", "icon.png");
+  if (existsSync(production)) return production;
+  return join(appDir, "public", "icon.png");
+}
+
+async function queuePdfFile(file) {
+  try {
+    pendingPdf = await readPdfPayload(file);
+    return pendingPdf;
+  } catch (error) {
+    console.error("[pdf-open]", error instanceof Error ? error.message : error);
+    return null;
+  }
+}
+
+async function consumePendingPdf() {
+  if (!pendingPdf && pendingPdfPath) {
+    const file = pendingPdfPath;
+    pendingPdfPath = null;
+    await queuePdfFile(file);
+  }
+  const payload = pendingPdf;
+  pendingPdf = null;
+  return payload;
+}
 
 // Trim Chromium background work that this single-window reader never uses.
 app.commandLine.appendSwitch("disable-background-networking");
@@ -239,8 +283,26 @@ ipcMain.handle("app:check-for-updates", async () => {
   };
 });
 
-let serverProcess = null;
-let window = null;
+ipcMain.handle("app:open-data-folder", async () => {
+  const result = await shell.openPath(app.getPath("userData"));
+  if (result) throw new Error(result);
+});
+
+ipcMain.handle("app:take-pending-pdf", async () => consumePendingPdf());
+
+ipcMain.on("app:renderer-ready", (event) => {
+  if (window && event.sender === window.webContents) rendererReady = true;
+});
+
+ipcMain.handle("window:set-titlebar-theme", (event, dark) => {
+  if (!IS_WINDOWS) return;
+  const target = BrowserWindow.fromWebContents(event.sender);
+  if (!target || target.isDestroyed()) return;
+  target.setTitleBarOverlay({
+    ...(dark ? TITLEBAR_COLORS.dark : TITLEBAR_COLORS.light),
+    height: TITLEBAR_HEIGHT,
+  });
+});
 
 async function waitForHealth(url, timeoutMs = 20_000) {
   const started = Date.now();
@@ -325,6 +387,13 @@ async function createWindow() {
     backgroundColor: "#f6f5f2",
     autoHideMenuBar: true,
     title: "纸间 · PDF × AI 阅读器",
+    icon: appIconPath(),
+    ...(IS_WINDOWS
+      ? {
+          titleBarStyle: "hidden",
+          titleBarOverlay: { ...TITLEBAR_COLORS.light, height: TITLEBAR_HEIGHT },
+        }
+      : {}),
     webPreferences: {
       preload: fileURLToPath(new URL("./preload.cjs", import.meta.url)),
       contextIsolation: true,
@@ -335,7 +404,11 @@ async function createWindow() {
   });
 
   window.once("ready-to-show", () => window?.show());
+  window.webContents.on("did-start-loading", () => {
+    rendererReady = false;
+  });
   window.on("closed", () => {
+    rendererReady = false;
     window = null;
   });
 
@@ -371,10 +444,19 @@ const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
   app.quit();
 } else {
-  app.on("second-instance", () => {
+  app.on("second-instance", async (_event, argv) => {
     if (!window) return;
     if (window.isMinimized()) window.restore();
     window.focus();
+
+    const file = pdfArgFrom(argv);
+    if (!file) return;
+    const payload = await queuePdfFile(file);
+    if (!payload) return;
+    if (rendererReady && !window.webContents.isLoadingMainFrame()) {
+      pendingPdf = null;
+      window.webContents.send("app:open-pdf", payload);
+    }
   });
 
   app.whenReady().then(async () => {

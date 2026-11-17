@@ -4,18 +4,19 @@ import { fileURLToPath } from "node:url";
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 
 const FIXTURES = join(fileURLToPath(new URL(".", import.meta.url)), "..", "fixtures", "pdf");
+const API_ORIGIN = `http://127.0.0.1:${process.env.PDF_AI_PROXY_PORT ?? "8787"}`;
 
 function fixtureBase64(name: string): string {
   return readFileSync(join(FIXTURES, name)).toString("base64");
 }
 
 export async function verifyMockProxy(request: APIRequestContext): Promise<void> {
-  const config = (await (await request.get("http://127.0.0.1:8787/api/config")).json()) as {
+  const config = (await (await request.get(`${API_ORIGIN}/api/config`)).json()) as {
     mock?: boolean;
   };
   if (!config.mock) {
     throw new Error(
-      "E2E 只应在 mock 代理上运行：检测到 8787 正在使用真实模型。请先停止 npm start / npm run dev:all，再运行 npm run test:e2e。",
+      "E2E 只应在 mock 代理上运行：检测到真实模型。请先停止 npm start / npm run dev:all，再运行 npm run test:e2e。",
     );
   }
 }

@@ -12,9 +12,11 @@ import styles from "./ColorModeControl.module.css";
 
 type Props = {
   className?: string;
+  /** Settings uses a denser layout without the scale/hint footnote. */
+  compact?: boolean;
 };
 
-export function ColorModeControl({ className }: Props) {
+export function ColorModeControl({ className, compact = false }: Props) {
   const colorMode = useViewer((state) => state.colorMode);
   const colorIntensity = useViewer((state) => state.colorIntensity);
   const setColorMode = useViewer((state) => state.setColorMode);
@@ -31,7 +33,7 @@ export function ColorModeControl({ className }: Props) {
   };
 
   return (
-    <div className={`${styles.root} ${className ?? ""}`}>
+    <div className={`${styles.root} ${compact ? styles.compact : ""} ${className ?? ""}`}>
       <div className={styles.modes} role="group" aria-label="色彩模式">
         {COLOR_MODES.map((mode) => {
           const selected = mode.id === colorMode;

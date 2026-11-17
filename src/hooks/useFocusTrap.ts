@@ -24,11 +24,15 @@ export function useFocusTrap(
 
     const focusable = () =>
       [...container.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(
-        (element) => element.offsetParent !== null || element === document.activeElement,
+        (element) =>
+          !element.closest("[inert]") &&
+          (element.offsetParent !== null || element === document.activeElement),
       );
 
     const first = focusable()[0];
-    (first ?? container).focus();
+    // Nested dialogs may restore focus inside this container just before this
+    // trap re-activates; do not bounce it back to the first control.
+    if (!container.contains(document.activeElement)) (first ?? container).focus();
 
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -46,23 +50,32 @@ export function useFocusTrap(
         container.focus();
         return;
       }
+      const current = document.activeElement;
+      if (!container.contains(current)) {
+        // Another dialog owns focus; let its trap handle Tab.
+        if (current?.closest?.('[role="dialog"]')) return;
+        event.preventDefault();
+        (event.shiftKey ? list[list.length - 1] : list[0]).focus();
+        return;
+      }
       const firstElement = list[0];
       const lastElement = list[list.length - 1];
-      const current = document.activeElement;
       if (event.shiftKey) {
-        if (current === firstElement || !container.contains(current)) {
+        if (current === firstElement) {
           event.preventDefault();
           lastElement.focus();
         }
-      } else if (current === lastElement || !container.contains(current)) {
+      } else if (current === lastElement) {
         event.preventDefault();
         firstElement.focus();
       }
     };
 
-    container.addEventListener("keydown", onKey);
+    // Listen on document so Tab is still trapped after focus lands on <body>
+    // (for example after clicking a scroll container).
+    document.addEventListener("keydown", onKey);
     return () => {
-      container.removeEventListener("keydown", onKey);
+      document.removeEventListener("keydown", onKey);
       if (previous?.isConnected) previous.focus();
     };
   }, [active, ref]);

@@ -390,6 +390,17 @@ export async function installModels(model: OcrModelId = activeModel): Promise<vo
   await installModelFiles(model);
 }
 
+/**
+ * Explicit user action from Settings: stop the worker so Windows releases the
+ * native DLLs, then re-download and replace the runtime pack. Never called
+ * automatically — upgrades reuse the existing runtime via OCR_RUNTIME_FORMAT.
+ */
+export async function repairOcrRuntime(): Promise<void> {
+  await shutdownOcr();
+  await installOcrRuntime({ force: true });
+  await ocrStatus();
+}
+
 export async function shutdownOcr(): Promise<void> {
   shuttingDown = true;
   resetWorker("OCR 服务已关闭");

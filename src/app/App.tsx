@@ -24,6 +24,15 @@ import { ShortcutsDialog } from "../features/shortcuts/ShortcutsDialog";
 import { useShortcutsStore } from "../features/shortcuts/useShortcutsStore";
 import { useHotkeys, type Hotkey } from "../hooks/useHotkeys";
 import { pickPdfFile } from "../lib/openFile";
+import {
+  fileFromDesktopPayload,
+  isDesktop,
+  markRendererReady,
+  onOpenPdf,
+  setTitleBarTheme,
+  takePendingPdf,
+  type DesktopPdfPayload,
+} from "../lib/desktop";
 import { getColorMode } from "../lib/reading/color";
 import { SHORTCUT_ACTIONS, type ShortcutId } from "../lib/shortcuts";
 import styles from "./App.module.css";
@@ -66,6 +75,27 @@ export function App() {
   useEffect(() => {
     void bootstrap();
   }, [bootstrap]);
+
+  useEffect(() => {
+    setTitleBarTheme(theme === "night");
+  }, [theme]);
+
+  // Register the listener before telling main that the renderer is ready; any
+  // file that arrives earlier stays in the one-slot pending queue.
+  useEffect(() => {
+    const openPayload = (payload: DesktopPdfPayload) => {
+      void useViewer
+        .getState()
+        .openFile(fileFromDesktopPayload(payload))
+        .catch(() => undefined);
+    };
+    const unsubscribe = onOpenPdf(openPayload);
+    markRendererReady();
+    void takePendingPdf().then((payload) => {
+      if (payload) openPayload(payload);
+    });
+    return unsubscribe;
+  }, []);
 
   // Ctrl/⌘ + wheel is reserved for document zoom. Outside the reader there is
   // nothing to scale, so stop Chromium from zooming the whole application UI.
@@ -240,6 +270,7 @@ export function App() {
       className={styles.app}
       data-theme={theme}
       data-color-mode={colorMode}
+      data-desktop={isDesktop() ? "true" : undefined}
       onDragOver={(event) => {
         if (event.dataTransfer.types.includes("Files")) {
           event.preventDefault();
@@ -273,7 +304,7 @@ export function App() {
       <AssistantFab />
       {assistantMounted ? (
         <Suspense fallback={null}>
-          <AssistantPanel />
+          <AssistantPanel onOpenSettings={() => setSettingsOpen(true)} />
         </Suspense>
       ) : null}
       <SelectionToolbar />

@@ -10,6 +10,7 @@ import {
   recognizeImageBytes,
   setOcrModel,
   startOcrInstall,
+  startOcrRepair,
   type OcrModelId,
   type OcrPriority,
   type OcrStatus,
@@ -52,6 +53,7 @@ type OcrState = {
   hydrate: (page: number) => Promise<void>;
   hydratePages: (pages: number[]) => Promise<void>;
   install: (model?: OcrModelId) => Promise<void>;
+  repair: () => Promise<void>;
   setModel: (model: OcrModelId) => Promise<void>;
   cancelPending: () => void;
   bumpTextVersion: () => void;
@@ -376,6 +378,40 @@ export const useOcr = create<OcrState>((set, get) => {
           throw new Error("OCR 组件或模型下载超时");
         } catch (error) {
           const message = error instanceof Error ? error.message : "OCR 组件或模型下载失败";
+          set({ phase: "error", error: message });
+          throw error;
+        } finally {
+          set({ installing: false });
+          installPromise = null;
+          if (get().status?.installed && runtimeReady(get().status) && get().queue.length) {
+            void pump();
+          }
+        }
+      })();
+      return installPromise;
+    },
+
+    repair: async () => {
+      if (installPromise) return installPromise;
+      installPromise = (async () => {
+        set({ installing: true, phase: "preparing", error: null });
+        try {
+          await startOcrRepair();
+          const deadline = Date.now() + 20 * 60 * 1000;
+          while (Date.now() < deadline) {
+            await new Promise((resolve) => setTimeout(resolve, 700));
+            const status = await fetchOcrStatus();
+            set({ status, error: status.error ?? null });
+            if (status.error) throw new Error(status.error);
+            if (status.runtime?.installed && !status.runtime.downloading) {
+              failedInstallModel = null;
+              set({ phase: "idle" });
+              return;
+            }
+          }
+          throw new Error("OCR 组件修复超时");
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "OCR 组件修复失败";
           set({ phase: "error", error: message });
           throw error;
         } finally {

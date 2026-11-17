@@ -46,7 +46,7 @@ function formatSessionTime(timestamp: number): string {
   return date.toLocaleDateString("zh-CN", { month: "numeric", day: "numeric" });
 }
 
-export function AssistantPanel() {
+export function AssistantPanel({ onOpenSettings }: { onOpenSettings: () => void }) {
   const status = useAssistant((state) => state.status);
   const mode = useAssistant((state) => state.mode);
   const setMode = useAssistant((state) => state.setMode);
@@ -451,9 +451,9 @@ export function AssistantPanel() {
           sidebar
             ? {
                 left: window.innerWidth - sidebarWidth,
-                top: 48,
+                top: "var(--header-h)",
                 width: sidebarWidth,
-                height: Math.max(320, window.innerHeight - 48),
+                height: "calc(100vh - var(--header-h))",
               }
             : {
                 left: rect.left,
@@ -522,7 +522,16 @@ export function AssistantPanel() {
                 </div>
                 {!config?.hasKey ? (
                   <div className={styles.modelEmpty}>
-                    服务端未配置密钥。把 server/.env.example 复制为 server/.env 并填入 AI_API_KEY。
+                    <span>尚未配置模型服务，请到设置中填写 API Key。</span>
+                    <button
+                      className={styles.linkButton}
+                      onClick={() => {
+                        setModelOpen(false);
+                        onOpenSettings();
+                      }}
+                    >
+                      打开设置
+                    </button>
                   </div>
                 ) : null}
                 <button className={styles.menuItem} onClick={() => void refreshModels()}>
@@ -643,7 +652,7 @@ export function AssistantPanel() {
                     </div>
                   ))}
                 </div>
-                <div className={styles.sessionNote}>对话保存在本机 IndexedDB</div>
+                <div className={styles.sessionNote}>对话只保存在这台电脑</div>
               </div>
             ) : null}
           </div>

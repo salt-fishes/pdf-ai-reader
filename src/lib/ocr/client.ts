@@ -170,6 +170,20 @@ export async function startOcrInstall(model?: OcrModelId): Promise<void> {
   if (!response.ok) throw await readError(response);
 }
 
+/** Explicit repair: stop the worker and re-download the runtime pack. */
+export async function startOcrRepair(): Promise<void> {
+  let response: Response;
+  try {
+    response = await fetch("/api/ocr/repair", {
+      method: "POST",
+      signal: AbortSignal.timeout(30_000),
+    });
+  } catch {
+    throw new OcrClientError("无法连接本地代理", { hint: "请确认 npm start 正在运行" });
+  }
+  if (!response.ok) throw await readError(response);
+}
+
 export async function setOcrModel(model: OcrModelId): Promise<OcrStatus> {
   let response: Response;
   try {

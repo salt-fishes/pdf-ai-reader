@@ -1,6 +1,9 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const channel = process.env.PW_CHANNEL ?? "msedge";
+// Use a separate proxy port in tests so a running installed app on 8787 is
+// never mistaken for the mock server.
+const apiPort = process.env.PDF_AI_PROXY_PORT ?? "8787";
 
 export default defineConfig({
   testDir: "tests/e2e",
@@ -20,12 +23,12 @@ export default defineConfig({
   webServer: [
     {
       command: "npm run start",
-      url: "http://127.0.0.1:8787/api/health",
+      url: `http://127.0.0.1:${apiPort}/api/health`,
       reuseExistingServer: true,
       timeout: 120_000,
       stdout: "pipe",
       stderr: "pipe",
-      env: { ...process.env, MOCK_AI: "1" } as Record<string, string>,
+      env: { ...process.env, MOCK_AI: "1", PORT: apiPort } as Record<string, string>,
     },
     {
       command: "npm run dev -- --host 127.0.0.1 --port 5173",
@@ -34,6 +37,7 @@ export default defineConfig({
       timeout: 180_000,
       stdout: "pipe",
       stderr: "pipe",
+      env: { ...process.env, PDF_AI_PROXY_PORT: apiPort } as Record<string, string>,
     },
   ],
 });

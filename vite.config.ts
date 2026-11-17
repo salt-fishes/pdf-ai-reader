@@ -4,6 +4,8 @@ import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
 const pkg = JSON.parse(readFileSync("package.json", "utf8")) as { version: string };
+// Tests run a second mock proxy so they never touch the installed app on 8787.
+const apiPort = process.env.PDF_AI_PROXY_PORT ?? "8787";
 
 function gitSha(): string {
   try {
@@ -31,7 +33,7 @@ export default defineConfig({
     },
     proxy: {
       "/api": {
-        target: "http://127.0.0.1:8787",
+        target: `http://127.0.0.1:${apiPort}`,
         changeOrigin: false,
       },
     },

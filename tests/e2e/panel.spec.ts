@@ -20,9 +20,11 @@ test("toggles floating window and sidebar modes", async ({ page }) => {
   if (!sidebarBox) throw new Error("sidebar missing");
   const viewport = page.viewportSize();
   if (!viewport) throw new Error("viewport missing");
-  expect(Math.round(sidebarBox.y)).toBe(48);
+  const headerBox = await page.locator("header").boundingBox();
+  const headerHeight = Math.round(headerBox?.height ?? 52);
+  expect(Math.round(sidebarBox.y)).toBe(headerHeight);
   expect(Math.round(sidebarBox.x + sidebarBox.width)).toBe(viewport.width);
-  expect(Math.round(sidebarBox.height)).toBe(viewport.height - 48);
+  expect(Math.round(sidebarBox.height)).toBe(viewport.height - headerHeight);
 
   const reader = await page.locator("main").boundingBox();
   expect(reader!.width).toBeLessThan(viewport.width - 300);

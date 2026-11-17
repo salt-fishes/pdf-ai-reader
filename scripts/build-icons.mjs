@@ -10,6 +10,8 @@ const sizes = [16, 24, 32, 48, 64, 128, 256];
 
 const png = await sharp(svg, { density: 384 }).resize(512, 512).png().toBuffer();
 writeFileSync("build/icon.png", png);
+// Vite serves public/ as-is; the About hero and the dev window icon load this.
+writeFileSync("public/icon.png", png);
 
 const buffers = await Promise.all(
   sizes.map((size) =>
@@ -33,5 +35,5 @@ writeFileSync(
 );
 
 console.log(
-  `Icons written: build/icon.png (${png.length} B), build/icon.ico (${sizes.length} sizes)`,
+  `Icons written: build/icon.png, public/icon.png (${png.length} B), build/icon.ico (${sizes.length} sizes)`,
 );

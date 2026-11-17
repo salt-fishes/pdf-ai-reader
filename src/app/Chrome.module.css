@@ -4,11 +4,19 @@
   align-items: center;
   gap: 10px;
   padding: 0 12px 0 14px;
+  /* Window controls overlay (Electron): keep every control clear of the
+     native caption buttons. In a browser the env() fallback is 100vw. */
+  padding-right: calc(12px + max(0px, 100vw - env(titlebar-area-width, 100vw)));
   background: var(--paper);
   border-bottom: 1px solid var(--line);
   position: relative;
   z-index: 40;
   user-select: none;
+  -webkit-app-region: drag;
+}
+
+.header :is(button, input, a, [role="menu"], [role="menuitem"]) {
+  -webkit-app-region: no-drag;
 }
 
 .brand {
@@ -225,12 +233,13 @@
   display: flex;
   align-items: center;
   gap: 9px;
-  height: 32px;
+  height: 36px;
   padding: 0 9px;
-  border-radius: 6px;
+  border-radius: 7px;
   color: var(--ink);
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   text-align: left;
+  transition: background var(--motion-fast) var(--ease-standard);
 }
 
 .menuItem:hover {
@@ -245,6 +254,14 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.menuRecentPages {
+  margin-left: auto;
+  flex: none;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
 }
 
 .menuSep {
@@ -267,16 +284,25 @@
 }
 
 .railButton {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
   display: grid;
   place-items: center;
   color: var(--muted);
   position: relative;
   transition:
     background var(--motion-fast) var(--ease-standard),
-    color var(--motion-fast) var(--ease-standard);
+    color var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
+}
+
+.railButton:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.railButton:disabled {
+  opacity: 0.4;
 }
 
 .railButton:hover {
@@ -287,6 +313,17 @@
 .railButton.active {
   background: var(--accent-soft);
   color: var(--accent);
+}
+
+.railButton.active::before {
+  content: "";
+  position: absolute;
+  left: -8px;
+  top: 10px;
+  bottom: 10px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--accent);
 }
 
 .railSpacer {
@@ -581,11 +618,19 @@
 }
 
 .emptySidebar {
-  padding: 24px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 28px 14px;
   color: var(--muted);
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   text-align: center;
   line-height: 1.7;
+}
+
+.emptySidebar svg {
+  color: var(--faint);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -596,8 +641,8 @@
 
 .search {
   position: fixed;
-  top: 56px;
-  right: 104px;
+  top: calc(var(--header-h) + 8px);
+  right: calc(104px + max(0px, 100vw - env(titlebar-area-width, 100vw)));
   width: 366px;
   max-width: calc(100vw - 24px);
   border-radius: 12px;
@@ -696,8 +741,8 @@
     max-width: 26vw;
   }
   .search {
-    right: 12px;
-    top: 54px;
+    right: calc(12px + max(0px, 100vw - env(titlebar-area-width, 100vw)));
+    top: calc(var(--header-h) + 6px);
   }
 }
 
@@ -709,6 +754,7 @@
   .header {
     gap: 6px;
     padding: 0 8px;
+    padding-right: calc(8px + max(0px, 100vw - env(titlebar-area-width, 100vw)));
   }
   .sidebar {
     position: absolute;

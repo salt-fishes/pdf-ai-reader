@@ -199,7 +199,7 @@ export async function resetOcrSource(): Promise<void> {
   await unlink(SOURCE_FILE).catch(() => undefined);
 }
 
-export function modelFileUrl(id: OcrModelId, file: OcrModelFile): string {
+export function modelFileUrl(_id: OcrModelId, file: OcrModelFile): string {
   return customSource ? `${customSource}/${file.relative}` : file.url;
 }
 

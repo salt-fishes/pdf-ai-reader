@@ -1,42 +1,8 @@
 import { gt, prerelease, valid } from "semver";
 
-export type UpdateInfo = {
-  current: string;
-  latest: string;
-  hasUpdate: boolean;
-  url: string;
-  notes?: string;
-  publishedAt?: string;
-};
+export type { PdfAssociationScope, PdfAssociationStatus, UpdateInfo } from "./desktop";
 
-export type PdfAssociationScope = "user" | "machine";
-
-export type PdfAssociationStatus = {
-  supported: boolean;
-  registered: boolean;
-  scope: PdfAssociationScope | null;
-  stale: boolean;
-  isDefault: boolean;
-  currentDefault: string | null;
-  appName: string;
-};
-
-type DesktopBridge = {
-  checkForUpdates?: () => Promise<UpdateInfo>;
-  pdfAssociation?: {
-    status: () => Promise<PdfAssociationStatus>;
-    register: (scope?: PdfAssociationScope) => Promise<PdfAssociationStatus>;
-    remove: (scope?: PdfAssociationScope) => Promise<PdfAssociationStatus>;
-    openSettings: () => Promise<PdfAssociationStatus>;
-  };
-  versions?: { electron?: string; chrome?: string };
-};
-
-declare global {
-  interface Window {
-    paperReader?: DesktopBridge;
-  }
-}
+import type { PdfAssociationScope, PdfAssociationStatus, UpdateInfo } from "./desktop";
 
 const REPO = "salt-fishes/pdf-ai-reader";
 const RELEASES_URL = `https://github.com/${REPO}/releases`;

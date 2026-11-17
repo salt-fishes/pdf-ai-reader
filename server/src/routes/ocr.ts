@@ -8,6 +8,7 @@ import {
   ocrSourceInfo,
   ocrStatus,
   recognizeImage,
+  repairOcrRuntime,
   resetOcrSource,
   saveOcrSource,
   setActiveOcrModel,
@@ -109,6 +110,13 @@ export function registerOcrRoutes(app: Hono): void {
       const message = error instanceof Error ? error.message : "无法启动模型下载";
       return jsonError(500, "ocr_install_failed", message, "检查网络或 OCR_MODELS_ROOT");
     }
+  });
+
+  app.post("/api/ocr/repair", async (c) => {
+    // The download runs in the background; Settings polls /api/ocr/status.
+    // Fire-and-forget keeps the request short and matches /api/ocr/install.
+    void repairOcrRuntime().catch(() => undefined);
+    return c.json({ ok: true }, 202);
   });
 
   app.post("/api/ocr/config", async (c) => {

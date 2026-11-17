@@ -5,7 +5,8 @@ test("recognizes a scanned page in the background and builds a selectable OCR la
   page,
   request,
 }) => {
-  const status = (await (await request.get("http://127.0.0.1:8787/api/ocr/status")).json()) as {
+  const api = `http://127.0.0.1:${process.env.PDF_AI_PROXY_PORT ?? "8787"}`;
+  const status = (await (await request.get(`${api}/api/ocr/status`)).json()) as {
     installed?: boolean;
   };
   test.skip(!status.installed, "OCR 模型未下载，跳过实际识别");
@@ -214,7 +215,7 @@ test("switching to an uninstalled OCR model asks first and cancel keeps the acti
   await settings.getByRole("button", { name: "扫描件 OCR", exact: true }).click();
   const ocr = settings.locator('[data-settings-section="ocr"]');
   await expect(ocr).toContainText("PP-OCRv6 tiny · 已安装");
-  await ocr.getByRole("button", { name: "small", exact: true }).click();
+  await ocr.getByRole("button", { name: /^small 模型/ }).click();
   await expect(ocr).toContainText("尚未下载");
   expect(installs).toBe(0);
   await ocr.getByRole("button", { name: "取消", exact: true }).click();
@@ -308,6 +309,7 @@ test("custom OCR mirror must be tested before saving and can be reset", async ({
   const settings = page.getByRole("dialog", { name: "设置" });
   await settings.getByRole("button", { name: "扫描件 OCR", exact: true }).click();
   const ocr = settings.locator('[data-settings-section="ocr"]');
+  await ocr.getByText("高级", { exact: true }).click();
   await ocr.getByRole("button", { name: "自定义镜像", exact: true }).click();
   const input = ocr.locator('input[placeholder*="mirror.example.com"]');
   await input.fill("https://mirror.example.com/ppocrv6");
@@ -376,7 +378,7 @@ test("an uninstalled OCR runtime is a single explicit component download", async
   await settings.getByRole("button", { name: "扫描件 OCR", exact: true }).click();
   const ocr = settings.locator('[data-settings-section="ocr"]');
   await expect(ocr).toContainText("组件未安装");
-  const tiny = ocr.getByRole("button", { name: "tiny", exact: true });
+  const tiny = ocr.getByRole("button", { name: /^tiny 模型/ });
   await expect(tiny).toBeDisabled();
   await ocr.getByRole("button", { name: /下载 OCR 组件/ }).click();
   await expect.poll(() => installs).toBe(1);

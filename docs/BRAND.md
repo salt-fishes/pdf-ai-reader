@@ -8,9 +8,17 @@ BrandMark 是纸间的唯一品牌几何：圆角页面轮廓 + 三条文本线 
 - `build/icon-small.svg`：去掉星芒、加粗文本线的小尺寸变体，用于 16/24/32px。
 - `public/favicon.svg`：浏览器标签页，使用小尺寸几何。
 - `build/icon.png`：512×512。
+- `public/icon.png`：由 `build/icon.png` 复制，供关于页与开发窗口图标使用。
 - `build/icon.ico`：16/24/32/48/64/128/256。
 
-运行 `npm run icons` 可重复生成 PNG、ICO 与 favicon；不要手改生成物。
+运行 `npm run icons` 可重复生成 PNG、ICO 与 favicon；`prebuild` 会自动执行。不要手改生成物。
+
+## 桌面使用
+
+- `win.icon`、NSIS 安装器/卸载器、exe 资源、快捷方式都使用 `build/icon.ico`。
+- `signExecutable: false` 只跳过签名，electron-builder 仍会用内置 resedit 写入图标与产品名。
+- 窗口图标使用 `public/icon.png`；关于页 Hero 使用 `/icon.png`。
+- 标题栏是应用自绘的 52px 栏，右侧是 Windows 原生窗口按钮；品牌标记 22px，不要在这里放第二套自绘按钮。
 
 ## 色板
 
@@ -42,7 +50,7 @@ BrandMark 是纸间的唯一品牌几何：圆角页面轮廓 + 三条文本线 
 - 24×24 viewBox，圆角页面从 `3.2, 2.4` 到 `20.8, 21.6`。
 - 图标线宽在 24 viewBox 下为 2；14px 渲染约 1.17px，16px 约 1.33px。
 - 界面图标四档：14（菜单/内联）、16（工具栏/设置导航）、18（对话框关闭）、20（空状态）。
-- 品牌标记：22（顶栏）、28（空状态）、48（关于）。
+- 品牌标记：22（顶栏）、28（空状态）、64（关于）。
 - 16px 下使用简化变体，星芒不参与，避免糊成一团。
 
 ## 使用禁区

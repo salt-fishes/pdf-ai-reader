@@ -1,7 +1,7 @@
 {
   "name": "pdf-ai-reader",
   "private": true,
-  "version": "0.7.3",
+  "version": "0.8.0",
   "type": "module",
   "description": "Local-first PDF reader with an AI reading assistant",
   "main": "electron/main.mjs",
@@ -24,6 +24,7 @@
     "dev:server:watch": "tsx watch server/src/index.ts",
     "dev:all": "concurrently -n web,api -c cyan,magenta \"npm:dev\" \"npm:dev:server\"",
     "build": "tsc -b && vite build",
+    "prebuild": "npm run icons",
     "build:server": "esbuild server/src/index.ts --bundle --platform=node --format=esm --target=node22 --outfile=server/dist/index.mjs --external:onnxruntime-node --external:ppu-paddle-ocr --banner:js=\"import { createRequire as __bundleRequire } from 'node:module'; const require = __bundleRequire(import.meta.url);\" && esbuild server/src/ocrWorker.ts --bundle --platform=node --format=esm --target=node22 --outfile=server/dist/ocr-worker.mjs --external:onnxruntime-node --external:ppu-paddle-ocr",
     "desktop:dev": "node electron/dev.mjs",
     "desktop": "npm run build && npm run build:server && electron .",
@@ -134,7 +135,7 @@
       ],
       "icon": "build/icon.ico",
       "executableName": "PaperReader",
-      "signAndEditExecutable": false
+      "signExecutable": false
     },
     "nsis": {
       "oneClick": false,
@@ -142,6 +143,11 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "shortcutName": "纸间",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "uninstallDisplayName": "纸间",
+      "deleteAppDataOnUninstall": false,
+      "runAfterFinish": true,
       "include": "installer.nsh"
     },
     "msi": {

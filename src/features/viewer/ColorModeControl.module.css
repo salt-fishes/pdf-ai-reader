@@ -248,3 +248,8 @@
     animation: none;
   }
 }
+
+.compact .scale,
+.compact .hint {
+  display: none;
+}

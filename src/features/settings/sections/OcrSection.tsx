@@ -16,6 +16,12 @@ function mb(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
+const SPEED_LABEL: Record<OcrModelInfo["speed"], string> = {
+  fast: "最快",
+  balanced: "均衡",
+  accurate: "最准",
+};
+
 export function OcrSection() {
   const status = useOcr((state) => state.status);
   const runtime = status?.runtime;
@@ -32,6 +38,7 @@ export function OcrSection() {
   const setEnabled = useOcr((state) => state.setEnabled);
   const refreshStatus = useOcr((state) => state.refreshStatus);
   const install = useOcr((state) => state.install);
+  const repair = useOcr((state) => state.repair);
   const setModel = useOcr((state) => state.setModel);
   const [pendingModel, setPendingModel] = useState<OcrModelInfo | null>(null);
   const [sourceInfo, setSourceInfo] = useState<OcrSourceInfo | null>(null);
@@ -151,138 +158,182 @@ export function OcrSection() {
     }
   };
 
-  return (
-    <section className={styles.section} data-settings-section="ocr">
-      <div className={styles.sectionTitle}>
-        <Icon name="search" size={16} />
-        扫描件 OCR
-      </div>
-      <div className={styles.rows}>
-        <div className={styles.row}>
-          <span className={styles.label}>模型</span>
-          <span className={styles.value}>{status?.model ?? "正在检查…"}</span>
-        </div>
-        <div className={styles.row}>
-          <span className={styles.label}>状态</span>
-          <span
-            className={`${styles.value} ${
-              !runtimeReady
-                ? styles.warn
-                : status?.installed
-                  ? styles.ok
-                  : status?.downloading
-                    ? styles.warn
-                    : ""
-            }`}
-          >
-            {runtimeBusy
-              ? `下载组件 ${Math.round((runtime?.progress ?? 0) * 100)}%`
-              : !runtimeReady
-                ? "组件未安装"
-                : status?.downloading
-                  ? `下载中 ${Math.round((status.progress ?? 0) * 100)}%`
-                  : status?.installed
-                    ? "已安装"
-                    : status
-                      ? "未下载"
-                      : "正在检查…"}
-          </span>
-        </div>
-        <div className={styles.row}>
-          <span className={styles.label}>OCR 文本层</span>
-          <span className={styles.value}>
-            <button
-              className={`${styles.segment} ${enabled ? styles.segmentActive : ""}`}
-              onClick={() => setEnabled(!enabled)}
-            >
-              {enabled ? "已开启" : "已关闭"}
-            </button>
-          </span>
-        </div>
-      </div>
-      <div className={styles.note}>
-        {!runtimeReady
-          ? `扫描件 OCR 需要先下载约 ${mb(runtimeSize)} 的运行组件（解压约 71MB，含 ONNX Runtime、OpenCV 与画布库），之后才能选择模型。`
-          : `当前：${(() => {
-              const active = status?.availableModels?.find(
-                (item) => item.id === status.activeModel,
-              );
-              return active
-                ? `${active.label} · ${active.installed ? "已安装" : "未下载"}`
-                : (status?.model ?? "正在检查…");
-            })()}。切换未下载的模型会先询问，不会自动开始下载。`}
-      </div>
-      <div className={styles.segmented} style={{ margin: "10px 0 2px" }}>
-        {(status?.availableModels ?? []).map((item) => (
-          <button
-            key={item.id}
-            className={`${styles.segment} ${
-              status?.activeModel === item.id ? styles.segmentActive : ""
-            }`}
-            onClick={() => void chooseModel(item.id)}
-            disabled={installing || runtimeBusy || !runtimeReady || item.downloading}
-            title={`${item.note} 约 ${mb(item.approxBytes)}`}
-          >
-            {item.label.replace("PP-OCRv6 ", "")}
-            {item.downloading ? ` ${Math.round(item.progress * 100)}%` : ""}
-          </button>
-        ))}
-      </div>
-      {pendingModel ? (
-        <div className={styles.result}>
-          {pendingModel.label} 尚未下载，约 {mb(pendingModel.approxBytes)}
-          。是否现在下载并切换？
-          <button className={styles.linkButton} onClick={() => void confirmModel()}>
-            下载并切换
-          </button>
-          <button className={styles.linkButton} onClick={() => setPendingModel(null)}>
-            取消
-          </button>
-        </div>
-      ) : null}
-      <div className={styles.note}>
-        当前页没有文字层时会在后台自动识别，不弹窗、不打断阅读。行级 OCR
-        文本可拖选、复制、高亮、引用和搜索；识别在本机代理的 worker 线程完成，图片不上传云端。
-      </div>
-      <div className={styles.actions}>
-        {!runtimeReady ? (
-          <button
-            className={`${styles.button} ${styles.primary}`}
-            onClick={() => {
-              // The store exposes the failure through `error`; do not let a
-              // rejected install become an unhandled rejection.
-              void install(status?.activeModel).catch(() => undefined);
-            }}
-            disabled={runtimeBusy || installing || runtime?.downloadable === false}
-          >
-            {runtimeBusy || installing
-              ? `正在下载组件 ${Math.round((runtime?.progress ?? 0) * 100)}%`
-              : `下载 OCR 组件（${mb(runtimeSize)}）`}
-          </button>
-        ) : !status?.installed ? (
-          <button
-            className={`${styles.button} ${styles.primary}`}
-            onClick={() => {
-              void install(status?.activeModel).catch(() => undefined);
-            }}
-            disabled={Boolean(status?.downloading) || installing}
-          >
-            {status?.downloading || installing ? "正在下载…" : "下载当前模型"}
-          </button>
-        ) : (
-          <button className={styles.button} onClick={() => void refreshStatus()}>
-            重新检查
-          </button>
-        )}
-      </div>
-      {runtime?.downloadable === false && !runtimeReady ? (
-        <div className={styles.note}>
-          此构建没有配置 OCR 组件下载源，请重新安装完整发布包或设置 OCR_PACK_URL。
-        </div>
-      ) : null}
-      {error ? <div className={styles.result}>{error}</div> : null}
+  const active = status?.availableModels?.find((item) => item.id === status.activeModel);
+  const statusTone = !runtimeReady
+    ? "error"
+    : status?.downloading || runtimeDownloading
+      ? "warn"
+      : status?.installed
+        ? "ok"
+        : "warn";
+  const statusLabel = runtimeBusy
+    ? `下载组件 ${Math.round((runtime?.progress ?? 0) * 100)}%`
+    : !runtimeReady
+      ? "组件未安装"
+      : status?.downloading
+        ? `下载中 ${Math.round((status.progress ?? 0) * 100)}%`
+        : status?.installed
+          ? "已就绪"
+          : status
+            ? "模型未下载"
+            : "正在检查…";
 
-      <div className={styles.rows} style={{ marginTop: 14 }}>
+  return (
+    <div className={styles.page} data-settings-section="ocr">
+      <header className={styles.pageHeader}>
+        <div>
+          <h2 className={styles.pageTitle}>扫描件 OCR</h2>
+          <p className={styles.pageDesc}>首次使用需下载识别组件，之后可离线使用。</p>
+        </div>
+        <span
+          className={`${styles.statusPill} ${
+            statusTone === "ok"
+              ? styles.pillOk
+              : statusTone === "warn"
+                ? styles.pillWarn
+                : styles.pillError
+          }`}
+        >
+          <i className={styles.pillDot} aria-hidden="true" />
+          {statusLabel}
+        </span>
+      </header>
+
+      {runtimeBusy || (status?.downloading && status.phase === "runtime") ? (
+        <div className={styles.group}>
+          <div className={styles.progressHead}>
+            <span>正在下载识别组件</span>
+            <span>{Math.round((runtime?.progress ?? 0) * 100)}%</span>
+          </div>
+          <div className={styles.progressTrack}>
+            <i
+              className={styles.progressFill}
+              style={{ width: `${Math.round((runtime?.progress ?? 0) * 100)}%` }}
+            />
+          </div>
+        </div>
+      ) : null}
+
+      <div className={styles.group}>
+        <div className={styles.groupTitle}>
+          <Icon name="search" size={16} />
+          识别设置
+        </div>
+        <div className={styles.row}>
+          <span className={styles.label}>当前模型</span>
+          <span className={styles.value}>
+            {active
+              ? `${active.label} · ${active.installed ? "已安装" : "未下载"}`
+              : (status?.model ?? "正在检查…")}
+          </span>
+        </div>
+        <div className={styles.row}>
+          <span className={styles.label}>自动识别没有文字层的页面</span>
+          <button
+            className={`${styles.switch} ${enabled ? styles.switchOn : ""}`}
+            role="switch"
+            aria-checked={enabled}
+            aria-label="自动识别没有文字层的页面"
+            onClick={() => setEnabled(!enabled)}
+          >
+            <i />
+          </button>
+        </div>
+
+        <div className={styles.modelGrid}>
+          {(status?.availableModels ?? []).map((item) => {
+            const short = item.label.replace("PP-OCRv6 ", "");
+            return (
+              <button
+                key={item.id}
+                className={`${styles.modelCard} ${
+                  status?.activeModel === item.id ? styles.modelCardActive : ""
+                }`}
+                onClick={() => void chooseModel(item.id)}
+                disabled={installing || runtimeBusy || !runtimeReady || item.downloading}
+                aria-pressed={status?.activeModel === item.id}
+                aria-label={`${short} 模型，${SPEED_LABEL[item.speed]}，约 ${mb(item.approxBytes)}，${
+                  item.installed ? "已安装" : "尚未下载"
+                }`}
+              >
+                <span className={styles.modelName}>{short}</span>
+                <span className={styles.modelMeta}>
+                  {SPEED_LABEL[item.speed]} · {mb(item.approxBytes)}
+                </span>
+                <span className={styles.modelState}>
+                  {item.downloading
+                    ? `下载中 ${Math.round(item.progress * 100)}%`
+                    : item.installed
+                      ? "已安装"
+                      : "尚未下载"}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {pendingModel ? (
+          <div className={styles.confirmBox}>
+            <span>
+              {pendingModel.label} 尚未下载，约 {mb(pendingModel.approxBytes)}。是否现在下载并切换？
+            </span>
+            <button className={styles.linkButton} onClick={() => void confirmModel()}>
+              下载并切换
+            </button>
+            <button className={styles.linkButton} onClick={() => setPendingModel(null)}>
+              取消
+            </button>
+          </div>
+        ) : null}
+
+        <div className={styles.actions}>
+          {!runtimeReady ? (
+            <button
+              className={`${styles.button} ${styles.primary}`}
+              onClick={() => {
+                void install(status?.activeModel).catch(() => undefined);
+              }}
+              disabled={runtimeBusy || installing || runtime?.downloadable === false}
+            >
+              {runtimeBusy || installing
+                ? `正在下载组件 ${Math.round((runtime?.progress ?? 0) * 100)}%`
+                : `下载 OCR 组件（${mb(runtimeSize)}）`}
+            </button>
+          ) : !status?.installed ? (
+            <button
+              className={`${styles.button} ${styles.primary}`}
+              onClick={() => {
+                void install(status?.activeModel).catch(() => undefined);
+              }}
+              disabled={Boolean(status?.downloading) || installing}
+            >
+              {status?.downloading || installing ? "正在下载…" : "下载当前模型"}
+            </button>
+          ) : (
+            <button className={styles.button} onClick={() => void refreshStatus()}>
+              重新检查
+            </button>
+          )}
+        </div>
+
+        {runtime?.downloadable === false && !runtimeReady ? (
+          <div className={`${styles.inlineNotice} ${styles.noticeError}`}>
+            此构建没有配置 OCR 组件下载源，请重新安装完整发布包。
+          </div>
+        ) : null}
+        {error ? (
+          <div className={`${styles.inlineNotice} ${styles.noticeError}`}>
+            <Icon name="error" size={15} />
+            {error}
+          </div>
+        ) : null}
+      </div>
+
+      <details className={`${styles.group} ${styles.groupDetails}`}>
+        <summary className={styles.groupSummary}>
+          <span>高级</span>
+          <span className={styles.groupHint}>下载源与组件修复</span>
+        </summary>
         <div className={styles.row}>
           <span className={styles.label}>下载源</span>
           <span className={styles.segmented}>
@@ -300,67 +351,83 @@ export function OcrSection() {
             </button>
           </span>
         </div>
-      </div>
-      {sourceMode === "custom" ? (
-        <div className={styles.field} style={{ marginTop: 8 }}>
-          <span className={styles.fieldLabel}>镜像根地址（保持官方目录结构）</span>
-          <input
-            className={styles.input}
-            value={sourceDraft}
-            onChange={(event) => {
-              setSourceDraft(event.target.value);
-              setSourceVerified(false);
-            }}
-            placeholder="https://mirror.example.com/ppocrv6"
-            spellCheck={false}
-          />
-          <div className={styles.actions}>
-            <button
-              className={styles.button}
-              onClick={() => void testSource()}
-              disabled={sourceBusy}
-            >
-              {sourceBusy ? "处理中…" : "测试连接"}
-            </button>
-            <button
-              className={`${styles.button} ${styles.primary}`}
-              onClick={() => void saveSource()}
-              disabled={sourceBusy || !sourceVerified}
-            >
-              保存
-            </button>
-            <button
-              className={styles.button}
-              onClick={() => void restoreDefaultSource()}
-              disabled={sourceBusy}
-            >
-              恢复默认
-            </button>
+        {sourceMode === "custom" ? (
+          <div className={styles.field} style={{ marginTop: 10 }}>
+            <span className={styles.fieldLabel}>镜像根地址（保持官方目录结构）</span>
+            <input
+              className={styles.input}
+              value={sourceDraft}
+              onChange={(event) => {
+                setSourceDraft(event.target.value);
+                setSourceVerified(false);
+              }}
+              placeholder="https://mirror.example.com/ppocrv6"
+              spellCheck={false}
+            />
+            <div className={styles.actions}>
+              <button
+                className={styles.button}
+                onClick={() => void testSource()}
+                disabled={sourceBusy}
+              >
+                {sourceBusy ? "处理中…" : "测试连接"}
+              </button>
+              <button
+                className={`${styles.button} ${styles.primary}`}
+                onClick={() => void saveSource()}
+                disabled={sourceBusy || !sourceVerified}
+              >
+                保存
+              </button>
+              <button
+                className={styles.button}
+                onClick={() => void restoreDefaultSource()}
+                disabled={sourceBusy}
+              >
+                恢复默认
+              </button>
+            </div>
+            {sourceInfo?.customBaseUrl ? (
+              <details className={styles.thirdParty}>
+                <summary>已保存镜像的文件 URL</summary>
+                <ul>
+                  {(
+                    sourceInfo.models.find((item) => item.id === (status?.activeModel ?? "v6-tiny"))
+                      ?.files ?? []
+                  ).map((file) => (
+                    <li key={file.name}>
+                      <code>{file.url}</code>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            ) : null}
           </div>
-          {sourceInfo?.customBaseUrl ? (
-            <details className={styles.thirdParty}>
-              <summary>已保存镜像的文件 URL</summary>
-              <ul>
-                {(
-                  sourceInfo.models.find((item) => item.id === (status?.activeModel ?? "v6-tiny"))
-                    ?.files ?? []
-                ).map((file) => (
-                  <li key={file.name}>
-                    <code>{file.url}</code>
-                  </li>
-                ))}
-              </ul>
-            </details>
-          ) : null}
+        ) : (
+          <div className={styles.fieldHint}>使用官方下载源。</div>
+        )}
+        {sourceMessage ? (
+          <div
+            className={`${styles.inlineNotice} ${
+              sourceError ? styles.noticeError : styles.noticeOk
+            }`}
+          >
+            {sourceMessage}
+          </div>
+        ) : null}
+        <div className={styles.actions}>
+          <button
+            className={styles.button}
+            onClick={() => void repair().catch(() => undefined)}
+            disabled={runtimeBusy || installing}
+          >
+            修复组件
+          </button>
+          <span className={styles.fieldHint}>
+            仅在组件损坏或加载失败时使用；会重新下载，不会删除模型。
+          </span>
         </div>
-      ) : (
-        <div className={styles.note}>使用官方 GitHub Releases / HuggingFace 下载源。</div>
-      )}
-      {sourceMessage ? (
-        <div className={styles.result} data-source-error={sourceError || undefined}>
-          {sourceMessage}
-        </div>
-      ) : null}
-    </section>
+      </details>
+    </div>
   );
 }

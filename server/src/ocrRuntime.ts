@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { createReadStream, createWriteStream, existsSync } from "node:fs";
+import { createReadStream, createWriteStream, existsSync, readdirSync, statSync } from "node:fs";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
@@ -25,6 +25,15 @@ import AdmZip from "adm-zip";
 const RELEASE_ROOT = "https://github.com/salt-fishes/pdf-ai-reader/releases/download";
 const PACK_VERSION = (process.env.OCR_PACK_VERSION ?? "").trim().replace(/^v/, "");
 
+/**
+ * Format of the unpacked runtime tree, independent of the app version.
+ *
+ * The runtime only has to be replaced when its directory layout or native
+ * dependency set changes. Tying this to the app version made every upgrade
+ * invalidate a perfectly good ~70MB runtime and download it again.
+ */
+export const OCR_RUNTIME_FORMAT = 1;
+
 export const OCR_RUNTIME_APPROX_BYTES = 27_000_000;
 const MAX_PACK_BYTES = 200 * 1024 * 1024;
 const RUNTIME_MARKER = "runtime.json";
@@ -32,7 +41,8 @@ const RUNTIME_MARKER = "runtime.json";
 const preferredRoot = process.env.OCR_RUNTIME_DIR?.trim()
   ? path.resolve(process.env.OCR_RUNTIME_DIR)
   : null;
-const fallbackRoot = path.join(tmpdir(), "paper-reader-ocr", PACK_VERSION || "dev");
+const FALLBACK_PARENT = path.join(tmpdir(), "paper-reader-ocr");
+const fallbackRoot = path.join(FALLBACK_PARENT, `runtime-v${OCR_RUNTIME_FORMAT}`);
 
 function assetName(): string {
   return PACK_VERSION ? `paper-reader-ocr-v${PACK_VERSION}-win-x64.zip` : "";
@@ -89,23 +99,78 @@ export async function sha256File(file: string): Promise<string> {
   return hash.digest("hex");
 }
 
+/**
+ * Accept the current marker format and the legacy 0.7.x marker that only had
+ * a `version` field. A future incompatible runtime bumps OCR_RUNTIME_FORMAT;
+ * anything newer than this build is rejected rather than loaded blindly.
+ */
+export function runtimeMarkerAcceptable(marker: unknown): boolean {
+  if (!marker || typeof marker !== "object") return false;
+  const record = marker as { format?: unknown; version?: unknown };
+  if (typeof record.format === "number") return record.format === OCR_RUNTIME_FORMAT;
+  return typeof record.version === "string" && record.version.trim().length > 0;
+}
+
+const REQUIRED_RUNTIME_PACKAGES = [
+  ["ppu-paddle-ocr"],
+  ["onnxruntime-node"],
+  ["@napi-rs", "canvas"],
+  ["@techstark", "opencv-js"],
+] as const;
+
+/** Lightweight integrity check before loading native modules from a pack. */
+export function runtimeRequiredFilesPresent(root: string): boolean {
+  return REQUIRED_RUNTIME_PACKAGES.every((parts) =>
+    existsSync(path.join(root, "node_modules", ...parts, "package.json")),
+  );
+}
+
 async function rootIsReady(root: string): Promise<boolean> {
   try {
-    const marker = JSON.parse(await readFile(path.join(root, RUNTIME_MARKER), "utf8")) as {
-      version?: unknown;
-    };
-    // A new app version may expect newer native modules. Keep the marker
-    // strict so a stale pack is replaced instead of loaded blindly.
-    if (PACK_VERSION && marker.version !== PACK_VERSION) return false;
-    return existsSync(path.join(root, "node_modules", "ppu-paddle-ocr", "package.json"));
+    const marker = JSON.parse(await readFile(path.join(root, RUNTIME_MARKER), "utf8")) as unknown;
+    if (!runtimeMarkerAcceptable(marker)) return false;
+    return runtimeRequiredFilesPresent(root);
   } catch {
     return false;
   }
 }
 
+/**
+ * Older builds put the temp fallback under the app version. Keep accepting
+ * those directories so users who were already forced out of the preferred
+ * folder do not re-download after upgrading.
+ */
+function legacyFallbackRoots(): string[] {
+  let entries;
+  try {
+    entries = readdirSync(FALLBACK_PARENT, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  const current = path.basename(fallbackRoot);
+  return entries
+    .filter(
+      (entry) => entry.isDirectory() && entry.name !== current && /^\d+\.\d+\.\d+/.test(entry.name),
+    )
+    .map((entry) => {
+      const full = path.join(FALLBACK_PARENT, entry.name);
+      let mtime = 0;
+      try {
+        mtime = statSync(full).mtimeMs;
+      } catch {
+        // Race with Windows temp cleanup; keep it last.
+      }
+      return { full, mtime };
+    })
+    .sort((a, b) => b.mtime - a.mtime)
+    .slice(0, 4)
+    .map((entry) => entry.full);
+}
+
 function runtimeCandidates(): string[] {
   if (!preferredRoot) return [];
-  return preferredRoot === fallbackRoot ? [preferredRoot] : [preferredRoot, fallbackRoot];
+  const roots = [preferredRoot, fallbackRoot, ...legacyFallbackRoots()];
+  return [...new Set(roots)];
 }
 
 /** The installed runtime root, or null when a source checkout uses node_modules. */
@@ -266,15 +331,26 @@ async function installInto(archive: string, root: string): Promise<void> {
   }
   await writeFile(
     path.join(staging, RUNTIME_MARKER),
-    `${JSON.stringify({ version: PACK_VERSION, installedAt: new Date().toISOString() }, null, 2)}\n`,
+    `${JSON.stringify(
+      {
+        format: OCR_RUNTIME_FORMAT,
+        packVersion: PACK_VERSION,
+        installedAt: new Date().toISOString(),
+        // Diagnostics only; they never invalidate an otherwise compatible pack.
+        electron: process.versions.electron ?? null,
+        node: process.versions.node,
+      },
+      null,
+      2,
+    )}\n`,
     "utf8",
   );
   await rm(root, { recursive: true, force: true }).catch(() => undefined);
   await rename(staging, root);
 }
 
-async function runInstall(): Promise<void> {
-  if (await isOcrRuntimeInstalled()) return;
+async function runInstall(force: boolean): Promise<void> {
+  if (!force && (await isOcrRuntimeInstalled())) return;
   if (!preferredRoot) {
     throw new Error("当前运行方式没有配置 OCR 组件目录");
   }
@@ -298,7 +374,7 @@ async function runInstall(): Promise<void> {
 
     let lastError: unknown = null;
     for (const root of runtimeCandidates()) {
-      if (await rootIsReady(root)) return;
+      if (!force && (await rootIsReady(root))) return;
       try {
         await installInto(archive, root);
         state.downloaded = state.total;
@@ -325,10 +401,13 @@ async function runInstall(): Promise<void> {
 
 let installing: Promise<void> | null = null;
 
-/** Download, verify and unpack the OCR runtime once. Concurrent calls share one job. */
-export function installOcrRuntime(): Promise<void> {
+/**
+ * Download, verify and unpack the OCR runtime once. Concurrent calls share one
+ * job. `force` is reserved for the explicit “repair components” action.
+ */
+export function installOcrRuntime(options: { force?: boolean } = {}): Promise<void> {
   if (installing) return installing;
-  installing = runInstall().finally(() => {
+  installing = runInstall(Boolean(options.force)).finally(() => {
     installing = null;
   });
   return installing;

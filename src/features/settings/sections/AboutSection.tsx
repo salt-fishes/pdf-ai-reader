@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Icon } from "../../../components/icons/Icon";
-import { BrandMark } from "../../../components/icons/SparkleIcon";
 import { copyText } from "../../../lib/clipboard";
+import { isDesktop, openDataFolder } from "../../../lib/desktop";
+import { collectDiagnostics, type DiagnosticsReport } from "../../../lib/diagnostics";
 import {
   checkForUpdates,
-  desktopVersions,
   isPrerelease,
   openPdfDefaultApps,
   pdfAssociationStatus,
@@ -21,23 +21,19 @@ import styles from "../../../components/Modal.module.css";
 
 export function AboutSection() {
   const config = useAssistant((state) => state.config);
+  const configError = useAssistant((state) => state.configError);
   const model = useAssistant((state) => state.model);
   const ocrStatus = useOcr((state) => state.status);
+  const ocrError = useOcr((state) => state.error);
   const [checkingUpdate, setCheckingUpdate] = useState(false);
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [updateError, setUpdateError] = useState("");
-  const [diagnosticsCopied, setDiagnosticsCopied] = useState(false);
-  const [pdfjsVersion, setPdfjsVersion] = useState("—");
   const [association, setAssociation] = useState<PdfAssociationStatus | null>(null);
   const [associationBusy, setAssociationBusy] = useState(false);
   const [associationMessage, setAssociationMessage] = useState("");
-  const versions = desktopVersions();
-
-  useEffect(() => {
-    void import("pdfjs-dist")
-      .then((module) => setPdfjsVersion(module.version))
-      .catch(() => undefined);
-  }, []);
+  const [diagnostics, setDiagnostics] = useState<DiagnosticsReport | null>(null);
+  const [diagnosticsBusy, setDiagnosticsBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -53,19 +49,40 @@ export function AboutSection() {
             return;
           }
         } catch {
-          // Retry below; a browser build has no bridge and will settle as unsupported.
+          // Retry below; a browser build has no bridge and settles as unsupported.
         }
         await new Promise((resolve) => setTimeout(resolve, 150));
       }
-      if (alive) {
-        setAssociation(await pdfAssociationStatus().catch(() => null));
-      }
+      if (alive) setAssociation(await pdfAssociationStatus().catch(() => null));
     };
     void load();
     return () => {
       alive = false;
     };
   }, []);
+
+  const runDiagnostics = useCallback(async () => {
+    setDiagnosticsBusy(true);
+    try {
+      setDiagnostics(
+        await collectDiagnostics({
+          config,
+          model,
+          configError,
+          ocrStatus,
+          ocrError,
+          association,
+          expectedVersion: __APP_VERSION__,
+        }),
+      );
+    } finally {
+      setDiagnosticsBusy(false);
+    }
+  }, [association, config, configError, model, ocrError, ocrStatus]);
+
+  useEffect(() => {
+    if (association !== null) void runDiagnostics();
+  }, [association, runDiagnostics]);
 
   const associationError = (error: unknown) =>
     (error instanceof Error ? error.message : "操作失败，请重试。").replace(
@@ -132,66 +149,96 @@ export function AboutSection() {
   };
 
   const copyDiagnostics = async () => {
-    let providerHost = "—";
-    try {
-      providerHost = config?.baseUrl ? new URL(config.baseUrl).host : "—";
-    } catch {
-      providerHost = config?.baseUrl || "—";
-    }
-    const lines = [
-      `纸间 ${__APP_VERSION__} (${__GIT_SHA__}, ${__BUILD_DATE__})`,
-      `平台 ${navigator.platform || "—"}`,
-      `Electron ${versions.electron ?? "—"} · Chromium ${versions.chrome ?? "—"}`,
-      `PDF.js ${pdfjsVersion}`,
-      `Provider ${providerHost}`,
-      `模型 ${model || "—"}`,
-      `OCR ${ocrStatus?.activeModel ?? "—"}`,
-    ];
-    const ok = await copyText(lines.join("\n"));
-    setDiagnosticsCopied(ok);
+    if (!diagnostics) return;
+    const ok = await copyText(diagnostics.copyText);
+    setCopied(ok);
+    if (ok) window.setTimeout(() => setCopied(false), 2000);
   };
 
+  const associationState = !association
+    ? "正在检查…"
+    : association.isDefault
+      ? `纸间${association.scope === "machine" ? "（系统级）" : ""}`
+      : association.stale
+        ? "路径已变化，需要重新注册"
+        : association.registered
+          ? `已注册（${association.scope === "machine" ? "系统级" : "当前用户"}），尚未设为默认`
+          : "尚未注册";
+
   return (
-    <section className={styles.section} data-settings-section="about">
-      <div className={styles.sectionTitle}>
-        <Icon name="info" size={16} />
-        关于
-      </div>
-      <div className={styles.aboutGrid}>
-        <div className={styles.aboutBrand}>
-          <span className={styles.aboutMark}>
-            <BrandMark size={48} />
-          </span>
-          <div>
-            <strong>纸间</strong>
-            <p>本地优先的 PDF 阅读器与 AI 阅读助手。</p>
+    <div className={styles.page} data-settings-section="about">
+      <header className={styles.hero}>
+        <img className={styles.heroIcon} src="/icon.png" alt="" width={64} height={64} />
+        <div className={styles.heroText}>
+          <div className={styles.heroName}>
+            纸间
+            <span className={styles.versionBadge}>v{__APP_VERSION__}</span>
+            {isPrerelease(__APP_VERSION__) ? (
+              <span className={`${styles.statusPill} ${styles.pillWarn}`}>预览版</span>
+            ) : null}
           </div>
+          <p className={styles.heroDesc}>本地优先的 PDF 阅读器与 AI 阅读助手。</p>
         </div>
-        <div className={styles.aboutMeta}>
-          <span>
-            版本 {__APP_VERSION__} · {__GIT_SHA__} · {__BUILD_DATE__}
-          </span>
-          <span>
-            Electron {versions.electron ?? "—"} · Chromium {versions.chrome ?? "—"}
-          </span>
-          <span>pdf.js {pdfjsVersion}</span>
+      </header>
+
+      <div className={styles.group}>
+        <div className={styles.groupTitle}>
+          <Icon name="page" size={16} />
+          更新
         </div>
+        <div className={styles.row}>
+          <span className={styles.label}>当前版本</span>
+          <span className={styles.value}>
+            {__APP_VERSION__} · {__GIT_SHA__} · {__BUILD_DATE__}
+          </span>
+        </div>
+        <div className={styles.actions}>
+          <button
+            className={`${styles.button} ${styles.primary}`}
+            onClick={() => void checkUpdate()}
+            disabled={checkingUpdate}
+          >
+            {checkingUpdate ? "检查中…" : "检查更新"}
+          </button>
+        </div>
+        {updateInfo ? (
+          <div className={styles.inlineNotice}>
+            <Icon name={updateInfo.hasUpdate ? "info" : "check"} size={15} />
+            {updateInfo.hasUpdate
+              ? `发现新版本 ${updateInfo.latest}`
+              : `已是最新版本 ${updateInfo.current}`}
+            {updateInfo.publishedAt ? ` · ${updateInfo.publishedAt.slice(0, 10)}` : ""}
+            {updateInfo.hasUpdate ? (
+              <a
+                className={styles.linkButton}
+                href={updateInfo.url || RELEASES_PAGE}
+                target="_blank"
+                rel="noreferrer"
+              >
+                打开发布页
+              </a>
+            ) : null}
+          </div>
+        ) : null}
+        {updateError ? (
+          <div className={`${styles.inlineNotice} ${styles.noticeError}`}>
+            <Icon name="error" size={15} />
+            {updateError}
+          </div>
+        ) : null}
       </div>
+
       {association?.supported ? (
-        <>
-          <div className={styles.rows} style={{ marginTop: 14 }}>
-            <div className={styles.row}>
-              <span className={styles.label}>默认 PDF 应用</span>
-              <span className={`${styles.value} ${association.isDefault ? styles.ok : ""}`}>
-                {association.isDefault
-                  ? `纸间${association.scope === "machine" ? "（系统级）" : ""}`
-                  : association.stale
-                    ? "已注册，路径已变化"
-                    : association.registered
-                      ? `已注册（${association.scope === "machine" ? "系统级" : "当前用户"}），未设为默认`
-                      : "未注册"}
-              </span>
-            </div>
+        <div className={styles.group}>
+          <div className={styles.groupTitle}>
+            <Icon name="page" size={16} />
+            默认 PDF 应用
+          </div>
+          <div className={styles.row}>
+            <span className={styles.label}>状态</span>
+            <span className={`${styles.value} ${association.isDefault ? styles.ok : ""}`}>
+              {associationState}
+            </span>
           </div>
           <div className={styles.actions}>
             {association.registered && !association.stale ? (
@@ -209,122 +256,157 @@ export function AboutSection() {
                 onClick={() => void registerAssociation("machine")}
                 disabled={associationBusy}
               >
-                {associationBusy
-                  ? "处理中…"
-                  : association.stale
-                    ? "重新注册到系统（需要管理员）"
-                    : "注册到系统（需要管理员）"}
+                {associationBusy ? "处理中…" : association.stale ? "重新注册到系统" : "注册到系统"}
               </button>
             ) : null}
-            {!association.registered || association.stale ? (
-              <button
-                className={styles.button}
-                onClick={() => void registerAssociation("user")}
-                disabled={associationBusy}
-              >
-                仅当前用户
-              </button>
-            ) : null}
-            {association.registered ? (
-              <button
-                className={styles.button}
-                onClick={() => void removeAssociation()}
-                disabled={associationBusy}
-              >
-                移除关联
-              </button>
-            ) : null}
+            <details className={styles.moreActions}>
+              <summary>更多</summary>
+              {!association.registered || association.stale ? (
+                <button
+                  className={styles.button}
+                  onClick={() => void registerAssociation("user")}
+                  disabled={associationBusy}
+                >
+                  仅当前用户
+                </button>
+              ) : null}
+              {association.registered ? (
+                <button
+                  className={styles.button}
+                  onClick={() => void removeAssociation()}
+                  disabled={associationBusy}
+                >
+                  移除关联
+                </button>
+              ) : null}
+            </details>
           </div>
-          <div className={styles.note}>
-            Windows 11 默认应用列表只显示系统级注册。按用户安装或便携版请点“注册到系统”， 会弹出一次
-            UAC；仅当前用户注册只保证出现在“打开方式”。这里不会自动修改默认应用， 仍需在 Windows
-            设置中确认。
+          <div className={styles.privacyFoot}>
+            <Icon name="info" size={14} />
+            Windows 需要你在系统设置中确认默认应用。
           </div>
-          {associationMessage ? <div className={styles.result}>{associationMessage}</div> : null}
-        </>
-      ) : null}
-      <div className={styles.actions}>
-        <button
-          className={`${styles.button} ${styles.primary}`}
-          onClick={() => void checkUpdate()}
-          disabled={checkingUpdate}
-        >
-          {checkingUpdate ? "检查中…" : "检查更新"}
-        </button>
-        <button className={styles.button} onClick={() => void copyDiagnostics()}>
-          {diagnosticsCopied ? "已复制" : "复制诊断信息"}
-        </button>
-        <a className={styles.button} href={REPOSITORY_URL} target="_blank" rel="noreferrer">
-          GitHub
-        </a>
-        <a
-          className={styles.button}
-          href={`${REPOSITORY_URL}/issues`}
-          target="_blank"
-          rel="noreferrer"
-        >
-          问题反馈
-        </a>
-        <a
-          className={styles.button}
-          href={`${REPOSITORY_URL}/blob/main/SECURITY.md`}
-          target="_blank"
-          rel="noreferrer"
-        >
-          安全策略
-        </a>
-        <a
-          className={styles.button}
-          href={`${REPOSITORY_URL}/blob/main/LICENSE`}
-          target="_blank"
-          rel="noreferrer"
-        >
-          许可证
-        </a>
-      </div>
-      {isPrerelease(__APP_VERSION__) ? (
-        <div className={styles.note}>你正在使用预发布版本，正式版发布后可直接覆盖安装。</div>
-      ) : null}
-      {updateInfo ? (
-        <div className={styles.result}>
-          {updateInfo.hasUpdate
-            ? `发现新版本 ${updateInfo.latest}`
-            : `已是最新版本 ${updateInfo.current}`}
-          {updateInfo.publishedAt ? ` · ${updateInfo.publishedAt.slice(0, 10)}` : ""}
-          {updateInfo.hasUpdate ? (
-            <a
-              className={styles.linkButton}
-              href={updateInfo.url || RELEASES_PAGE}
-              target="_blank"
-              rel="noreferrer"
-            >
-              打开发布页
-            </a>
+          {associationMessage ? (
+            <div className={styles.inlineNotice}>{associationMessage}</div>
           ) : null}
         </div>
       ) : null}
-      {updateError ? <div className={styles.result}>{updateError}</div> : null}
-      <div className={styles.note}>
-        更新只在你点击时检查 GitHub Releases，不后台轮询、不自动下载或安装。主 PDF
-        不上传；模型不会执行文档中的指令。第三方服务由其各自条款约束。
+
+      <div className={styles.group}>
+        <div className={styles.groupTitle}>
+          <Icon name="help" size={16} />
+          运行状态
+        </div>
+        <div className={styles.diagRows} aria-live="polite">
+          {(diagnostics?.rows ?? []).map((row) => (
+            <div className={styles.diagRow} key={row.id}>
+              <i
+                className={`${styles.diagDot} ${
+                  row.tone === "ok"
+                    ? styles.diagOk
+                    : row.tone === "warn"
+                      ? styles.diagWarn
+                      : styles.diagError
+                }`}
+                aria-hidden="true"
+              />
+              <span className={styles.diagLabel}>{row.label}</span>
+              <span className={styles.diagDetail}>{row.detail}</span>
+            </div>
+          ))}
+          {!diagnostics ? (
+            <div className={styles.diagRow}>
+              <i className={`${styles.diagDot} ${styles.diagWarn}`} aria-hidden="true" />
+              <span className={styles.diagLabel}>正在检测…</span>
+              <span className={styles.diagDetail}>
+                {diagnosticsBusy ? "读取本地服务状态" : "等待检测"}
+              </span>
+            </div>
+          ) : null}
+        </div>
+        <div className={styles.actions}>
+          <button className={styles.button} onClick={() => void runDiagnostics()}>
+            重新检测
+          </button>
+          <button
+            className={styles.button}
+            onClick={() => void copyDiagnostics()}
+            disabled={!diagnostics}
+          >
+            {copied ? "已复制" : "复制运行信息"}
+          </button>
+          {isDesktop() ? (
+            <button
+              className={styles.button}
+              onClick={() => void openDataFolder().catch(() => undefined)}
+            >
+              打开数据文件夹
+            </button>
+          ) : null}
+        </div>
       </div>
-      <details className={styles.thirdParty}>
-        <summary>第三方声明</summary>
-        <div>
-          运行时：Electron（MIT）、Chromium（BSD）、pdf.js（Apache-2.0）、React（MIT）、KaTeX（MIT）。
+
+      <div className={styles.group}>
+        <div className={styles.groupTitle}>
+          <Icon name="globe" size={16} />
+          链接
         </div>
-        <div>
-          图标：Lucide（ISC）、lobe-icons（MIT）；品牌标记为自制。OCR：PP-OCRv6
-          （Apache-2.0）、ppu-paddle-ocr（MIT）、ONNX Runtime（MIT）。
+        <div className={styles.linkGrid}>
+          <a className={styles.linkRow} href={REPOSITORY_URL} target="_blank" rel="noreferrer">
+            <span>GitHub 仓库</span>
+            <Icon name="chevronRight" size={14} />
+          </a>
+          <a
+            className={styles.linkRow}
+            href={`${REPOSITORY_URL}/issues`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            <span>问题反馈</span>
+            <Icon name="chevronRight" size={14} />
+          </a>
+          <a
+            className={styles.linkRow}
+            href={`${REPOSITORY_URL}/blob/main/SECURITY.md`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            <span>安全策略</span>
+            <Icon name="chevronRight" size={14} />
+          </a>
+          <a
+            className={styles.linkRow}
+            href={`${REPOSITORY_URL}/blob/main/LICENSE`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            <span>许可证</span>
+            <Icon name="chevronRight" size={14} />
+          </a>
         </div>
-        <a
-          href={`${REPOSITORY_URL}/blob/main/THIRD_PARTY_NOTICES.md`}
-          target="_blank"
-          rel="noreferrer"
-        >
-          完整第三方声明 →
-        </a>
+      </div>
+
+      <details className={`${styles.group} ${styles.groupDetails}`}>
+        <summary className={styles.groupSummary}>
+          <span>第三方声明</span>
+          <span className={styles.groupHint}>运行时、图标与 OCR</span>
+        </summary>
+        <div className={styles.thirdParty}>
+          <div>
+            运行时：Electron（MIT）、Chromium（BSD）、pdf.js（Apache-2.0）、React（MIT）、KaTeX（MIT）。
+          </div>
+          <div>
+            图标：Lucide（ISC）、lobe-icons（MIT）；品牌标记为自制。OCR：PP-OCRv6
+            （Apache-2.0）、ppu-paddle-ocr（MIT）、ONNX Runtime（MIT）。
+          </div>
+          <a
+            href={`${REPOSITORY_URL}/blob/main/THIRD_PARTY_NOTICES.md`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            完整第三方声明 →
+          </a>
+        </div>
       </details>
-    </section>
+    </div>
   );
 }

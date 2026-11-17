@@ -232,6 +232,7 @@ export function Header({ onOpenSettings, onOpenShortcuts, onOpenSearch }: Props)
                 >
                   <Icon name="history" size={14} />
                   <span className={styles.menuRecentName}>{item.name}</span>
+                  <span className={styles.menuRecentPages}>{item.pages} 页</span>
                 </button>
               ))}
               <button
