@@ -2,7 +2,7 @@
 <html lang="zh-CN">
   <head>
     <meta charset="utf-8" />
-    <title>纸间 × 文疏 · 方向 v3</title>
+    <title>文疏 · 方向 v3</title>
     <style>
       :root {
         --paper: #f3f1ec;
@@ -446,9 +446,10 @@
       <div class="head">
         <div>
           <div class="kicker">BRAND SYSTEM · V3 · DISPLAY LAYER</div>
-          <h1>纸间 × 文疏</h1>
+          <h1>文疏</h1>
           <p class="sub">
-            应用图标取 C 的书脊结构，PDF 文件图标翻成白底，呼吸灯重做为「文疏」。<br />呼吸灯回到原来的星芒，但去掉底色，只留透明图标与暖光。只改显示层，不动文件关联与安装逻辑。
+            应用图标取 C 的书脊结构，PDF 文件图标翻成白底，呼吸灯回到透明星芒。<br />只改显示层，不动阅读与
+            AI 逻辑。
           </p>
         </div>
         <div class="meta">2026.11 · 定稿预览<br />16 / 24 / 32 / 128 实尺寸</div>
@@ -546,8 +547,8 @@
                   />
                 </svg>
                 <div>
-                  <div style="font-size: 16px; font-weight: 700">纸间</div>
-                  <div style="font-size: 13px; color: #6b6875; margin-top: 4px">PDF × 文疏</div>
+                  <div style="font-size: 16px; font-weight: 700">文疏</div>
+                  <div style="font-size: 13px; color: #6b6875; margin-top: 4px">PDF 阅读器</div>
                 </div>
               </div>
             </div>
@@ -691,7 +692,7 @@
                 以上出现。
               </li>
               <li>16px 只留“白页 + 珊瑚书脊 + 珊瑚标签条”，不画折角和文字。</li>
-              <li>资源管理器生效仍需独立 `pdf-file.ico`；本轮先做显示资产。</li>
+              <li>`pdf-file.ico` 随安装包放到 exe 同目录，`.pdf` 的 `DefaultIcon` 指向它。</li>
             </ul>
           </div>
         </div>
@@ -814,7 +815,7 @@
           <span class="num">04</span>
           <span class="cardName">界面里的样子</span>
           <span class="cardDesc"
-            >头栏仍是「纸间」，助手入口叫「文疏」；透明星芒落在阅读区右下角，不抢正文。</span
+            >顶栏是「文疏」，右侧是对话入口；透明星芒落在阅读区右下角，不抢正文。</span
           >
         </div>
         <div class="mock">
@@ -828,7 +829,7 @@
                 fill="#FF7A59"
               />
             </svg>
-            <span class="mockName">纸间</span>
+            <span class="mockName">文疏</span>
             <span class="mockDoc">示例文档.pdf · 32 页</span>
           </div>
           <div class="mockBody">
@@ -862,10 +863,10 @@
       </section>
 
       <div class="footer">
-        <b>纸间 × 文疏 · 方向 v3</b> · 2026-11-17 · 显示层定稿预览。应用图标取 C；PDF
+        <b>文疏 · 方向 v3</b> · 2026-11-17 · 显示层定稿预览。应用图标取 C；PDF
         文件图标白底化；呼吸灯回到透明星芒。<br />
-        生产前仍需：生成 `icon.svg` / `icon-small.svg` / `favicon.svg`，同步 `build-icons.mjs`
-        的写死 favicon；PDF 文件图标若要进资源管理器，单独做 `pdf-file.ico` 与注册表。
+        已生成 `icon.svg` / `icon-small.svg` / `favicon.svg` 与 `pdf-file.ico`；安装器把白底 PDF
+        图标放在 exe 同目录，并注册为 `.pdf` 的 `DefaultIcon`。
       </div>
     </div>
   </body>

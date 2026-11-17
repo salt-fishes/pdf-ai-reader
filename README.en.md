@@ -1,12 +1,12 @@
-# Paper Reader · PDF × AI
+# Wenshu · PDF × AI
 
-A local-first PDF reader with Wenshu, its reading assistant. The PDF itself stays on your machine; only the pages, text, screenshots and attachments you explicitly select are sent to the model through a local proxy.
+Wenshu is a local-first PDF reader that keeps reading and conversation on the same page. The PDF itself stays on your machine; only the pages, text, screenshots and attachments you explicitly select are sent to the model through a local proxy.
 
 [中文说明](README.md) · [Architecture](docs/ARCHITECTURE.md) · [Privacy](docs/PRIVACY.md) · [Release](docs/RELEASE.md)
 
 ![Reading](docs/screenshots/reading.png)
 
-## Why Paper Reader
+## Why Wenshu
 
 - **The PDF never leaves the browser.** pdf.js parses locally; the model only receives the context you select.
 - **Citations jump to the line.** Each citation carries a short quote and returns to the exact line with a brief highlight.
@@ -94,7 +94,7 @@ npm run build:server
 
 ## Docs
 
-[Documentation index](docs/README.md) · [Desktop](docs/DESKTOP.md) · [Brand](docs/BRAND.md) · [OCR mirror](docs/OCR-MIRROR.md) · [Roadmap](docs/ROADMAP.md)
+[Documentation index](docs/README.md) · [Desktop](docs/DESKTOP.md) · [Brand](docs/BRAND.md) · [Brand system v3](docs/brand/v3/brand-system.png) · [Icon directions](docs/brand/v3/brand-v3.png) · [OCR mirror](docs/OCR-MIRROR.md) · [Roadmap](docs/ROADMAP.md)
 
 ## License
 

@@ -7,6 +7,8 @@
 - [Privacy](PRIVACY.md) — 本地处理、发送内容、网络请求、删除
 - [Privacy technical](PRIVACY-TECHNICAL.md) — 数据目录、OCR 运行时复用与实现细节（维护者）
 - [Brand](BRAND.md) — 色板、对比度、图标网格与资产
+- [Brand system v3](brand/v3/brand-system.png) — 珊瑚 / 暖纸 / 夜间色板与组件验收板
+- [Icon directions v3](brand/v3/brand-v3.png) — 应用图标、PDF 文件图标与透明星芒呼吸灯
 - [OCR mirror](OCR-MIRROR.md) — 自定义 OCR 下载源目录与示例
 - [UI refresh plan](UI-REFRESH-PLAN.md) — 0.8 桌面化与界面重做计划
 - [Roadmap](ROADMAP.md) — 已完成与下一步

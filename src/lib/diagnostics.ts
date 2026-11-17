@@ -192,7 +192,7 @@ export async function collectDiagnostics(input: Input): Promise<DiagnosticsRepor
       id: "association",
       label: "默认 PDF 应用",
       detail: input.association.isDefault
-        ? "纸间是当前默认 PDF 应用。"
+        ? "文疏是当前默认 PDF 应用。"
         : input.association.stale
           ? "已注册，但程序路径已变化，请重新注册。"
           : input.association.registered
@@ -205,7 +205,7 @@ export async function collectDiagnostics(input: Input): Promise<DiagnosticsRepor
 
   const versions = window.paperReader?.versions;
   const copyText = [
-    `纸间 ${input.expectedVersion}`,
+    `文疏 ${input.expectedVersion}`,
     `构建 ${__GIT_SHA__} · ${__BUILD_DATE__}`,
     `平台 ${desktopPlatform() || navigator.platform || "—"}${isDesktop() ? "（桌面版）" : "（浏览器）"}`,
     versions?.electron ? `Electron ${versions.electron} · Chromium ${versions.chrome ?? "—"}` : "",

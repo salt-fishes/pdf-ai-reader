@@ -9,8 +9,9 @@ import {
 } from "../../electron/pdf-association.mjs";
 
 // A path with a space exercises the same quoting on every CI platform.
-const exePath = resolve("Paper Reader", "PaperReader.exe");
+const exePath = resolve("Wenshu", "PaperReader.exe");
 const capabilities = "HKLM\\Software\\PaperReader\\Capabilities";
+const legacyName = "\u7eb8\u95f4";
 
 describe("associationEntries", () => {
   it("writes capability metadata as values, not subkeys", () => {
@@ -18,7 +19,7 @@ describe("associationEntries", () => {
     expect(entries).toContainEqual({
       key: capabilities,
       name: "ApplicationName",
-      value: "纸间",
+      value: "文疏",
     });
     expect(entries).toContainEqual({
       key: capabilities,
@@ -93,7 +94,10 @@ describe("associationPowerShellScript", () => {
     );
     expect(script).toContain("oldCommon");
     expect(script).toContain("SpecialFolder]::StartMenu");
-    expect(script).toContain("'纸间.lnk'");
+    expect(script).toContain("'文疏.lnk'");
+    // Upgrades remove the previous brand's RegisteredApplications value/link.
+    expect(script).toContain(`-Name '${legacyName}'`);
+    expect(script).toContain(`'${legacyName}.lnk'`);
   });
 
   it("repairs legacy keys and writes capability values", () => {
@@ -104,7 +108,7 @@ describe("associationPowerShellScript", () => {
         `Remove-Item -Path '${providerPath}' -Recurse -Force -ErrorAction SilentlyContinue`,
       );
     }
-    expect(script).toContain("-Name 'ApplicationName' -Value '纸间'");
+    expect(script).toContain("-Name 'ApplicationName' -Value '文疏'");
     // New-Item -Force recreates a key and deletes the values written before it.
     expect(script).toContain(
       "if (-not (Test-Path -Path $key)) { New-Item -Path $key -Force | Out-Null }",
@@ -117,6 +121,6 @@ describe("associationPowerShellScript", () => {
     expect(script).toContain("Remove-Item -Path 'HKLM:\\Software\\Classes\\PaperReader.pdf'");
     expect(script).toContain("Remove-ItemProperty");
     expect(script).toContain("CommonStartMenu");
-    expect(script).toContain("'纸间.lnk'");
+    expect(script).toContain("'文疏.lnk'");
   });
 });

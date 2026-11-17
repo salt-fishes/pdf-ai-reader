@@ -5,7 +5,7 @@
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
 
-        <mxCell id="title" value="纸间 · MCP / Skills 运行时" style="text;html=1;fontSize=32;fontStyle=1;fontColor=#1D1B22;align=left;verticalAlign=middle;fontFamily=Microsoft YaHei;" vertex="1" parent="1">
+        <mxCell id="title" value="文疏 · MCP / Skills 运行时" style="text;html=1;fontSize=32;fontStyle=1;fontColor=#1D1B22;align=left;verticalAlign=middle;fontFamily=Microsoft YaHei;" vertex="1" parent="1">
           <mxGeometry x="60" y="40" width="760" height="50" as="geometry" />
         </mxCell>
         <mxCell id="subtitle" value="本地代理负责工具发现、调用循环与流式事件；模型只看到工具 schema，不直接接触 token。" style="text;html=1;fontSize=15;fontColor=#6F6A63;align=left;verticalAlign=middle;fontFamily=Microsoft YaHei;" vertex="1" parent="1">

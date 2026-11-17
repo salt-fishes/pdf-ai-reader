@@ -1,12 +1,12 @@
 {
   "name": "pdf-ai-reader",
   "private": true,
-  "version": "0.10.0",
+  "version": "0.10.1",
   "type": "module",
-  "description": "Local-first PDF reader with an AI reading assistant",
+  "description": "Wenshu, a local-first PDF reader with reading and conversation on one page",
   "main": "electron/main.mjs",
   "license": "MIT",
-  "author": "Paper Reader contributors",
+  "author": "Wenshu contributors",
   "engines": {
     "node": ">=24"
   },
@@ -109,7 +109,7 @@
   },
   "build": {
     "appId": "cn.paperreader.app",
-    "productName": "纸间",
+    "productName": "文疏",
     "artifactName": "paper-reader-v${version}-${arch}.${ext}",
     "asar": false,
     "electronLanguages": [
@@ -149,10 +149,10 @@
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "shortcutName": "纸间",
+      "shortcutName": "文疏",
       "installerIcon": "build/icon.ico",
       "uninstallerIcon": "build/icon.ico",
-      "uninstallDisplayName": "纸间",
+      "uninstallDisplayName": "文疏",
       "deleteAppDataOnUninstall": false,
       "runAfterFinish": true,
       "include": "installer.nsh"
@@ -162,7 +162,7 @@
       "perMachine": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "纸间",
+      "shortcutName": "文疏",
       "runAfterFinish": true,
       "warningsAsErrors": false,
       "additionalLightArgs": [

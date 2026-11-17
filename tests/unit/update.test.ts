@@ -49,7 +49,7 @@ describe("PDF association bridge", () => {
     stale: false,
     isDefault: false,
     currentDefault: "MSEdgePDF",
-    appName: "纸间",
+    appName: "文疏",
   };
 
   it("falls back to unsupported outside the desktop shell", async () => {

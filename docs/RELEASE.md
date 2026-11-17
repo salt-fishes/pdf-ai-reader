@@ -2,7 +2,7 @@
 
 ## 版本策略
 
-- 当前目标版本：`0.10.0`；`0.9.0` 已发布。
+- 当前目标版本：`0.10.1`；`0.10.0` 已发布。
 - SemVer：`MAJOR.MINOR.PATCH`。0.x 阶段 minor 加功能，patch 修问题。
 - `package.json` 是唯一版本源；用 `npm version X.Y.Z --no-git-tag-version` 同步 lockfile。
 - tag 格式 `vX.Y.Z`，使用 annotated tag；预发布用 `vX.Y.Z-rc.1` 并标记 pre-release。
@@ -38,20 +38,20 @@ npm run build:installers
 - 外链走系统浏览器；代理只监听 `127.0.0.1`。
 - 基础 zip <160MB，OCR 组件包 <60MB，两者合计 <185MB；NSIS/MSI 各 <160MB。
 - 无 `.env`、`server/models`、`server/data`、`node_modules` 与测试 PDF。
-- 安装包验证：安装到 `%LOCALAPPDATA%\Programs\PaperReader`，开始菜单显示“纸间”；卸载后目录与快捷方式消失。
-- 图标：安装器、卸载器、`PaperReader.exe`、桌面/开始菜单快捷方式、控制面板均显示纸间图标；`pdf-file.ico` 与 exe 同目录，注册 PDF 关联后 `.pdf` 文件显示白底文档图标，缺失时回退到 exe 图标。
+- 安装包验证：安装到 `%LOCALAPPDATA%\Programs\PaperReader`，开始菜单显示“文疏”；卸载后目录与快捷方式消失。
+- 图标：安装器、卸载器、`PaperReader.exe`、桌面/开始菜单快捷方式、控制面板均显示文疏图标；`pdf-file.ico` 与 exe 同目录，注册 PDF 关联后 `.pdf` 文件显示白底文档图标，缺失时回退到 exe 图标。
 - 标题栏：无第二层系统标题栏；拖动、双击最大化、最小化/最大化/关闭按钮正常；夜间主题按钮颜色正确。
-- 双击 PDF：安装后从“打开方式”选择纸间能直接打开；应用已运行时再次双击会复用窗口并打开新文件。
+- 双击 PDF：安装后从“打开方式”选择文疏能直接打开；应用已运行时再次双击会复用窗口并打开新文件。
 - OCR 升级：0.7.x 已安装运行时，覆盖安装 0.8.x/0.9.x 后设置仍显示已就绪，不触发下载；只有点击“修复组件”才重下。
 
 ## 发布
 
 ```bash
-npm version 0.10.0 --no-git-tag-version
-# 更新 CHANGELOG 的 [0.10.0] 段
-npm run check:version -- 0.10.0
-git add -A && git commit -m "release: v0.10.0"
-git tag -a v0.10.0 -m "纸间 v0.10.0"
+npm version 0.10.1 --no-git-tag-version
+# 更新 CHANGELOG 的 [0.10.1] 段
+npm run check:version -- 0.10.1
+git add -A && git commit -m "release: v0.10.1"
+git tag -a v0.10.1 -m "文疏 v0.10.1"
 git push origin main --tags
 ```
 

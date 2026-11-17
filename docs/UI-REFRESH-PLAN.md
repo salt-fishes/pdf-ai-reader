@@ -5,7 +5,7 @@
 
 ## 1. 背景与目标
 
-纸间已经具备完整的阅读、AI 对话、OCR 与桌面打包能力，但当前成品仍有三类明显问题：
+文疏已经具备完整的阅读、AI 对话、OCR 与桌面打包能力，但当前成品仍有三类明显问题：
 
 1. **桌面产品感不足**：安装后的 exe、快捷方式、任务栏图标没有统一；双击关联的 PDF 不会真正打开文件；窗口仍是“浏览器内容 + 系统标题栏”的叠层。
 2. **界面像开发者工具**：设置页、关于页、隐私页、AI 面板里大量出现 `IndexedDB`、`localStorage`、`server/.env`、`bundle`、Chromium 版本等实现细节；同时有大量 11–12px 的说明小字，信息层级平。
@@ -27,7 +27,7 @@
 
 初版计划已按代码审查结果修正，以下是最关键的变化：
 
-- **不调用 `app.setName("纸间")`**：`app.getPath("userData")` 依赖 `app.getName()`；顶层 `package.json` 没有 `productName`，改名会让 `data/provider.json`、`ocr-runtime`、`ocr-models` 全部换目录，直接导致配置丢失和 OCR 重下。任务栏名称继续由 `setAppUserModelId` 与 exe 资源解决。
+- **不调用 `app.setName("文疏")`**：`app.getPath("userData")` 依赖 `app.getName()`；顶层 `package.json` 没有 `productName`，改名会让 `data/provider.json`、`ocr-runtime`、`ocr-models` 全部换目录，直接导致配置丢失和 OCR 重下。任务栏名称继续由 `setAppUserModelId` 与 exe 资源解决。
 - **设置导航保留普通 `button`**：不使用 `role="tab"`。现有 E2E 与无障碍检查依赖 `<nav aria-label="设置分类">` 下的 6 个 button；改成 tab 角色会改变 `getByRole("button")` 的结果。
 - **不做 `afterPack` + rcedit**：改用 electron-builder 自带的 `signExecutable: false`。它会跳过代码签名，但仍用内置 resedit 写入图标、版本与产品名，不需要下载 winCodeSign；便携目录继续由 `package-desktop.mjs` 的 rcedit 处理。
 - **MSI 不写 `icon` 字段**：electron-builder 26 的 `MsiOptions` 没有该字段，MSI 图标来自 `win.icon`。
@@ -96,7 +96,7 @@
 
 ### A2. 图标、安装器与快捷方式
 
-**目标**：安装包、卸载器、exe、桌面快捷方式、开始菜单快捷方式、任务栏全部显示纸间图标。
+**目标**：安装包、卸载器、exe、桌面快捷方式、开始菜单快捷方式、任务栏全部显示文疏图标。
 
 实现要点：
 
@@ -108,7 +108,7 @@
   - `nsis` 增加：
     - `installerIcon: "build/icon.ico"`
     - `uninstallerIcon: "build/icon.ico"`
-    - `uninstallDisplayName: "纸间"`
+    - `uninstallDisplayName: "文疏"`
     - `deleteAppDataOnUninstall: false`
     - `runAfterFinish: true`
   - **不要加 `nsis.installerHeaderIcon`**：它只在 one-click 安装器生效，当前是 `oneClick: false` 的 assisted installer。若要品牌头图，用 `installerHeader` BMP，不在本次范围。
@@ -130,15 +130,15 @@
 
 **验收**：
 
-- 干净安装后，`%LOCALAPPDATA%\Programs\PaperReader\PaperReader.exe` 在资源管理器中显示纸间图标。
-- NSIS 安装器 exe 本身显示纸间图标；桌面、开始菜单、卸载项、控制面板“应用和功能”都显示纸间图标。
+- 干净安装后，`%LOCALAPPDATA%\Programs\PaperReader\PaperReader.exe` 在资源管理器中显示文疏图标。
+- NSIS 安装器 exe 本身显示文疏图标；桌面、开始菜单、卸载项、控制面板“应用和功能”都显示文疏图标。
 - MSI 的 `.msi` 文件图标由 Windows Installer 决定，electron-builder 26 不提供该字段；MSI 只验收快捷方式、ARP 图标与 exe 图标。不要把它写成“MSI 文件本身有图标”。
 - 覆盖安装后快捷方式图标不变成 Electron。
 - 卸载后快捷方式消失，`userData` 仍保留。
 
 ### A3. 双击 PDF 打开
 
-**目标**：通过“打开方式”或默认应用双击 PDF 时，纸间启动并直接打开该文件；应用已运行时再双击，复用现有窗口。
+**目标**：通过“打开方式”或默认应用双击 PDF 时，文疏启动并直接打开该文件；应用已运行时再双击，复用现有窗口。
 
 实现要点：
 
@@ -155,7 +155,7 @@
     - 事件发送与 `takePendingPdf()` 共用同一个 `pendingPdf`，发送前清空，保证只打开一次。
   - `app:open-data-folder`：`shell.openPath(app.getPath("userData"))`，供运行状态页使用。
   - 窗口 `icon` 使用打包后的 `dist/icon.png`；开发环境回退 `public/icon.png`。
-  - **不要调用 `app.setName("纸间")`**：会改变 `app.getPath("userData")`，导致配置、OCR 组件和模型全部换目录。任务栏名称由 `app.setAppUserModelId("cn.paperreader.app")` 与 exe 资源负责。
+  - **不要调用 `app.setName("文疏")`**：会改变 `app.getPath("userData")`，导致配置、OCR 组件和模型全部换目录。任务栏名称由 `app.setAppUserModelId("cn.paperreader.app")` 与 exe 资源负责。
 - `electron/preload.cjs`：
   - 暴露 `takePendingPdf()`、`onOpenPdf(callback)`、`openDataFolder()`。
 - `src/lib/desktop.ts`：
@@ -167,7 +167,7 @@
 
 **验收**：
 
-- 安装后右键 PDF → 打开方式 → 纸间，应用启动并显示该 PDF。
+- 安装后右键 PDF → 打开方式 → 文疏，应用启动并显示该 PDF。
 - 应用已运行时再次双击另一份 PDF，窗口前置并打开新文件。
 - 开发模式（`electron.exe`）不注册关联，但手动传参仍可打开。
 
@@ -340,7 +340,7 @@ src/features/settings/
 #### 关于
 
 - Hero：
-  - 64px 应用图标（使用 `public/icon.png`，不要 import `build/icon.png`）+ “纸间” + 版本徽标 + 一句产品描述。
+  - 64px 应用图标（使用 `public/icon.png`，不要 import `build/icon.png`）+ “文疏” + 版本徽标 + 一句产品描述。
 - 更新卡：
   - 当前版本、`检查更新` 按钮、结果行；保留 `发现新版本 9.9.9` 与 `打开发布页`。
 - 默认 PDF 应用卡：

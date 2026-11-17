@@ -15,7 +15,9 @@ const POWERSHELL = path.join(
 
 export const PDF_PROG_ID = "PaperReader.pdf";
 /** Display name; must match the value name under RegisteredApplications. */
-export const PDF_APPLICATION_NAME = "纸间";
+export const PDF_APPLICATION_NAME = "文疏";
+/** Previous display name, kept only so upgrades remove the old registration. */
+const LEGACY_APPLICATION_NAME = "\u7eb8\u95f4";
 const CAPABILITIES_ROOT = "PaperReader";
 
 const HIVES = {
@@ -230,6 +232,8 @@ export async function registerPdfAssociation(exePath, scope = "user") {
   for (const key of legacyAssociationKeys(scope)) {
     await removeKey(key);
   }
+  await removeValue(keys(scope).registered, LEGACY_APPLICATION_NAME);
+  await removeValue(keys(scope).registered, "PaperReader");
   for (const entry of associationEntries(exePath, scope)) {
     await add(entry.key, entry.value, entry.type, entry.name);
   }
@@ -261,6 +265,7 @@ async function removeValue(key, name) {
 export async function removeUserPdfRegistration() {
   const k = keys("user");
   await removeValue(k.registered, PDF_APPLICATION_NAME);
+  await removeValue(k.registered, LEGACY_APPLICATION_NAME);
   await removeValue(k.registered, "PaperReader");
   await removeKey(`${k.hive}\\Software\\${CAPABILITIES_ROOT}`);
 }
@@ -268,13 +273,14 @@ export async function removeUserPdfRegistration() {
 export async function removePdfAssociation(exePath, scope = "user") {
   const status = await pdfAssociationStatus(exePath);
   if (status.isDefault) {
-    throw new Error("纸间当前是默认 PDF 应用，请先在 Windows 设置中改为其他应用，再移除关联。");
+    throw new Error("文疏当前是默认 PDF 应用，请先在 Windows 设置中改为其他应用，再移除关联。");
   }
   const k = keys(scope);
   await removeKey(k.progId);
   await removeKey(k.applications);
   await removeKey(`${k.hive}\\Software\\${CAPABILITIES_ROOT}`);
   await removeValue(k.registered, PDF_APPLICATION_NAME);
+  await removeValue(k.registered, LEGACY_APPLICATION_NAME);
   await removeValue(k.registered, "PaperReader");
   await removeValue(k.openWith, PDF_PROG_ID);
   return pdfAssociationStatus(exePath);
@@ -306,6 +312,9 @@ export function associationPowerShellScript({ exePath, scope = "machine", mode =
         `Remove-Item -Path ${psQuote(registryProviderPath(key))} -Recurse -Force -ErrorAction SilentlyContinue`,
       );
     }
+    lines.push(
+      `Remove-ItemProperty -Path '${registryProviderPath(keys(scope).registered)}' -Name ${psQuote(LEGACY_APPLICATION_NAME)} -Force -ErrorAction SilentlyContinue`,
+    );
     for (const entry of associationEntries(exePath, scope)) {
       if (entry.type === "REG_NONE") {
         const args = ["& $reg", "add", psQuote(entry.key)];
@@ -336,13 +345,19 @@ export function associationPowerShellScript({ exePath, scope = "machine", mode =
       lines.push(
         "$commonStartMenu = [Environment]::GetFolderPath([Environment+SpecialFolder]::CommonStartMenu)",
       );
-      lines.push("$oldCommon = Join-Path $commonStartMenu '纸间.lnk'");
-      lines.push(
-        "if (Test-Path $oldCommon) { Remove-Item -Path $oldCommon -Force -ErrorAction SilentlyContinue }",
-      );
+      for (const name of [PDF_APPLICATION_NAME, LEGACY_APPLICATION_NAME]) {
+        lines.push(`$oldCommon = Join-Path $commonStartMenu ${psQuote(`${name}.lnk`)}`);
+        lines.push(
+          "if (Test-Path $oldCommon) { Remove-Item -Path $oldCommon -Force -ErrorAction SilentlyContinue }",
+        );
+      }
     }
     lines.push("$startMenu = [Environment]::GetFolderPath([Environment+SpecialFolder]::StartMenu)");
-    lines.push("$lnkPath = Join-Path $startMenu '纸间.lnk'");
+    lines.push(`$lnkPath = Join-Path $startMenu ${psQuote(`${PDF_APPLICATION_NAME}.lnk`)}`);
+    lines.push(`$legacyLnk = Join-Path $startMenu ${psQuote(`${LEGACY_APPLICATION_NAME}.lnk`)}`);
+    lines.push(
+      "if (Test-Path $legacyLnk) { Remove-Item -Path $legacyLnk -Force -ErrorAction SilentlyContinue }",
+    );
     lines.push("try {");
     lines.push(
       "  if (Test-Path $lnkPath) { Remove-Item -Path $lnkPath -Force -ErrorAction SilentlyContinue }",
@@ -369,14 +384,18 @@ export function associationPowerShellScript({ exePath, scope = "machine", mode =
       );
     }
     lines.push("$startMenu = [Environment]::GetFolderPath([Environment+SpecialFolder]::StartMenu)");
-    lines.push("$lnk = Join-Path $startMenu '纸间.lnk'");
-    lines.push("Remove-Item -Path $lnk -Force -ErrorAction SilentlyContinue");
+    for (const name of [PDF_APPLICATION_NAME, LEGACY_APPLICATION_NAME]) {
+      lines.push(`$lnk = Join-Path $startMenu ${psQuote(`${name}.lnk`)}`);
+      lines.push("Remove-Item -Path $lnk -Force -ErrorAction SilentlyContinue");
+    }
     if (scope === "machine") {
       lines.push(
         "$commonStartMenu = [Environment]::GetFolderPath([Environment+SpecialFolder]::CommonStartMenu)",
       );
-      lines.push("$commonLnk = Join-Path $commonStartMenu '纸间.lnk'");
-      lines.push("Remove-Item -Path $commonLnk -Force -ErrorAction SilentlyContinue");
+      for (const name of [PDF_APPLICATION_NAME, LEGACY_APPLICATION_NAME]) {
+        lines.push(`$commonLnk = Join-Path $commonStartMenu ${psQuote(`${name}.lnk`)}`);
+        lines.push("Remove-Item -Path $commonLnk -Force -ErrorAction SilentlyContinue");
+      }
     }
   }
   // Tell Explorer that associations changed so "Open with" and the Default
@@ -398,6 +417,7 @@ export function associationRemovals(scope = "user") {
     keys: [k.progId, k.applications, `${k.hive}\\Software\\${CAPABILITIES_ROOT}`],
     values: [
       [k.registered, PDF_APPLICATION_NAME],
+      [k.registered, LEGACY_APPLICATION_NAME],
       [k.registered, "PaperReader"],
       [k.openWith, PDF_PROG_ID],
     ],

@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.10.1] — 2026-11-17
+
+### 变更
+
+- 应用正式更名为「文疏」，删除旧名「纸间」：界面品牌、关于页、窗口标题、启动页、安装器、开始菜单/桌面快捷方式、默认应用列表与文档全部同步。
+- 保留内部 `appId`、`PaperReader.exe` 与 `pdf-ai-reader` 数据目录，保证覆盖安装后阅读记录、密钥与 OCR 组件继续可用。
+- 注册与卸载会清理旧「纸间」的 `RegisteredApplications` 值和开始菜单快捷方式，避免默认应用列表出现两个条目。
+- Windows 安装器的 PDF 关联也改为白底 `pdf-file.ico`；应用图标仍是书脊 + 纸页 + 星芒。
+- README 的界面截图重新拍摄，顶栏、关于页与安装包名称都显示「文疏」。
+
 ## [0.10.0] — 2026-11-17
 
 ### 变更
@@ -46,12 +56,12 @@
 
 ### 修复
 
-- **Windows“默认应用”列表找不到“纸间”**：`Capabilities` 下的 `ApplicationName`、`ApplicationDescription`、`ApplicationIcon` 与 `FileAssociations\.pdf` 之前被写成了子键。Windows 只读取命名值，缺少这些值时会直接忽略整个应用，即使 ProgID 已注册。现在按系统格式写入，并在注册时清理旧版本留下的错误子键。
+- **Windows“默认应用”列表找不到“文疏”**：`Capabilities` 下的 `ApplicationName`、`ApplicationDescription`、`ApplicationIcon` 与 `FileAssociations\.pdf` 之前被写成了子键。Windows 只读取命名值，缺少这些值时会直接忽略整个应用，即使 ProgID 已注册。现在按系统格式写入，并在注册时清理旧版本留下的错误子键。
 - 系统级注册脚本使用 `New-Item -Force` 创建已存在的注册表键时，会清空该键已有的值，导致 `Capabilities` 最终只剩一个值。现在只在键不存在时创建。
 - 系统级注册改为写入临时 PowerShell 脚本（UTF-8 BOM）再以 UAC 执行，避免较长的 `-EncodedCommand` 在提权链路上静默失败、连错误日志都无法生成。
 - PDF 关联状态改为同时校验 `RegisteredApplications`、`Capabilities` 与 `.pdf` 映射，不再只看 ProgID 命令；旧版本的不完整注册会显示“尚未注册”，可直接重新注册修复。
 - 打开默认应用设置时按实际注册范围使用 `registeredAppMachine` 或 `registeredAppUser`，系统级注册不再错误地按用户级参数打开。
-- 系统级注册成功后清理当前用户的重复注册。此前 `HKCU` 与 `HKLM` 各有一份时，默认应用列表会出现两个“纸间”；应用启动时也会自动修复旧版本留下的重复项。
+- 系统级注册成功后清理当前用户的重复注册。此前 `HKCU` 与 `HKLM` 各有一份时，默认应用列表会出现两个“文疏”；应用启动时也会自动修复旧版本留下的重复项。
 - 注册或移除关联后通知 Shell 刷新，无需重新登录。
 
 ### 已知问题
@@ -64,7 +74,7 @@
 ### 新增
 
 - 桌面窗口改为无边框标题栏，使用 Windows 原生最小化/最大化/关闭按钮；亮色/夜间主题会同步按钮颜色。
-- 安装器、卸载器、`PaperReader.exe`、桌面与开始菜单快捷方式统一使用纸间图标。
+- 安装器、卸载器、`PaperReader.exe`、桌面与开始菜单快捷方式统一使用文疏图标。
 - 双击关联的 PDF 会直接打开；应用已运行时再次双击会复用窗口并打开新文件。
 - 关于页新增真实运行状态：本地服务、模型服务、OCR、本地数据与 PDF 关联，可重新检测并复制不含密钥的运行信息。
 - 设置页改为左侧分类、一次一页，支持方向键/Home/End 在分类间移动。
@@ -119,7 +129,7 @@
   整个注册流程失败。
 - 提权脚本把错误写入临时日志并回传到设置页；UAC 取消会明确提示“已取消管理员授权”，
   不再只显示一行 `Command failed`。
-- 系统级移除同样改用 provider，并删除公共开始菜单里的“纸间”快捷方式。
+- 系统级移除同样改用 provider，并删除公共开始菜单里的“文疏”快捷方式。
 
 ## [0.7.1] — 2026-11-17
 
@@ -151,7 +161,7 @@
 ### 新增
 
 - NSIS 安装向导增加“PDF 打开方式”页：
-  - **在 PDF 的“打开方式”中显示纸间（推荐）**，默认勾选；只声明 OpenWith/ProgID/Capabilities，
+  - **在 PDF 的“打开方式”中显示文疏（推荐）**，默认勾选；只声明 OpenWith/ProgID/Capabilities，
     不写 `.pdf` 默认值。
   - **安装完成后打开 Windows 默认应用设置**，默认不勾选；勾选后只打开系统设置，最终是否设为默认
     仍由用户确认。
@@ -176,16 +186,16 @@
 ### 新增
 
 - 提供 **NSIS 安装包**（`paper-reader-v0.6.0-x64.exe`）与 **MSI 安装包**
-  （`paper-reader-v0.6.0-x64.msi`）；安装后为 `PaperReader.exe`，开始菜单与快捷方式显示“纸间”。
+  （`paper-reader-v0.6.0-x64.msi`）；安装后为 `PaperReader.exe`，开始菜单与快捷方式显示“文疏”。
 - `build:installers` 本地脚本；release workflow 同时构建并上传 NSIS、MSI、便携 zip 与 OCR 组件包。
 - MSI 使用 `build/zh-CN.wxl` 的 GBK 代码页，解决中文产品名导致的 WiX `LGHT0311`。
 
 ### 修复
 
-- **Windows 11 默认应用列表找不到纸间**：该列表读取系统级 `HKLM` 注册，便携版的当前用户
+- **Windows 11 默认应用列表找不到文疏**：该列表读取系统级 `HKLM` 注册，便携版的当前用户
   `HKCU` 注册只会出现在“打开方式”。设置页新增“注册到系统（需要管理员）”，通过一次 UAC
   写入 `HKLM`，状态区分“系统级 / 当前用户”。
-- `RegisteredApplications` 的值名与 `Capabilities\ApplicationName` 统一为“纸间”，并补齐
+- `RegisteredApplications` 的值名与 `Capabilities\ApplicationName` 统一为“文疏”，并补齐
   ProgID 的 `Application` 子键与 `OpenWithProgids`。
 - 安装包不再带入 `node_modules`（ONNX/OpenCV 仍由 OCR 组件包按需下载），NSIS 约 111MB、
   MSI 约 116MB。
@@ -193,7 +203,7 @@
 ### 边界
 
 - 注册系统级关联需要管理员授权；取消 UAC 不会修改任何系统设置。
-- 注册本身不会改变默认应用，仍需在 Windows 设置中选择“纸间”确认。
+- 注册本身不会改变默认应用，仍需在 Windows 设置中选择“文疏”确认。
 - 代码签名仍未配置，SmartScreen 会提示未知发布者。
 
 ## [0.5.0] — 2026-11-16
@@ -202,13 +212,13 @@
 
 - 设置 → 关于增加“默认 PDF 应用”：注册当前用户的 PDF OpenWith/ProgID 与
   `RegisteredApplications`，并打开 Windows 默认应用设置。
-- 状态区分“未注册 / 已注册未设为默认 / 纸间 / 安装路径已变化”，移动可移植目录后可重新注册。
-- 支持移除关联；只清理纸间的注册项，不修改 `.pdf` 当前默认应用。
+- 状态区分“未注册 / 已注册未设为默认 / 文疏 / 安装路径已变化”，移动可移植目录后可重新注册。
+- 支持移除关联；只清理文疏的注册项，不修改 `.pdf` 当前默认应用。
 
 ### 安全与边界
 
 - 注册和移除都由用户显式点击触发，不随启动自动执行，也不会静默修改默认应用。
-- 仅写 `HKCU`，不需要管理员权限；若纸间是当前默认应用，移除前会要求先在 Windows 设置中改掉。
+- 仅写 `HKCU`，不需要管理员权限；若文疏是当前默认应用，移除前会要求先在 Windows 设置中改掉。
 
 ### 已知问题
 

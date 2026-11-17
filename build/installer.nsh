@@ -1,6 +1,9 @@
 !include "nsDialogs.nsh"
 !include "LogicLib.nsh"
 
+; Previous display name, kept only to clean up shortcuts and registry entries.
+!define LEGACY_APP_NAME "纸间"
+
 !ifndef BUILD_UNINSTALLER
 Var PdfAssocCheckbox
 Var PdfAssocState
@@ -17,7 +20,7 @@ Function PdfAssocPageCreate
     Abort
   ${EndIf}
 
-  ${NSD_CreateCheckbox} 0 0 100% 18u "在 PDF 的“打开方式”中显示纸间（推荐）"
+  ${NSD_CreateCheckbox} 0 0 100% 18u "在 PDF 的“打开方式”中显示文疏（推荐）"
   Pop $PdfAssocCheckbox
   ${NSD_SetState} $PdfAssocCheckbox ${BST_CHECKED}
 
@@ -38,22 +41,31 @@ FunctionEnd
 !endif
 
 !macro customInstall
+  ; Remove shortcuts left by older installs that used the previous name.
+  Delete "$DESKTOP\${LEGACY_APP_NAME}.lnk"
+  Delete "$SMPROGRAMS\${LEGACY_APP_NAME}.lnk"
+
   ${If} $PdfAssocState == ${BST_CHECKED}
     WriteRegNone SHELL_CONTEXT "Software\Classes\.pdf\OpenWithProgids" "PaperReader.pdf"
 
-    WriteRegStr SHELL_CONTEXT "Software\Classes\Applications\PaperReader.exe" "" "纸间"
-    WriteRegStr SHELL_CONTEXT "Software\Classes\Applications\PaperReader.exe\FriendlyAppName" "" "纸间"
+    WriteRegStr SHELL_CONTEXT "Software\Classes\Applications\PaperReader.exe" "" "文疏"
+    WriteRegStr SHELL_CONTEXT "Software\Classes\Applications\PaperReader.exe\FriendlyAppName" "" "文疏"
     WriteRegStr SHELL_CONTEXT "Software\Classes\Applications\PaperReader.exe\DefaultIcon" "" "$INSTDIR\PaperReader.exe,0"
     WriteRegStr SHELL_CONTEXT "Software\Classes\Applications\PaperReader.exe\shell\open\command" "" '"$INSTDIR\PaperReader.exe" "%1"'
     WriteRegNone SHELL_CONTEXT "Software\Classes\Applications\PaperReader.exe\SupportedTypes" ".pdf"
 
     WriteRegStr SHELL_CONTEXT "Software\Classes\PaperReader.pdf" "" "PDF 文档"
-    WriteRegStr SHELL_CONTEXT "Software\Classes\PaperReader.pdf\DefaultIcon" "" "$INSTDIR\PaperReader.exe,0"
+    ${If} ${FileExists} "$INSTDIR\pdf-file.ico"
+      WriteRegStr SHELL_CONTEXT "Software\Classes\PaperReader.pdf\DefaultIcon" "" "$INSTDIR\pdf-file.ico,0"
+    ${Else}
+      WriteRegStr SHELL_CONTEXT "Software\Classes\PaperReader.pdf\DefaultIcon" "" "$INSTDIR\PaperReader.exe,0"
+    ${EndIf}
     WriteRegStr SHELL_CONTEXT "Software\Classes\PaperReader.pdf\shell\open\command" "" '"$INSTDIR\PaperReader.exe" "%1"'
 
-    WriteRegStr SHELL_CONTEXT "Software\RegisteredApplications" "纸间" "Software\PaperReader\Capabilities"
-    WriteRegStr SHELL_CONTEXT "Software\PaperReader\Capabilities" "ApplicationName" "纸间"
-    WriteRegStr SHELL_CONTEXT "Software\PaperReader\Capabilities" "ApplicationDescription" "本地优先的 PDF 阅读器与 AI 阅读助手"
+    DeleteRegValue SHELL_CONTEXT "Software\RegisteredApplications" "${LEGACY_APP_NAME}"
+    WriteRegStr SHELL_CONTEXT "Software\RegisteredApplications" "文疏" "Software\PaperReader\Capabilities"
+    WriteRegStr SHELL_CONTEXT "Software\PaperReader\Capabilities" "ApplicationName" "文疏"
+    WriteRegStr SHELL_CONTEXT "Software\PaperReader\Capabilities" "ApplicationDescription" "本地优先的 PDF 阅读器，阅读与对话发生在同一页"
     WriteRegStr SHELL_CONTEXT "Software\PaperReader\Capabilities" "ApplicationIcon" "$INSTDIR\PaperReader.exe,0"
     WriteRegStr SHELL_CONTEXT "Software\PaperReader\Capabilities\FileAssociations" ".pdf" "PaperReader.pdf"
   ${EndIf}
@@ -68,5 +80,8 @@ FunctionEnd
   DeleteRegKey SHELL_CONTEXT "Software\Classes\Applications\PaperReader.exe"
   DeleteRegKey SHELL_CONTEXT "Software\Classes\PaperReader.pdf"
   DeleteRegKey SHELL_CONTEXT "Software\PaperReader"
-  DeleteRegValue SHELL_CONTEXT "Software\RegisteredApplications" "纸间"
+  DeleteRegValue SHELL_CONTEXT "Software\RegisteredApplications" "文疏"
+  DeleteRegValue SHELL_CONTEXT "Software\RegisteredApplications" "${LEGACY_APP_NAME}"
+  Delete "$DESKTOP\${LEGACY_APP_NAME}.lnk"
+  Delete "$SMPROGRAMS\${LEGACY_APP_NAME}.lnk"
 !macroend

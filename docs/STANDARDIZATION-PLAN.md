@@ -446,7 +446,7 @@ npm run build:server
 内容结构：
 
 ```text
-[BrandMark 48] 纸间
+[BrandMark 48] 文疏
 本地优先的 PDF 阅读器与 AI 阅读助手。
 
 版本 0.2.0 · commit abc1234 · 2026-11-16
@@ -606,12 +606,12 @@ API：
 
 ```text
 <p align="center">
-  BrandMark + 纸间 + 一句话 + badges
+  BrandMark + 文疏 + 一句话 + badges
 </p>
 
 ![阅读态](docs/screenshots/reading.png)
 
-## 为什么是纸间
+## 为什么是文疏
 - PDF 不上传
 - 引用能跳回原文
 - 扫描件也能选中、搜索、提问

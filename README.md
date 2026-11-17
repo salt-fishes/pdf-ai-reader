@@ -1,6 +1,6 @@
-# 纸间 · PDF × AI 阅读器
+# 文疏 · PDF × AI 阅读器
 
-本地优先的 PDF 阅读器，阅读助手叫文疏。主 PDF 不上传；只有你明确选中的页、文字、截图和附件会发给模型。
+本地优先的 PDF 阅读器，把阅读与对话放在同一页。主 PDF 不上传；只有你明确选中的页、文字、截图和附件会发给模型。
 
 [![CI](https://github.com/salt-fishes/pdf-ai-reader/actions/workflows/ci.yml/badge.svg)](https://github.com/salt-fishes/pdf-ai-reader/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/salt-fishes/pdf-ai-reader)](https://github.com/salt-fishes/pdf-ai-reader/releases)
@@ -8,7 +8,7 @@
 
 ![阅读态](docs/screenshots/reading.png)
 
-## 为什么是纸间
+## 为什么是文疏
 
 - **PDF 不上传**：pdf.js 在本地解析，模型只收到你勾选的上下文。
 - **引用能跳回原文**：回答里的引用角标会带上原文短句，点击跳到对应行并短暂高亮。
@@ -32,6 +32,14 @@
 关于页（运行状态、手动检查更新、默认 PDF 应用）：
 
 ![关于](docs/screenshots/about.png)
+
+## 品牌
+
+当前品牌为「墨 · 纸 · 珊瑚 · 暖光」：书脊 + 纸页 + 星芒，PDF 文件使用白底文档图标。
+
+- [品牌规范](docs/BRAND.md)
+- [品牌系统板](docs/brand/v3/brand-system.png)
+- [图标方向](docs/brand/v3/brand-v3.png)
 
 ## 功能
 
@@ -102,7 +110,7 @@ npm run build:installers  # NSIS .exe + MSI，输出到 release/
 ```
 
 发布页同时提供便携 zip、NSIS 与 MSI；安装版和便携版都不内置 OCR，首次开启时下载组件。
-NSIS 安装向导可选择“在 PDF 打开方式中显示纸间”（默认勾选），只声明打开方式，不会自动设为默认。
+NSIS 安装向导可选择“在 PDF 打开方式中显示文疏”（默认勾选），只声明打开方式，不会自动设为默认。
 
 ### 没有 API Key
 
@@ -171,7 +179,7 @@ npm run build:server
 
 - [文档索引](docs/README.md)
 - [架构](docs/ARCHITECTURE.md) · [桌面版](docs/DESKTOP.md) · [发版](docs/RELEASE.md)
-- [隐私](docs/PRIVACY.md) · [品牌](docs/BRAND.md) · [OCR 镜像](docs/OCR-MIRROR.md)
+- [隐私](docs/PRIVACY.md) · [品牌](docs/BRAND.md) · [品牌系统 v3](docs/brand/v3/brand-system.png) · [图标方向](docs/brand/v3/brand-v3.png) · [OCR 镜像](docs/OCR-MIRROR.md)
 - [路线图](docs/ROADMAP.md) · [规范化计划](docs/STANDARDIZATION-PLAN.md)
 
 ## 贡献与安全

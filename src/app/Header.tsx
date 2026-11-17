@@ -84,7 +84,7 @@ export function Header({ onOpenSettings, onOpenShortcuts, onOpenSearch }: Props)
     <header className={styles.header}>
       <div className={styles.brand}>
         <BrandMark size={22} />
-        <span className={styles.brandName}>纸间</span>
+        <span className={styles.brandName}>文疏</span>
       </div>
       <div className={styles.divider} />
       <div className={styles.docTitle} title={docName || "未打开文档"}>

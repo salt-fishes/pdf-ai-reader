@@ -82,7 +82,7 @@ function unsupportedAssociation(): PdfAssociationStatus {
     stale: false,
     isDefault: false,
     currentDefault: null,
-    appName: "纸间",
+    appName: "文疏",
   };
 }
 

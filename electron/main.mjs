@@ -81,7 +81,7 @@ app.commandLine.appendSwitch("disable-component-update");
 app.commandLine.appendSwitch("disable-features", "MediaSessionService,HardwareMediaKeyHandling");
 
 const SPLASH_HTML = `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">
-<meta name="color-scheme" content="light"><title>纸间</title>
+<meta name="color-scheme" content="light"><title>文疏</title>
 <style>
 *{box-sizing:border-box}html,body{height:100%}body{margin:0;display:grid;place-items:center;
 background:#f6f3ed;color:#1b1a22;font-family:"Segoe UI Variable Text","Segoe UI","Microsoft YaHei UI",sans-serif}
@@ -101,7 +101,7 @@ p{margin:0;color:#66626d;font-size:13px}
 <rect x="104" y="88" width="58" height="336" rx="20" fill="#FF7A59"/>
 <rect x="184" y="88" width="222" height="336" rx="26" fill="#FFFDF7"/>
 <path d="M344 327c1.6 20.9 10.1 29.4 31 31-20.9 1.6-29.4 10.1-31 31-1.6-20.9-10.1-29.4-31-31 20.9-1.6 29.4-10.1 31-31Z" fill="#FF7A59"/>
-</svg></div><h1>纸间 × 文疏</h1><p>正在启动本地阅读环境…</p><div class="dots"><i></i><i></i><i></i></div>
+</svg></div><h1>文疏</h1><p>正在启动本地阅读环境…</p><div class="dots"><i></i><i></i><i></i></div>
 </main></body></html>`;
 const SPLASH_URL = `data:text/html;charset=utf-8,${encodeURIComponent(SPLASH_HTML)}`;
 
@@ -243,7 +243,7 @@ ipcMain.handle("app:pdf-association-register", async (_event, scope = "user") =>
   if (scope === "machine") {
     await runElevatedAssociation("machine", "register");
     // A machine-wide entry wins; remove the per-user copy so Settings does not
-    // list 纸间 twice.
+    // list 文疏 twice.
     await removeUserPdfRegistration().catch(() => undefined);
     return currentAssociationStatus();
   }
@@ -256,7 +256,7 @@ ipcMain.handle("app:pdf-association-remove", async (_event, requestedScope) => {
   }
   const status = await currentAssociationStatus();
   if (status.isDefault) {
-    throw new Error("纸间当前是默认 PDF 应用，请先在 Windows 设置中改为其他应用，再移除关联。");
+    throw new Error("文疏当前是默认 PDF 应用，请先在 Windows 设置中改为其他应用，再移除关联。");
   }
   const scope = requestedScope ?? status.scope ?? "user";
   if (scope === "machine") {
@@ -370,7 +370,7 @@ async function systemProxyEnv() {
 async function startServer() {
   if (isDev) return DEV_URL;
   if (await waitForHealth(APP_ORIGIN, 600)) {
-    throw new Error("端口 8787 已被占用，请先关闭正在运行的代理或其他纸间实例。");
+    throw new Error("端口 8787 已被占用，请先关闭正在运行的代理或其他文疏实例。");
   }
 
   const appDir = app.getAppPath();
@@ -416,7 +416,7 @@ async function createWindow() {
     show: false,
     backgroundColor: "#f6f3ed",
     autoHideMenuBar: true,
-    title: "纸间 × 文疏 · PDF 阅读器",
+    title: "文疏 · PDF 阅读器",
     icon: appIconPath(),
     ...(IS_WINDOWS
       ? {
@@ -495,7 +495,7 @@ if (!gotLock) {
       await createWindow();
       void cleanupDuplicatePdfRegistration();
     } catch (error) {
-      dialog.showErrorBox("纸间启动失败", error instanceof Error ? error.message : String(error));
+      dialog.showErrorBox("文疏启动失败", error instanceof Error ? error.message : String(error));
       app.quit();
     }
     app.on("activate", () => {

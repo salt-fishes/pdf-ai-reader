@@ -158,7 +158,7 @@ export function AboutSection() {
   const associationState = !association
     ? "正在检查…"
     : association.isDefault
-      ? `纸间${association.scope === "machine" ? "（系统级）" : ""}`
+      ? `文疏${association.scope === "machine" ? "（系统级）" : ""}`
       : association.stale
         ? "路径已变化，需要重新注册"
         : association.registered
@@ -171,13 +171,13 @@ export function AboutSection() {
         <img className={styles.heroIcon} src="/icon.png" alt="" width={64} height={64} />
         <div className={styles.heroText}>
           <div className={styles.heroName}>
-            纸间
+            文疏
             <span className={styles.versionBadge}>v{__APP_VERSION__}</span>
             {isPrerelease(__APP_VERSION__) ? (
               <span className={`${styles.statusPill} ${styles.pillWarn}`}>预览版</span>
             ) : null}
           </div>
-          <p className={styles.heroDesc}>本地优先的 PDF 阅读器，阅读助手叫文疏。</p>
+          <p className={styles.heroDesc}>本地优先的 PDF 阅读器，把阅读与对话放在同一页。</p>
         </div>
       </header>
 

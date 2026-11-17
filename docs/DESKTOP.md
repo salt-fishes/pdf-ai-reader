@@ -1,6 +1,6 @@
 # Desktop (Electron)
 
-纸间可以打成 Windows 桌面应用。桌面版和浏览器版使用同一套前端与本地 Hono 代理，区别是 Electron 负责启动/停止代理并加载本地页面。
+文疏可以打成 Windows 桌面应用。桌面版和浏览器版使用同一套前端与本地 Hono 代理，区别是 Electron 负责启动/停止代理并加载本地页面。
 
 ## 开发
 
@@ -16,7 +16,7 @@ npm run desktop:dev
 - 标题栏空白区可拖动、双击最大化；按钮、输入框与菜单自动排除拖拽。
 - 亮色标题栏为 `#f6f5f2`，夜间为 `#0f131b`；主题切换时通过 IPC 同步系统按钮颜色。
 - 窗口图标与安装包图标来自 `build/icon.ico`；运行时的 PNG 图标来自 `public/icon.png`（由 `npm run icons` 生成，`prebuild` 会自动执行）。
-- 不要调用 `app.setName("纸间")`：`app.getPath("userData")` 依赖应用名，改名会让配置、OCR 组件与模型换目录。
+- 不要调用 `app.setName("文疏")`：`app.getPath("userData")` 依赖应用名，改名会让配置、OCR 组件与模型换目录。
 
 ## 打开 PDF
 
@@ -58,16 +58,16 @@ npm run package:desktop
 安装包由 electron-builder 生成：
 
 - NSIS：`release/paper-reader-v0.9.0-x64.exe`，支持选择安装目录、创建桌面与开始菜单快捷方式。
-  安装器、卸载器、exe、桌面/开始菜单快捷方式使用同一套纸间图标。
+  安装器、卸载器、exe、桌面/开始菜单快捷方式使用同一套文疏图标。
   安装向导增加“PDF 打开方式”页：
-  - 默认勾选“在 PDF 的‘打开方式’中显示纸间”，只写 OpenWith 声明，不影响默认应用。
+  - 默认勾选“在 PDF 的‘打开方式’中显示文疏”，只写 OpenWith 声明，不影响默认应用。
   - 可选“安装完成后打开 Windows 默认应用设置”，默认不勾选；勾选后仍需在系统设置里确认。
   - 静默安装 `/S` 不显示该页，也不会自动写声明。
 - MSI：`release/paper-reader-v0.9.0-x64.msi`，使用 `build/zh-CN.wxl` 的 GBK 代码页；中文产品名、快捷方式与卸载项正常。
   MSI 暂不提供该勾选页，安装后可在 设置 → 关于 中注册。`.msi` 文件本身的图标由 Windows Installer 决定；
   electron-builder 26 只通过 `win.icon` 控制 exe、快捷方式与控制面板图标。
 - 两者都按当前用户安装到 `%LOCALAPPDATA%\Programs\PaperReader`，安装后的可执行文件为
-  `PaperReader.exe`，快捷方式显示“纸间”；不包含 `node_modules` 或 OCR 组件。
+  `PaperReader.exe`，快捷方式显示“文疏”；不包含 `node_modules` 或 OCR 组件。
 - 首次构建 MSI 会下载 WiX，需能访问 GitHub；网络受限时先配置系统代理或 `HTTPS_PROXY`。
 - `signExecutable: false` 只跳过代码签名，仍由 electron-builder 内置 resedit 写入图标、产品名与版本，不需要下载 winCodeSign。
 - 未做代码签名，SmartScreen 会提示未知发布者。
@@ -113,20 +113,20 @@ npm run package:desktop
   Windows 仍会接受 ProgID，但默认应用列表会直接忽略整个应用（0.8.0 的问题）。
 - “注册到系统（需要管理员）”会弹出一次 UAC，把 ProgID、OpenWithProgids、
   `RegisteredApplications` 与 `Capabilities` 写入 `HKLM`，并创建开始菜单快捷方式；
-  之后即可在默认应用列表中找到“纸间”。提权脚本写入带 BOM 的临时 `.ps1` 后执行，
+  之后即可在默认应用列表中找到“文疏”。提权脚本写入带 BOM 的临时 `.ps1` 后执行，
   避免中文被按 ANSI 读取或长命令在 UAC 链路上被截断。
 - “仅当前用户”不弹 UAC，只写 `HKCU`；Windows 11 同样会列出用户级注册。
   系统级注册仍更适合多用户和便携版以外的安装场景。
 - 系统级注册成功后会自动删除当前用户的 `RegisteredApplications` 与 `Capabilities`
-  副本，避免设置页同时出现两个“纸间”；应用启动时也会修复旧版本留下的重复项。
+  副本，避免设置页同时出现两个“文疏”；应用启动时也会修复旧版本留下的重复项。
 - 每次注册会先清理由旧版本写出的错误子键，并通知 Shell 刷新关联。
 - `.pdf` 的 `DefaultIcon` 指向 exe 同目录的 `pdf-file.ico`（白底 PDF 文件图标）；
   `ApplicationIcon` 和 `Applications\\PaperReader.exe\\DefaultIcon` 仍指向 exe 的书脊应用图标。
   注册时如果 `pdf-file.ico` 不存在，会自动回退到 exe 的 0 号图标，不会是空白。
-- 注册本身**不会**改变默认应用；仍需在 Windows 设置中选择“纸间”并确认。
+- 注册本身**不会**改变默认应用；仍需在 Windows 设置中选择“文疏”并确认。
 - 移动可移植目录后，原注册路径会失效；状态会显示“路径已变化”，重新注册即可。
-- “移除关联”只删除纸间的注册项，不修改 `.pdf` 当前默认应用；系统级注册的移除同样需要 UAC。
-  如果纸间当前是默认应用，需要先在 Windows 设置中改为其他应用。
+- “移除关联”只删除文疏的注册项，不修改 `.pdf` 当前默认应用；系统级注册的移除同样需要 UAC。
+  如果文疏当前是默认应用，需要先在 Windows 设置中改为其他应用。
 
 ## 检查更新
 
