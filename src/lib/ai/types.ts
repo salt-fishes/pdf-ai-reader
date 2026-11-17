@@ -4,6 +4,17 @@ export type ChatRole = "user" | "assistant";
 
 export type ThinkingEffort = "none" | "low" | "high" | "max";
 
+export type ToolTrace = {
+  id: string;
+  name: string;
+  label: string;
+  phase: "start" | "end" | "error";
+  args?: unknown;
+  summary?: string;
+  durationMs?: number;
+  error?: string;
+};
+
 export type ChatMessage = {
   id: string;
   role: ChatRole;
@@ -17,6 +28,8 @@ export type ChatMessage = {
   citedPages?: number[];
   allowedPages?: number[];
   usage?: UsageBuckets;
+  /** External tool calls made while producing this answer. */
+  tools?: ToolTrace[];
   /** Removed from the model context via right-click; still visible, dimmed. */
   excluded?: boolean;
   /** Textual note about images that were attached to this turn. */
@@ -128,6 +141,7 @@ export type StreamEvent =
   | { type: "delta"; text: string }
   | { type: "reasoning"; text: string }
   | { type: "usage"; usage: unknown }
+  | { type: "tool"; tool: ToolTrace }
   | { type: "done" }
   | { type: "error"; error: AiError };
 

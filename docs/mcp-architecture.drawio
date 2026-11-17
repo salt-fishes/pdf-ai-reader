@@ -1,0 +1,80 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="MCP" id="mcp-arch">
+    <mxGraphModel dx="1600" dy="900" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="900" math="0" shadow="0" background="#F7F3EA">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="title" value="纸间 · MCP / Skills 运行时" style="text;html=1;fontSize=32;fontStyle=1;fontColor=#1D1B22;align=left;verticalAlign=middle;fontFamily=Microsoft YaHei;" vertex="1" parent="1">
+          <mxGeometry x="60" y="40" width="760" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="subtitle" value="本地代理负责工具发现、调用循环与流式事件；模型只看到工具 schema，不直接接触 token。" style="text;html=1;fontSize=15;fontColor=#6F6A63;align=left;verticalAlign=middle;fontFamily=Microsoft YaHei;" vertex="1" parent="1">
+          <mxGeometry x="62" y="92" width="1000" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ui" value="渲染层&lt;br&gt;&lt;font style=&quot;font-size:13px&quot;&gt;聊天 · 工具卡片&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFDF7;strokeColor=#5B5BD6;strokeWidth=2;fontFamily=Microsoft YaHei;fontSize=18;fontColor=#1D1B22;" vertex="1" parent="1">
+          <mxGeometry x="80" y="380" width="250" height="150" as="geometry" />
+        </mxCell>
+
+        <mxCell id="proxy" value="本地代理&lt;br&gt;127.0.0.1:8787&lt;br&gt;&lt;font style=&quot;font-size:13px&quot;&gt;会话循环 · 工具路由 · 脱敏&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#5B5BD6;strokeColor=#4141B8;strokeWidth=2;fontFamily=Microsoft YaHei;fontSize=18;fontColor=#FFFFFF;" vertex="1" parent="1">
+          <mxGeometry x="470" y="360" width="290" height="190" as="geometry" />
+        </mxCell>
+
+        <mxCell id="model" value="模型服务&lt;br&gt;&lt;font style=&quot;font-size:13px&quot;&gt;OpenAI 兼容 · tools / tool_calls&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1D1B22;strokeColor=#1D1B22;strokeWidth=2;fontFamily=Microsoft YaHei;fontSize=18;fontColor=#FFFFFF;" vertex="1" parent="1">
+          <mxGeometry x="560" y="140" width="320" height="130" as="geometry" />
+        </mxCell>
+
+        <mxCell id="toolgroup" value="工具提供方" style="rounded=1;whiteSpace=wrap;html=1;dashed=1;fillColor=#F7F3EA;strokeColor=#B9B2A6;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#6F6A63;verticalAlign=top;spacingTop=12;" vertex="1" parent="1">
+          <mxGeometry x="1180" y="180" width="350" height="580" as="geometry" />
+        </mxCell>
+
+        <mxCell id="sciverse" value="Sciverse Skill&lt;br&gt;&lt;font style=&quot;font-size:13px&quot;&gt;HTTP API · 打包版可用&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#5B5BD6;strokeWidth=2;fontFamily=Microsoft YaHei;fontSize=18;fontColor=#1D1B22;" vertex="1" parent="1">
+          <mxGeometry x="1210" y="250" width="290" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="mcphttp" value="MCP · Streamable HTTP&lt;br&gt;&lt;font style=&quot;font-size:13px&quot;&gt;远程 MCP Server&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#C9C2B6;strokeWidth=2;fontFamily=Microsoft YaHei;fontSize=18;fontColor=#1D1B22;" vertex="1" parent="1">
+          <mxGeometry x="1210" y="390" width="290" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="mcpstdio" value="MCP · stdio（P2）&lt;br&gt;&lt;font style=&quot;font-size:13px&quot;&gt;本地命令 · 需要 Node&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;dashed=1;fillColor=#FFFFFF;strokeColor=#C9C2B6;strokeWidth=2;fontFamily=Microsoft YaHei;fontSize=18;fontColor=#1D1B22;" vertex="1" parent="1">
+          <mxGeometry x="1210" y="530" width="290" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e-ui-proxy" value="问题" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeColor=#5B5BD6;strokeWidth=2;fontFamily=Microsoft YaHei;fontSize=13;labelBackgroundColor=#F7F3EA;" edge="1" parent="1" source="ui" target="proxy">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint as="offset" x="0" y="-12" />
+            <mxPoint x="330" y="430" as="sourcePoint" />
+            <mxPoint x="470" y="430" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-proxy-ui" value="SSE delta + 工具事件" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeColor=#5B5BD6;strokeWidth=2;fontFamily=Microsoft YaHei;fontSize=13;labelBackgroundColor=#F7F3EA;" edge="1" parent="1" source="proxy" target="ui">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint as="offset" x="0" y="14" />
+            <mxPoint x="470" y="480" as="sourcePoint" />
+            <mxPoint x="330" y="480" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="e-proxy-model" value="① tools + messages" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeColor=#1D1B22;strokeWidth=2;fontFamily=Microsoft YaHei;fontSize=13;labelBackgroundColor=#F7F3EA;exitX=0.32;exitY=0;entryX=0.32;entryY=1;" edge="1" parent="1" source="proxy" target="model">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint as="offset" x="-52" y="0" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-model-proxy" value="② tool_calls　⑤ 最终答案" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeColor=#1D1B22;strokeWidth=2;fontFamily=Microsoft YaHei;fontSize=13;labelBackgroundColor=#F7F3EA;exitX=0.68;exitY=1;entryX=0.68;entryY=0;" edge="1" parent="1" source="model" target="proxy">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint as="offset" x="52" y="0" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="e-proxy-tools" value="③ 执行" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeColor=#5B5BD6;strokeWidth=2;fontFamily=Microsoft YaHei;fontSize=13;labelBackgroundColor=#F7F3EA;exitX=1;exitY=0.32;entryX=0;entryY=0.32;" edge="1" parent="1" source="proxy" target="toolgroup">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint as="offset" x="0" y="-14" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-tools-proxy" value="④ 结果（截断 / 超时 / 脱敏）" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;strokeColor=#5B5BD6;strokeWidth=2;fontFamily=Microsoft YaHei;fontSize=13;labelBackgroundColor=#F7F3EA;exitX=0;exitY=0.62;entryX=1;entryY=0.62;" edge="1" parent="1" source="toolgroup" target="proxy">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint as="offset" x="0" y="16" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

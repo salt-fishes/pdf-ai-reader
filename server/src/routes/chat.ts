@@ -1,6 +1,8 @@
 import type { Hono } from "hono";
 import { config } from "../config";
 import { isJsonRequest, jsonError } from "../http";
+import { getToolset } from "../mcp";
+import { agentChatResponse } from "../mcp/response";
 import { mockChat, validateMessages } from "../mock";
 import { MODEL_RE, provider } from "../provider";
 import { chatSchema, type ChatInput } from "../schemas";
@@ -82,6 +84,20 @@ export function registerChatRoute(app: Hono): void {
           : effort === "none"
             ? {}
             : { reasoning_effort: effort };
+
+    // When external tools are enabled, the proxy owns the tool loop and
+    // re-emits the same SSE shape plus tool events. With no tools, keep the
+    // original zero-copy passthrough so existing behavior is untouched.
+    const toolset = await getToolset();
+    if (toolset.tools.length) {
+      return agentChatResponse({
+        messages,
+        model: requestedModel,
+        effortFields,
+        toolset,
+        signal: c.req.raw.signal,
+      });
+    }
 
     const upstreamBody = {
       model: requestedModel,

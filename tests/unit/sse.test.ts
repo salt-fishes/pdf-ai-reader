@@ -63,6 +63,29 @@ describe("parseSse", () => {
     expect(events[1]).toEqual({ type: "delta", text: "答案" });
   });
 
+  it("parses tool cards emitted by the local agent", async () => {
+    const events = await collect(
+      streamFrom([
+        'data: {"paper_reader_tool":{"id":"call_1","name":"sciverse_semantic_search","label":"Sciverse 学术检索","phase":"start","args":{"query":"graphene"}}}\n\n',
+        'data: {"paper_reader_tool":{"id":"call_1","name":"sciverse_semantic_search","label":"Sciverse 学术检索","phase":"end","summary":"8 条证据","durationMs":900}}\n\n',
+        "data: [DONE]\n\n",
+      ]),
+    );
+    expect(events[0]).toMatchObject({
+      type: "tool",
+      tool: {
+        id: "call_1",
+        phase: "start",
+        label: "Sciverse 学术检索",
+        args: { query: "graphene" },
+      },
+    });
+    expect(events[1]).toMatchObject({
+      type: "tool",
+      tool: { phase: "end", summary: "8 条证据", durationMs: 900 },
+    });
+  });
+
   it("surfaces upstream error payloads", async () => {
     const events = await collect(
       streamFrom(['data: {"error":{"message":"bad key","type":"auth_error"}}\n\n']),

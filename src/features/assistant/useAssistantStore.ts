@@ -26,6 +26,7 @@ import type {
   Selection,
   ServerConfig,
   ThinkingEffort,
+  ToolTrace,
 } from "../../lib/ai/types";
 import {
   DEFAULT_PRICING,
@@ -1563,6 +1564,7 @@ export const useAssistant = create<AssistantState>((set, get) => {
 
       let content = "";
       let reasoning = "";
+      const toolTraces: ToolTrace[] = [];
       let dirty = false;
       let lastFlush = 0;
       let flushTimer: ReturnType<typeof setTimeout> | null = null;
@@ -1610,6 +1612,13 @@ export const useAssistant = create<AssistantState>((set, get) => {
             onUsage: (usage) => {
               usageRaw = usage;
             },
+            onTool: (tool) => {
+              if (stale()) return;
+              const index = toolTraces.findIndex((item) => item.id === tool.id);
+              if (index >= 0) toolTraces[index] = tool;
+              else toolTraces.push(tool);
+              patchMessage(assistantId, { tools: [...toolTraces] });
+            },
           },
           controller.signal,
         );
@@ -1620,7 +1629,11 @@ export const useAssistant = create<AssistantState>((set, get) => {
         if (result.usage) usageRaw = result.usage;
 
         if (result.aborted) {
-          patchMessage(assistantId, { status: "stopped", content: content || "（已停止）" });
+          patchMessage(assistantId, {
+            status: "stopped",
+            content: content || "（已停止）",
+            tools: toolTraces.length ? toolTraces : undefined,
+          });
         } else {
           const buckets = usageFromProvider(usageRaw) ?? EMPTY_USAGE;
           const hasUsage = Boolean(usageFromProvider(usageRaw));
@@ -1630,6 +1643,7 @@ export const useAssistant = create<AssistantState>((set, get) => {
             content: content.trim() || "（模型没有返回内容）",
             citedPages: cited,
             usage: hasUsage ? buckets : undefined,
+            tools: toolTraces.length ? toolTraces : undefined,
           });
           if (hasUsage) {
             const anchor: Anchor = {
@@ -1667,6 +1681,7 @@ export const useAssistant = create<AssistantState>((set, get) => {
           content: content || "",
           error: info.message,
           errorHint: info.hint,
+          tools: toolTraces.length ? toolTraces : undefined,
         });
         if (controller.signal.aborted) {
           patchMessage(assistantId, { status: "stopped" });

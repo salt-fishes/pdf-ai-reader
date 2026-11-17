@@ -1009,6 +1009,73 @@
   animation: caret-pulse var(--motion-pulse) ease-in-out infinite;
 }
 
+.toolList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 0 8px;
+}
+
+.toolCard {
+  padding: 5px 9px;
+  border: 1px solid var(--brand-a18);
+  border-radius: 10px;
+  background: var(--brand-a04);
+  font-size: var(--text-xs);
+}
+
+.toolCard > summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  list-style: none;
+  color: var(--muted);
+}
+
+.toolCard > summary::-webkit-details-marker {
+  display: none;
+}
+
+.toolCard[open] > summary {
+  margin-bottom: 5px;
+}
+
+.toolLabel {
+  color: var(--accent-deep);
+  font-weight: 600;
+}
+
+.toolMeta {
+  margin-left: auto;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.toolArgs {
+  max-height: 180px;
+  margin: 0;
+  padding: 6px 8px;
+  overflow: auto;
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.toolCardError {
+  border-color: color-mix(in srgb, var(--danger) 35%, transparent);
+  background: color-mix(in srgb, var(--danger) 6%, transparent);
+}
+
+.toolError {
+  margin-top: 5px;
+  color: var(--danger);
+  font-size: 12px;
+}
+
 .thinking pre {
   margin: 5px 0 0;
   padding: 6px 8px;

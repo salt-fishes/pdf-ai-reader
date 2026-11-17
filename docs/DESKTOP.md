@@ -57,13 +57,13 @@ npm run package:desktop
 
 安装包由 electron-builder 生成：
 
-- NSIS：`release/paper-reader-v0.8.1-x64.exe`，支持选择安装目录、创建桌面与开始菜单快捷方式。
+- NSIS：`release/paper-reader-v0.9.0-x64.exe`，支持选择安装目录、创建桌面与开始菜单快捷方式。
   安装器、卸载器、exe、桌面/开始菜单快捷方式使用同一套纸间图标。
   安装向导增加“PDF 打开方式”页：
   - 默认勾选“在 PDF 的‘打开方式’中显示纸间”，只写 OpenWith 声明，不影响默认应用。
   - 可选“安装完成后打开 Windows 默认应用设置”，默认不勾选；勾选后仍需在系统设置里确认。
   - 静默安装 `/S` 不显示该页，也不会自动写声明。
-- MSI：`release/paper-reader-v0.8.1-x64.msi`，使用 `build/zh-CN.wxl` 的 GBK 代码页；中文产品名、快捷方式与卸载项正常。
+- MSI：`release/paper-reader-v0.9.0-x64.msi`，使用 `build/zh-CN.wxl` 的 GBK 代码页；中文产品名、快捷方式与卸载项正常。
   MSI 暂不提供该勾选页，安装后可在 设置 → 关于 中注册。`.msi` 文件本身的图标由 Windows Installer 决定；
   electron-builder 26 只通过 `win.icon` 控制 exe、快捷方式与控制面板图标。
 - 两者都按当前用户安装到 `%LOCALAPPDATA%\Programs\PaperReader`，安装后的可执行文件为
@@ -84,6 +84,18 @@ npm run package:desktop
 - 阅读位置、对话、高亮、OCR 文本：Chromium IndexedDB（按 `http://127.0.0.1:8787` 原点）
 
 不要把这些目录提交到仓库。
+
+## 外部工具（MCP / Skills）
+
+设置 → 模型服务 → **外部工具（MCP / Skills）**：
+
+- **总开关**关闭时，聊天行为与未接入工具时完全一致。
+- **Sciverse** 是内置 skill：填 `sv-` token 后可直接调用语义检索、全文读取与引用关系 3 个只读工具；本地代理直接访问 `api.sciverse.space`，打包版不需要 Node。
+- **通用 MCP** 目前支持 Streamable HTTP：填写名称、URL 与可选请求头，保存后可测试连接并发现工具。工具名统一加 `mcp_<server>_` 前缀。
+- 工具调用最多 3 轮；连接超时 8 秒，单次调用 20 秒，结果截断到 120k 字符；失败的服务器缓存 30 秒，避免每个聊天请求都等待。
+- 工具结果按不可信外部数据注入上下文；当前 PDF 的引用仍使用 `[[p.n|原文片段]]`，外部文献要保留标题、年份、venue 与 `doc_id`。
+- token 与请求头只写入本机 `mcp.json`（桌面版在 `userData/data`），接口只返回 `hasToken`、尾号与请求头名称。
+- stdio 本地命令与“每次调用前确认”尚未实现。
 
 ## 端口与单实例
 

@@ -1,4 +1,4 @@
-import type { StreamEvent } from "./types";
+import type { StreamEvent, ToolTrace } from "./types";
 
 /**
  * Parse an SSE byte stream into normalized events. Handles CRLF, multi-line
@@ -75,6 +75,7 @@ function parseBlock(block: string): StreamEvent[] {
     }>;
     usage?: unknown;
     error?: { message?: string; code?: string; type?: string };
+    paper_reader_tool?: ToolTrace;
   };
 
   if (obj.error) {
@@ -86,6 +87,18 @@ function parseBlock(block: string): StreamEvent[] {
       },
     });
     return events;
+  }
+
+  const tool = obj.paper_reader_tool;
+  if (
+    tool &&
+    typeof tool === "object" &&
+    typeof tool.id === "string" &&
+    typeof tool.name === "string" &&
+    typeof tool.label === "string" &&
+    (tool.phase === "start" || tool.phase === "end" || tool.phase === "error")
+  ) {
+    events.push({ type: "tool", tool });
   }
 
   const delta = obj.choices?.[0]?.delta;

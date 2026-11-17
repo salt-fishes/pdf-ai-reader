@@ -1,5 +1,5 @@
 import { parseSse } from "./sse";
-import type { AiError, ApiMessage, ServerConfig, ThinkingEffort } from "./types";
+import type { AiError, ApiMessage, ServerConfig, ThinkingEffort, ToolTrace } from "./types";
 
 export async function fetchConfig(): Promise<ServerConfig> {
   const response = await fetch("/api/config");
@@ -51,6 +51,7 @@ export type StreamHandlers = {
   onDelta: (text: string) => void;
   onReasoning: (text: string) => void;
   onUsage: (usage: unknown) => void;
+  onTool?: (tool: ToolTrace) => void;
 };
 
 export type StreamResult = {
@@ -114,6 +115,8 @@ export async function streamChat(
       else if (event.type === "usage") {
         usage = event.usage;
         handlers.onUsage(event.usage);
+      } else if (event.type === "tool") {
+        handlers.onTool?.(event.tool);
       } else if (event.type === "error") {
         sawError = event.error;
       }

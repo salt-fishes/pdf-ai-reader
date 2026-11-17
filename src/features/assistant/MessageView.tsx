@@ -225,6 +225,42 @@ export function MessageView({ message, onQuote, onContextMenu }: Props) {
         </details>
       ) : null}
 
+      {message.tools?.length ? (
+        <div className={styles.toolList} aria-label="外部工具调用">
+          {message.tools.map((tool) => (
+            <details
+              className={`${styles.toolCard} ${tool.phase === "error" ? styles.toolCardError : ""}`}
+              key={tool.id}
+              data-tool-phase={tool.phase}
+            >
+              <summary>
+                <Icon
+                  name={
+                    tool.phase === "start" ? "search" : tool.phase === "error" ? "error" : "check"
+                  }
+                  size={13}
+                />
+                <span className={styles.toolLabel}>{tool.label}</span>
+                <span className={styles.toolMeta}>
+                  {tool.phase === "start"
+                    ? "调用中…"
+                    : tool.phase === "error"
+                      ? "失败"
+                      : (tool.summary ?? "完成")}
+                  {tool.durationMs
+                    ? ` · ${(tool.durationMs / 1000).toFixed(tool.durationMs < 10_000 ? 1 : 0)}s`
+                    : ""}
+                </span>
+              </summary>
+              {tool.args ? (
+                <pre className={styles.toolArgs}>{JSON.stringify(tool.args, null, 2)}</pre>
+              ) : null}
+              {tool.error ? <div className={styles.toolError}>{tool.error}</div> : null}
+            </details>
+          ))}
+        </div>
+      ) : null}
+
       {citations.length ? (
         <div className={styles.citationDock} ref={citationRef}>
           <button
