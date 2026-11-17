@@ -3,7 +3,7 @@ import { getActiveDocument, getPageSize } from "../../lib/pdf/pdf";
 import { PDF_TO_CSS_UNITS } from "../../lib/pdf/units";
 import { loadPageMetrics, savePageMetrics } from "../../lib/storage/db";
 import { pickPdfFile } from "../../lib/openFile";
-import { BrandMark } from "../../components/icons/SparkleIcon";
+import { PdfFileMark } from "../../components/icons/SparkleIcon";
 import { useOcr } from "../ocr/useOcrStore";
 import { pageAnchorMemory, useViewer } from "./useViewerStore";
 import { PageView } from "./PageView";
@@ -622,7 +622,7 @@ export function PdfViewer() {
       <div className={styles.empty}>
         <div className={styles.dropCard}>
           <div className={styles.mark}>
-            <BrandMark size={28} />
+            <PdfFileMark size={48} />
           </div>
           <h1>打开 PDF 开始阅读</h1>
           <p>

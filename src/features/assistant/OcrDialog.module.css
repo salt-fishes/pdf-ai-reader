@@ -8,7 +8,7 @@
 .note code {
   padding: 1px 4px;
   border-radius: 4px;
-  background: rgb(24 32 47 / 6%);
+  background: rgb(27 26 34 / 6%);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
 }
@@ -35,7 +35,7 @@
   height: 5px;
   margin-top: 10px;
   border-radius: 999px;
-  background: rgb(24 32 47 / 8%);
+  background: rgb(27 26 34 / 8%);
   overflow: hidden;
 }
 
@@ -43,7 +43,7 @@
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: var(--accent);
+  background: var(--accent-solid);
   transition: width var(--motion-slow) var(--ease-standard);
 }
 

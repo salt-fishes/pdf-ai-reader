@@ -52,7 +52,7 @@ button:disabled {
 }
 
 [data-theme="night"] ::selection {
-  background: rgb(185 185 255 / 28%);
+  background: rgb(255 179 92 / 28%);
 }
 
 [data-theme="night"] ::-webkit-scrollbar-thumb {
@@ -73,14 +73,14 @@ button:disabled {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgb(24 32 47 / 16%);
+  background: rgb(27 26 34 / 16%);
   border: 3px solid transparent;
   background-clip: content-box;
   border-radius: 999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgb(24 32 47 / 28%);
+  background: rgb(27 26 34 / 28%);
   border: 3px solid transparent;
   background-clip: content-box;
 }
@@ -187,7 +187,7 @@ button:disabled {
 }
 
 [data-theme="night"] .ocrTextLayer .ocrLine::selection {
-  background: rgb(185 185 255 / 30%);
+  background: rgb(255 179 92 / 30%);
 }
 
 /* Two stacked Lucide icons; the active one fades in without layout shift. */

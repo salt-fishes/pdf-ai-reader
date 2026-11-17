@@ -34,7 +34,7 @@
   z-index: 90;
   display: grid;
   place-items: center;
-  background: rgb(246 245 242 / 72%);
+  background: rgb(246 243 237 / 72%);
   backdrop-filter: blur(3px);
   pointer-events: none;
 }
@@ -68,6 +68,6 @@
 
 :global([data-theme="night"]) .dropBox {
   background: rgb(28 34 48 / 86%);
-  border-color: rgb(143 143 242 / 45%);
+  border-color: rgb(255 154 120 / 45%);
   color: var(--accent-deep);
 }

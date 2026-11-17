@@ -42,20 +42,48 @@ export function QuoteIcon({ size = 15 }: { size?: number }) {
   );
 }
 
+/**
+ * The book-spine mark: coral-free and monochrome so it can sit on any accent
+ * surface. The app icon, the PDF file icon and this mark share the same
+ * geometry (spine + page + dot).
+ */
 export function BrandMark({ size = 22 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <rect x="3.2" y="2.4" width="17.6" height="19.2" rx="4.2" fill="currentColor" opacity=".14" />
+      <rect x="3.2" y="2.4" width="4.4" height="19.2" rx="2.2" fill="currentColor" />
+      <rect x="9.4" y="2.4" width="11.4" height="19.2" rx="2.6" fill="currentColor" opacity=".55" />
+      <circle cx="17.7" cy="17.6" r="1.5" fill="currentColor" />
+    </svg>
+  );
+}
+
+/** White-background PDF file mark used in the empty reading state. */
+export function PdfFileMark({ size = 44 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 256 256" fill="none" aria-hidden="true">
       <path
-        d="M7.4 7.4h6.1M7.4 11h9.2M7.4 14.6h5.2"
-        stroke="currentColor"
-        strokeWidth="1.7"
-        strokeLinecap="round"
+        d="M44 12H164L216 64V224Q216 244 196 244H44Q24 244 24 224V32Q24 12 44 12Z"
+        fill="#FFFDF7"
+        stroke="#D9D0C0"
+        strokeWidth="2"
       />
-      <path
-        d="M16.5 13.2c.2 2.2 1.3 3.3 3.5 3.5-2.2.2-3.3 1.3-3.5 3.5-.2-2.2-1.3-3.3-3.5-3.5 2.2-.2 3.3-1.3 3.5-3.5Z"
-        fill="currentColor"
-      />
+      <path d="M164 12 216 64H184Q164 64 164 44Z" fill="#EFE6D5" />
+      <rect x="32" y="26" width="12" height="204" rx="6" fill="#FF7A59" />
+      <rect x="62" y="94" width="96" height="11" rx="5.5" fill="#1B1A22" opacity=".22" />
+      <rect x="62" y="118" width="74" height="11" rx="5.5" fill="#1B1A22" opacity=".16" />
+      <rect x="62" y="142" width="86" height="11" rx="5.5" fill="#1B1A22" opacity=".12" />
+      <rect x="58" y="188" width="80" height="32" rx="9" fill="#FF7A59" />
+      <text
+        x="98"
+        y="210"
+        textAnchor="middle"
+        fontFamily="Segoe UI, Arial, sans-serif"
+        fontSize="18"
+        fontWeight="700"
+        fill="#14131A"
+      >
+        PDF
+      </text>
     </svg>
   );
 }

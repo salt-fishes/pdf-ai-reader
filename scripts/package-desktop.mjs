@@ -64,6 +64,11 @@ psRemove(join(appDir, "node_modules"));
 // Electron's bundled default app is unused once resources/app is present.
 psRemove(join(out, "resources", "default_app.asar"));
 
+// Ship the dedicated .pdf icon next to the exe; the association layer points
+// DefaultIcon at this file so Explorer does not show the book mark for files.
+const pdfIcon = join(root, "build", "pdf-file.ico");
+if (existsSync(pdfIcon)) psCopy(pdfIcon, join(out, "pdf-file.ico"));
+
 const exe = join(out, "PaperReader.exe");
 if (existsSync(join(out, "electron.exe"))) {
   psCopy(join(out, "electron.exe"), exe);
@@ -103,7 +108,7 @@ if (rcedit && existsSync(join(root, "build", "icon.ico"))) {
       "纸间",
       "--set-version-string",
       "FileDescription",
-      "纸间 · PDF × AI 阅读器",
+      "纸间 × 文疏 · PDF 阅读器",
       "--set-version-string",
       "CompanyName",
       "Paper Reader contributors",
@@ -125,7 +130,7 @@ if (rcedit && existsSync(join(root, "build", "icon.ico"))) {
 writeFileSync(
   join(out, "README.txt"),
   [
-    "纸间 · PDF × AI 阅读器",
+    "纸间 × 文疏 · PDF 阅读器",
     "",
     "1. 双击 PaperReader.exe 启动。",
     "2. 第一次使用：打开右上角设置 → 模型服务，填入 Base URL、模型名与 API Key。",

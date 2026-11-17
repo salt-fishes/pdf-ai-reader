@@ -190,9 +190,9 @@ export function Header({ onOpenSettings, onOpenShortcuts, onOpenSearch }: Props)
         <button
           className={`${styles.aiButton} ${status === "open" ? styles.active : ""}`}
           data-ai-entry
-          aria-label="AI 阅读助手"
+          aria-label="文疏 AI 阅读助手"
           aria-keyshortcuts="Control+J"
-          title="AI 阅读助手（Ctrl+J）"
+          title="文疏 · AI 阅读助手（Ctrl+J）"
           onClick={(event) => openFrom(event.currentTarget)}
         >
           <SparkleIcon size={17} />

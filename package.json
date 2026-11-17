@@ -1,7 +1,7 @@
 {
   "name": "pdf-ai-reader",
   "private": true,
-  "version": "0.9.0",
+  "version": "0.10.0",
   "type": "module",
   "description": "Local-first PDF reader with an AI reading assistant",
   "main": "electron/main.mjs",
@@ -127,6 +127,12 @@
       "electron/**/*",
       "package.json",
       "!node_modules/**"
+    ],
+    "extraFiles": [
+      {
+        "from": "build/pdf-file.ico",
+        "to": "pdf-file.ico"
+      }
     ],
     "win": {
       "target": [

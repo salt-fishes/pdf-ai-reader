@@ -2,7 +2,7 @@
   position: fixed;
   inset: 0;
   z-index: 130;
-  background: rgb(23 32 52 / 34%);
+  background: rgb(27 26 34 / 34%);
   backdrop-filter: blur(3px);
   display: grid;
   place-items: center;
@@ -17,7 +17,7 @@
   flex-direction: column;
   border-radius: 14px;
   background: var(--paper);
-  box-shadow: 0 40px 100px -30px rgb(23 32 52 / 55%);
+  box-shadow: 0 40px 100px -30px rgb(27 26 34 / 55%);
   overflow: hidden;
   animation: panel-in var(--motion-base) var(--ease-out);
 }
@@ -67,7 +67,7 @@
 }
 
 .settingsNavButton:hover {
-  background: rgb(24 32 47 / 5%);
+  background: rgb(27 26 34 / 5%);
   color: var(--ink);
 }
 
@@ -84,7 +84,7 @@
   bottom: 9px;
   width: 2px;
   border-radius: 2px;
-  background: var(--accent);
+  background: var(--accent-solid);
 }
 
 .settingsContent {
@@ -177,7 +177,7 @@
 }
 
 .close:hover {
-  background: rgb(24 32 47 / 7%);
+  background: rgb(27 26 34 / 7%);
   color: var(--ink);
 }
 
@@ -222,7 +222,7 @@
   display: inline-flex;
   padding: 2px;
   border-radius: 8px;
-  background: rgb(24 32 47 / 5%);
+  background: rgb(27 26 34 / 5%);
   gap: 2px;
 }
 
@@ -245,7 +245,7 @@
 .segmentActive {
   background: #fff;
   color: var(--accent-deep);
-  box-shadow: 0 1px 3px rgb(23 32 52 / 12%);
+  box-shadow: 0 1px 3px rgb(27 26 34 / 12%);
 }
 
 .row {
@@ -298,22 +298,22 @@
   height: 30px;
   padding: 0 12px;
   border-radius: 7px;
-  background: rgb(24 32 47 / 6%);
+  background: rgb(27 26 34 / 6%);
   color: var(--ink);
   font-size: var(--text-xs);
 }
 
 .button:hover {
-  background: rgb(24 32 47 / 10%);
+  background: rgb(27 26 34 / 10%);
 }
 
 .primary {
-  background: var(--accent);
+  background: var(--accent-solid);
   color: #fff;
 }
 
 .primary:hover {
-  background: var(--accent-deep);
+  background: var(--accent-solid-hover);
 }
 
 .danger {
@@ -485,7 +485,7 @@ kbd {
 
 /* ---------- Night reading ---------- */
 :global([data-theme="night"]) .section {
-  background: #171c26;
+  background: #1a1820;
 }
 
 .badge {
@@ -717,7 +717,7 @@ kbd {
   display: grid;
   place-items: center;
   padding: 24px;
-  background: rgb(23 32 52 / 40%);
+  background: rgb(27 26 34 / 40%);
   backdrop-filter: blur(3px);
   animation: fade-in var(--motion-fast) var(--ease-standard);
 }
@@ -729,7 +729,7 @@ kbd {
   height: min(82vh, 760px);
   border-radius: 14px;
   background: var(--paper);
-  box-shadow: 0 40px 100px -30px rgb(23 32 52 / 55%);
+  box-shadow: 0 40px 100px -30px rgb(27 26 34 / 55%);
   overflow: hidden;
   animation: panel-in var(--motion-base) var(--ease-out);
 }
@@ -815,15 +815,15 @@ kbd {
 
 :global([data-theme="night"]) .docBody code,
 :global([data-theme="night"]) .docBody pre {
-  background: #1c2230;
+  background: #211e28;
 }
 
 :global([data-theme="night"]) .preset {
-  background: #202633;
+  background: #26222c;
 }
 
 :global([data-theme="night"]) .input {
-  background: #1c2230;
+  background: #211e28;
 }
 
 :global([data-theme="night"]) .badgeOk {
@@ -839,7 +839,7 @@ kbd {
 }
 
 :global([data-theme="night"]) .settingsNav {
-  background: #121721;
+  background: #17141c;
 }
 
 :global([data-theme="night"]) .settingsNavButton:hover {
@@ -847,12 +847,12 @@ kbd {
 }
 
 :global([data-theme="night"]) .segmentActive {
-  background: #2a3140;
+  background: #302b37;
   color: var(--accent-deep);
 }
 
 :global([data-theme="night"]) kbd {
-  background: #242a37;
+  background: #2a2631;
 }
 
 :global([data-theme="night"]) .button {
@@ -864,12 +864,12 @@ kbd {
 }
 
 :global([data-theme="night"]) .primary {
-  background: var(--accent);
+  background: var(--accent-solid);
   color: #fff;
 }
 
 :global([data-theme="night"]) .primary:hover {
-  background: #5a5acb;
+  background: var(--accent-solid);
 }
 
 :global([data-theme="night"]) .danger {
@@ -962,7 +962,7 @@ kbd {
   border-radius: 12px;
   background: var(--surface);
   padding: 16px 17px;
-  box-shadow: 0 1px 0 rgb(24 32 47 / 3%);
+  box-shadow: 0 1px 0 rgb(27 26 34 / 3%);
 }
 
 .groupTitle {
@@ -1106,7 +1106,7 @@ kbd {
   height: 48px;
   border-radius: 3px;
   background: var(--surface);
-  box-shadow: 0 1px 4px rgb(24 32 47 / 12%);
+  box-shadow: 0 1px 4px rgb(27 26 34 / 12%);
 }
 
 .choiceFloat {
@@ -1210,12 +1210,12 @@ kbd {
   height: 15px;
   border-radius: 50%;
   background: #fff;
-  box-shadow: 0 1px 3px rgb(23 32 52 / 30%);
+  box-shadow: 0 1px 3px rgb(27 26 34 / 30%);
   transition: transform var(--motion-base) var(--ease-out);
 }
 
 .switchOn {
-  background: var(--accent);
+  background: var(--accent-solid);
 }
 
 .switchOn i {
@@ -1300,7 +1300,7 @@ kbd {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: var(--accent);
+  background: var(--accent-solid);
   transition: width var(--motion-slow) var(--ease-standard);
 }
 
@@ -1315,7 +1315,7 @@ kbd {
   width: 64px;
   height: 64px;
   border-radius: 16px;
-  box-shadow: 0 12px 26px -16px rgb(23 32 52 / 55%);
+  box-shadow: 0 12px 26px -16px rgb(27 26 34 / 55%);
 }
 
 .heroText {
@@ -1430,7 +1430,7 @@ kbd {
   height: 30px;
   padding: 0 12px;
   border-radius: 7px;
-  background: rgb(24 32 47 / 6%);
+  background: rgb(27 26 34 / 6%);
   color: var(--ink);
   font-size: var(--text-xs);
   cursor: pointer;

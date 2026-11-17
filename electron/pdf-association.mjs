@@ -89,25 +89,40 @@ function normalized(value) {
   return value.trim().replace(/^"|"$/g, "").toLowerCase();
 }
 
+/** The dedicated Explorer icon shipped next to the executable. */
+export function pdfFileIconPath(exePath) {
+  return path.join(path.dirname(path.resolve(exePath)), "pdf-file.ico");
+}
+
 /**
  * Registry entries needed for one scope, used by both direct and elevated
  * installs. `ApplicationName`, `ApplicationDescription` and `ApplicationIcon`
  * are values of `Capabilities`, not subkeys: Windows silently drops the whole
  * entry from Default Apps when they are missing.
+ *
+ * `ApplicationIcon` describes the app and keeps the book mark; the `.pdf`
+ * ProgID's `DefaultIcon` uses the white file icon when it is shipped next to
+ * the exe, so Explorer distinguishes documents from the app itself.
  */
-export function associationEntries(exePath, scope = "user") {
+export function associationEntries(
+  exePath,
+  scope = "user",
+  fileIconPath = pdfFileIconPath(exePath),
+) {
   const k = keys(scope);
   const exe = path.resolve(exePath);
-  const icon = `${exe},0`;
+  const appIcon = `${exe},0`;
+  const resolvedFileIcon = path.resolve(fileIconPath);
+  const pdfIcon = existsSync(resolvedFileIcon) ? `${resolvedFileIcon},0` : appIcon;
   const command = `"${exe}" "%1"`;
   return [
     { key: k.progId, value: "PDF 文档" },
-    { key: `${k.progId}\\DefaultIcon`, value: icon },
+    { key: `${k.progId}\\DefaultIcon`, value: pdfIcon },
     { key: k.command, value: command },
     { key: k.openWith, name: PDF_PROG_ID, type: "REG_NONE", value: null },
     { key: k.applications, value: PDF_APPLICATION_NAME },
     { key: `${k.applications}\\FriendlyAppName`, value: PDF_APPLICATION_NAME },
-    { key: `${k.applications}\\DefaultIcon`, value: icon },
+    { key: `${k.applications}\\DefaultIcon`, value: appIcon },
     { key: `${k.applications}\\shell\\open\\command`, value: command },
     { key: `${k.applications}\\SupportedTypes`, name: ".pdf", type: "REG_NONE", value: null },
     { key: k.capabilities, name: "ApplicationName", value: PDF_APPLICATION_NAME },
@@ -116,7 +131,7 @@ export function associationEntries(exePath, scope = "user") {
       name: "ApplicationDescription",
       value: "本地优先的 PDF 阅读器与 AI 阅读助手",
     },
-    { key: k.capabilities, name: "ApplicationIcon", value: icon },
+    { key: k.capabilities, name: "ApplicationIcon", value: appIcon },
     { key: `${k.capabilities}\\FileAssociations`, name: ".pdf", value: PDF_PROG_ID },
     {
       key: k.registered,

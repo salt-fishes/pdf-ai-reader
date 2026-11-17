@@ -1,0 +1,872 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>纸间 × 文疏 · 方向 v3</title>
+    <style>
+      :root {
+        --paper: #f3f1ec;
+        --card: #fffdf8;
+        --ink: #1b1a22;
+        --slate: #24232c;
+        --cream: #fffdf7;
+        --sand: #efe8da;
+        --coral: #ff7a59;
+        --amber: #ffb35c;
+        --muted: #6b6875;
+        --line: rgb(27 26 34 / 10%);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--paper);
+        color: var(--ink);
+        font-family:
+          "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", sans-serif;
+      }
+      #board {
+        width: 1440px;
+        padding: 56px 64px 48px;
+      }
+      .head {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        margin-bottom: 30px;
+      }
+      .kicker {
+        font-size: 13px;
+        letter-spacing: 0.16em;
+        color: var(--coral);
+        font-weight: 700;
+      }
+      h1 {
+        margin: 10px 0 8px;
+        font-size: 38px;
+        letter-spacing: -0.01em;
+      }
+      .sub {
+        margin: 0;
+        color: var(--muted);
+        font-size: 15px;
+        line-height: 1.7;
+      }
+      .meta {
+        text-align: right;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.8;
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 24px;
+        padding: 28px 32px 26px;
+        margin-bottom: 20px;
+        box-shadow: 0 24px 60px -48px rgb(27 26 34 / 40%);
+      }
+      .cardHead {
+        display: flex;
+        align-items: baseline;
+        gap: 12px;
+        margin-bottom: 20px;
+      }
+      .num {
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        color: #fff;
+        background: var(--ink);
+        border-radius: 999px;
+        padding: 4px 9px;
+      }
+      .cardName {
+        font-size: 21px;
+        font-weight: 700;
+      }
+      .cardDesc {
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .split {
+        display: grid;
+        grid-template-columns: 340px 300px 1fr;
+        gap: 36px;
+        align-items: start;
+      }
+      .split.two {
+        grid-template-columns: 340px 300px 1fr;
+      }
+      .label {
+        font-size: 12px;
+        letter-spacing: 0.1em;
+        color: var(--muted);
+        font-weight: 700;
+        margin-bottom: 12px;
+      }
+      .plate {
+        display: grid;
+        place-items: center;
+        border-radius: 18px;
+        padding: 18px;
+        min-height: 168px;
+      }
+      .plate.dark {
+        background: #17161d;
+      }
+      .plate.sand {
+        background: #e9e4da;
+      }
+      .sizes {
+        display: flex;
+        align-items: flex-end;
+        gap: 14px;
+        margin-top: 18px;
+        padding-top: 16px;
+        border-top: 1px dashed var(--line);
+      }
+      .unit {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+      }
+      .unit span {
+        font-size: 10px;
+        color: var(--muted);
+        font-variant-numeric: tabular-nums;
+      }
+      .notes {
+        font-size: 13px;
+        line-height: 1.75;
+        color: var(--muted);
+      }
+      .notes b {
+        color: var(--ink);
+      }
+      .notes ul {
+        margin: 10px 0 0;
+        padding-left: 18px;
+      }
+      .notes li {
+        margin-bottom: 7px;
+      }
+      .families {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 20px;
+      }
+      .family {
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        padding: 18px 18px 16px;
+        background: #fbf9f4;
+      }
+      .familyHead {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        margin-bottom: 14px;
+      }
+      .familyName {
+        font-size: 16px;
+        font-weight: 700;
+      }
+      .familyTag {
+        font-size: 11px;
+        color: var(--muted);
+      }
+      .fabLine {
+        display: flex;
+        align-items: flex-end;
+        gap: 24px;
+      }
+      .fabStage {
+        position: relative;
+        width: 92px;
+        height: 92px;
+        display: grid;
+        place-items: center;
+      }
+      .fabGlow {
+        position: absolute;
+        inset: -30px;
+        border-radius: 50%;
+        filter: blur(11px);
+        background: radial-gradient(
+          circle,
+          rgb(255 138 92 / 62%) 0%,
+          rgb(255 138 92 / 32%) 30%,
+          rgb(255 138 92 / 12%) 52%,
+          transparent 72%
+        );
+      }
+      .fabGlow.busy {
+        filter: blur(14px);
+        transform: scale(1.14);
+        background: radial-gradient(
+          circle,
+          rgb(255 179 92 / 74%) 0%,
+          rgb(255 138 92 / 38%) 30%,
+          rgb(255 138 92 / 14%) 52%,
+          transparent 72%
+        );
+      }
+      .fab {
+        position: relative;
+        width: 76px;
+        height: 76px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        background: #14131a;
+        box-shadow: 0 12px 24px -12px rgb(20 19 26 / 72%);
+      }
+      .fabCap {
+        font-size: 11px;
+        color: var(--muted);
+        text-align: center;
+        margin-top: 8px;
+      }
+      .glyphRow {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px dashed var(--line);
+      }
+      .glyphRow span {
+        font-size: 10px;
+        color: var(--muted);
+      }
+      .sparkGrid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr) 320px;
+        gap: 18px;
+      }
+      .sparkStage {
+        position: relative;
+        min-height: 200px;
+        border-radius: 18px;
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+      }
+      .sparkStage.light {
+        background: #eeeae2;
+      }
+      .sparkStage.dark {
+        background: #17161d;
+      }
+      .sparkGlow {
+        position: absolute;
+        width: 172px;
+        height: 172px;
+        border-radius: 50%;
+        background: radial-gradient(
+          circle,
+          rgb(255 138 92 / 56%) 0%,
+          rgb(255 138 92 / 27%) 30%,
+          rgb(255 138 92 / 9%) 54%,
+          transparent 72%
+        );
+        filter: blur(12px);
+      }
+      .sparkStage.busy .sparkGlow {
+        background: radial-gradient(
+          circle,
+          rgb(255 179 92 / 72%) 0%,
+          rgb(255 138 92 / 36%) 32%,
+          rgb(255 138 92 / 12%) 56%,
+          transparent 74%
+        );
+        filter: blur(16px);
+        transform: scale(1.14);
+      }
+      .spark {
+        position: relative;
+        z-index: 1;
+        color: #c2410c;
+        filter: drop-shadow(0 4px 10px rgb(255 122 89 / 30%));
+      }
+      .sparkStage.dark .spark {
+        color: #ff9a78;
+      }
+      .sparkCap {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 12px;
+        text-align: center;
+        font-size: 11px;
+        color: #6b6875;
+      }
+      .sparkStage.dark .sparkCap {
+        color: #9d9aa8;
+      }
+      .sparkSpec {
+        border: 1px dashed var(--line);
+        border-radius: 18px;
+        padding: 18px 18px 16px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 10px;
+        background: #fbf9f4;
+      }
+      .specTitle {
+        font-size: 11px;
+        letter-spacing: 0.1em;
+        color: var(--muted);
+        font-weight: 700;
+      }
+      .specRow {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .specRow span {
+        font-size: 13px;
+        font-weight: 600;
+      }
+      .sparkSpec p {
+        margin: 0;
+        font-size: 12px;
+        line-height: 1.7;
+        color: var(--muted);
+      }
+      .sparkMock {
+        position: relative;
+        width: 76px;
+        height: 76px;
+        display: grid;
+        place-items: center;
+      }
+      .mock {
+        margin-top: 6px;
+        background: #e9e5dc;
+        border-radius: 18px;
+        padding: 14px;
+        position: relative;
+        overflow: hidden;
+      }
+      .mockChrome {
+        background: #fffdf8;
+        border-radius: 12px;
+        padding: 12px 16px;
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        box-shadow: 0 10px 30px -24px rgb(27 26 34 / 50%);
+      }
+      .mockName {
+        font-size: 13px;
+        font-weight: 600;
+      }
+      .mockDoc {
+        color: var(--muted);
+        font-size: 11px;
+        margin-left: 8px;
+      }
+      .mockBody {
+        height: 210px;
+        display: flex;
+        align-items: flex-end;
+        justify-content: flex-end;
+        padding: 18px;
+        position: relative;
+      }
+      .mockPage {
+        position: absolute;
+        left: 46px;
+        top: 28px;
+        width: 210px;
+        height: 210px;
+        background: #fff;
+        border-radius: 2px;
+        box-shadow: 0 14px 30px -24px rgb(27 26 34 / 50%);
+        padding: 28px 22px;
+      }
+      .mockPage i {
+        display: block;
+        height: 6px;
+        border-radius: 3px;
+        background: #1b1a22;
+        opacity: 0.12;
+        margin-bottom: 12px;
+      }
+      .mockPage i:nth-child(2) {
+        width: 78%;
+      }
+      .mockPage i:nth-child(3) {
+        width: 88%;
+      }
+      .mockPage i:nth-child(4) {
+        width: 64%;
+      }
+      .mockFabWrap {
+        position: relative;
+        z-index: 2;
+      }
+      .mockCaption {
+        position: absolute;
+        right: 20px;
+        top: 18px;
+        font-size: 10px;
+        color: #8b8794;
+        letter-spacing: 0.08em;
+      }
+      .swatches {
+        display: flex;
+        gap: 6px;
+        margin-top: 12px;
+      }
+      .sw {
+        width: 22px;
+        height: 22px;
+        border-radius: 7px;
+        border: 1px solid rgb(27 26 34 / 12%);
+      }
+      .footer {
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.8;
+        padding-left: 2px;
+      }
+      .footer b {
+        color: var(--ink);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="board">
+      <div class="head">
+        <div>
+          <div class="kicker">BRAND SYSTEM · V3 · DISPLAY LAYER</div>
+          <h1>纸间 × 文疏</h1>
+          <p class="sub">
+            应用图标取 C 的书脊结构，PDF 文件图标翻成白底，呼吸灯重做为「文疏」。<br />呼吸灯回到原来的星芒，但去掉底色，只留透明图标与暖光。只改显示层，不动文件关联与安装逻辑。
+          </p>
+        </div>
+        <div class="meta">2026.11 · 定稿预览<br />16 / 24 / 32 / 128 实尺寸</div>
+      </div>
+
+      <!-- 01 app icon -->
+      <section class="card">
+        <div class="cardHead">
+          <span class="num">01</span>
+          <span class="cardName">应用图标 · 书脊</span>
+          <span class="cardDesc"
+            >珊瑚书脊 + 米白纸页 + 星芒；深底留出纸的温度，16px 仍是一条完整的书。</span
+          >
+        </div>
+        <div class="split">
+          <div>
+            <div class="label">主图标</div>
+            <div class="plate dark">
+              <svg width="150" height="150" viewBox="0 0 512 512" aria-hidden="true">
+                <rect width="512" height="512" rx="116" fill="#14131A" />
+                <rect x="104" y="88" width="58" height="336" rx="20" fill="#FF7A59" />
+                <rect x="184" y="88" width="222" height="336" rx="26" fill="#FFFDF7" />
+                <rect
+                  x="206"
+                  y="132"
+                  width="120"
+                  height="13"
+                  rx="6.5"
+                  fill="#14131A"
+                  opacity=".18"
+                />
+                <rect
+                  x="206"
+                  y="162"
+                  width="90"
+                  height="13"
+                  rx="6.5"
+                  fill="#14131A"
+                  opacity=".13"
+                />
+                <rect
+                  x="206"
+                  y="192"
+                  width="108"
+                  height="13"
+                  rx="6.5"
+                  fill="#14131A"
+                  opacity=".1"
+                />
+                <path
+                  d="M344 327c1.6 20.9 10.1 29.4 31 31-20.9 1.6-29.4 10.1-31 31-1.6-20.9-10.1-29.4-31-31 20.9-1.6 29.4-10.1 31-31Z"
+                  fill="#FF7A59"
+                />
+              </svg>
+            </div>
+            <div class="sizes">
+              <div class="unit">
+                <svg width="32" height="32" viewBox="0 0 512 512" aria-hidden="true">
+                  <rect width="512" height="512" rx="116" fill="#14131A" />
+                  <rect x="96" y="80" width="72" height="352" rx="24" fill="#FF7A59" />
+                  <rect x="192" y="80" width="224" height="352" rx="30" fill="#FFFDF7" />
+                  <path
+                    d="M352 335c1.6 20.9 10.1 29.4 31 31-20.9 1.6-29.4 10.1-31 31-1.6-20.9-10.1-29.4-31-31 20.9-1.6 29.4-10.1 31-31Z"
+                    fill="#FF7A59"
+                  /></svg
+                ><span>32</span>
+              </div>
+              <div class="unit">
+                <svg width="24" height="24" viewBox="0 0 512 512" aria-hidden="true">
+                  <rect width="512" height="512" rx="116" fill="#14131A" />
+                  <rect x="88" y="72" width="84" height="368" rx="28" fill="#FF7A59" />
+                  <rect x="196" y="72" width="228" height="368" rx="34" fill="#FFFDF7" /></svg
+                ><span>24</span>
+              </div>
+              <div class="unit">
+                <svg width="16" height="16" viewBox="0 0 512 512" aria-hidden="true">
+                  <rect width="512" height="512" rx="116" fill="#14131A" />
+                  <rect x="72" y="64" width="104" height="384" rx="34" fill="#FF7A59" />
+                  <rect x="200" y="64" width="240" height="384" rx="42" fill="#FFFDF7" /></svg
+                ><span>16</span>
+              </div>
+            </div>
+          </div>
+          <div>
+            <div class="label">桌面组合</div>
+            <div class="plate sand">
+              <div style="display: flex; align-items: center; gap: 14px">
+                <svg width="64" height="64" viewBox="0 0 512 512" aria-hidden="true">
+                  <rect width="512" height="512" rx="116" fill="#14131A" />
+                  <rect x="104" y="88" width="58" height="336" rx="20" fill="#FF7A59" />
+                  <rect x="184" y="88" width="222" height="336" rx="26" fill="#FFFDF7" />
+                  <path
+                    d="M344 327c1.6 20.9 10.1 29.4 31 31-20.9 1.6-29.4 10.1-31 31-1.6-20.9-10.1-29.4-31-31 20.9-1.6 29.4-10.1 31-31Z"
+                    fill="#FF7A59"
+                  />
+                </svg>
+                <div>
+                  <div style="font-size: 16px; font-weight: 700">纸间</div>
+                  <div style="font-size: 13px; color: #6b6875; margin-top: 4px">PDF × 文疏</div>
+                </div>
+              </div>
+            </div>
+            <div class="swatches">
+              <span class="sw" style="background: #14131a"></span
+              ><span class="sw" style="background: #24232c"></span
+              ><span class="sw" style="background: #fffdf7"></span
+              ><span class="sw" style="background: #ff7a59"></span
+              ><span class="sw" style="background: #ffb35c"></span>
+            </div>
+          </div>
+          <div class="notes">
+            <b>取 C 的几何，但补两处小尺寸修正：</b>
+            <ul>
+              <li>16px 去掉文字线与星芒，只留“书脊 + 纸页”；32px 以上才出现星芒。</li>
+              <li>
+                深底 `#14131A` 在深色任务栏上会融边，建议加 2% 的暖白内描边，或把底提到 `#1B1A22`。
+              </li>
+              <li>书脊宽度固定为纸页宽度的 1/4，16px 下仍有 3px 左右，不会断。</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- 02 pdf file -->
+      <section class="card">
+        <div class="cardHead">
+          <span class="num">02</span>
+          <span class="cardName">PDF 文件图标 · 白底</span>
+          <span class="cardDesc"
+            >浅纸页面 + 珊瑚书脊，和资源管理器里的白底 PDF 同类，但有一条自己的书脊。</span
+          >
+        </div>
+        <div class="split">
+          <div>
+            <div class="label">主图标（浅色纸面）</div>
+            <div class="plate sand">
+              <svg width="132" height="132" viewBox="0 0 256 256" aria-hidden="true">
+                <path
+                  d="M44 12 H164 L216 64 V224 Q216 244 196 244 H44 Q24 244 24 224 V32 Q24 12 44 12 Z"
+                  fill="#FFFDF7"
+                  stroke="#D9D0C0"
+                  stroke-width="2"
+                />
+                <path d="M164 12 L216 64 H184 Q164 64 164 44 Z" fill="#EFE6D5" />
+                <rect x="32" y="26" width="12" height="204" rx="6" fill="#FF7A59" />
+                <rect x="62" y="94" width="96" height="11" rx="5.5" fill="#1B1A22" opacity=".22" />
+                <rect x="62" y="118" width="74" height="11" rx="5.5" fill="#1B1A22" opacity=".16" />
+                <rect x="62" y="142" width="86" height="11" rx="5.5" fill="#1B1A22" opacity=".12" />
+                <rect x="58" y="188" width="80" height="32" rx="9" fill="#FF7A59" />
+                <text
+                  x="98"
+                  y="210"
+                  text-anchor="middle"
+                  font-family="Segoe UI, Arial, sans-serif"
+                  font-size="18"
+                  font-weight="700"
+                  fill="#14131A"
+                >
+                  PDF
+                </text>
+              </svg>
+            </div>
+            <div class="sizes">
+              <div class="unit">
+                <svg width="32" height="32" viewBox="0 0 256 256" aria-hidden="true">
+                  <path
+                    d="M44 12 H164 L216 64 V224 Q216 244 196 244 H44 Q24 244 24 224 V32 Q24 12 44 12 Z"
+                    fill="#FFFDF7"
+                    stroke="#CFC6B6"
+                    stroke-width="5"
+                  />
+                  <path d="M164 12 L216 64 H184 Q164 64 164 44 Z" fill="#EFE6D5" />
+                  <rect x="30" y="24" width="18" height="208" rx="9" fill="#FF7A59" />
+                  <rect x="58" y="176" width="88" height="38" rx="10" fill="#FF7A59" /></svg
+                ><span>32</span>
+              </div>
+              <div class="unit">
+                <svg width="24" height="24" viewBox="0 0 256 256" aria-hidden="true">
+                  <path
+                    d="M44 12 H164 L216 64 V224 Q216 244 196 244 H44 Q24 244 24 224 V32 Q24 12 44 12 Z"
+                    fill="#FFFDF7"
+                    stroke="#CFC6B6"
+                    stroke-width="7"
+                  />
+                  <path d="M164 12 L216 64 H184 Q164 64 164 44 Z" fill="#EFE6D5" />
+                  <rect x="28" y="22" width="22" height="212" rx="11" fill="#FF7A59" />
+                  <rect x="58" y="170" width="98" height="46" rx="12" fill="#FF7A59" /></svg
+                ><span>24</span>
+              </div>
+              <div class="unit">
+                <svg width="16" height="16" viewBox="0 0 256 256" aria-hidden="true">
+                  <path
+                    d="M30 10 H150 L226 86 V228 Q226 246 208 246 H30 Q10 246 10 228 V28 Q10 10 30 10 Z"
+                    fill="#FFFDF7"
+                    stroke="#B9AF9D"
+                    stroke-width="14"
+                  />
+                  <rect x="18" y="22" width="30" height="212" rx="15" fill="#FF7A59" />
+                  <rect x="58" y="168" width="112" height="58" rx="16" fill="#FF7A59" /></svg
+                ><span>16</span>
+              </div>
+            </div>
+          </div>
+          <div>
+            <div class="label">深色背景</div>
+            <div class="plate dark">
+              <svg width="112" height="112" viewBox="0 0 256 256" aria-hidden="true">
+                <path
+                  d="M44 12 H164 L216 64 V224 Q216 244 196 244 H44 Q24 244 24 224 V32 Q24 12 44 12 Z"
+                  fill="#FFFDF7"
+                />
+                <path d="M164 12 L216 64 H184 Q164 64 164 44 Z" fill="#EFE6D5" />
+                <rect x="32" y="26" width="12" height="204" rx="6" fill="#FF7A59" />
+                <rect x="62" y="94" width="96" height="11" rx="5.5" fill="#1B1A22" opacity=".2" />
+                <rect x="62" y="118" width="74" height="11" rx="5.5" fill="#1B1A22" opacity=".14" />
+                <rect x="62" y="142" width="86" height="11" rx="5.5" fill="#1B1A22" opacity=".1" />
+                <rect x="58" y="188" width="80" height="32" rx="9" fill="#FF7A59" />
+                <text
+                  x="98"
+                  y="210"
+                  text-anchor="middle"
+                  font-family="Segoe UI, Arial, sans-serif"
+                  font-size="18"
+                  font-weight="700"
+                  fill="#14131A"
+                >
+                  PDF
+                </text>
+              </svg>
+            </div>
+          </div>
+          <div class="notes">
+            <b>白底的两条底线：</b>
+            <ul>
+              <li>
+                不用纯白 `#FFF`，用暖白 `#FFFDF7` + `#CFC6B6` 细边，白底资源管理器里仍有纸张边界。
+              </li>
+              <li>
+                书脊和 PDF 标签都保留珊瑚色，和深色应用图标是同一套语言；“PDF”文字只在 32px
+                以上出现。
+              </li>
+              <li>16px 只留“白页 + 珊瑚书脊 + 珊瑚标签条”，不画折角和文字。</li>
+              <li>资源管理器生效仍需独立 `pdf-file.ico`；本轮先做显示资产。</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- 03 fab -->
+      <section class="card">
+        <div class="cardHead">
+          <span class="num">03</span>
+          <span class="cardName">呼吸灯 · 星芒</span>
+          <span class="cardDesc"
+            >回到原来的四角星，但去掉实心圆底：图标透明，只剩星芒和一圈暖光在呼吸。</span
+          >
+        </div>
+        <div class="sparkGrid">
+          <div class="sparkStage light">
+            <div class="sparkGlow"></div>
+            <svg
+              class="spark"
+              width="44"
+              height="44"
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden="true"
+            >
+              <path
+                d="M12 2.6c.36 4.94 2.46 7.04 7.4 7.4-4.94.36-7.04 2.46-7.4 7.4-.36-4.94-2.46-7.04-7.4-7.4 4.94-.36 7.04-2.46 7.4-7.4Z"
+                fill="currentColor"
+              />
+              <path
+                d="M18.6 15.4c.16 2.2 1.1 3.14 3.3 3.3-2.2.16-3.14 1.1-3.3 3.3-.16-2.2-1.1-3.14-3.3-3.3 2.2-.16 3.14-1.1 3.3-3.3Z"
+                fill="currentColor"
+                opacity=".72"
+              />
+            </svg>
+            <div class="sparkCap">浅色纸面 · 阅读中</div>
+          </div>
+          <div class="sparkStage dark">
+            <div class="sparkGlow"></div>
+            <svg
+              class="spark"
+              width="44"
+              height="44"
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden="true"
+            >
+              <path
+                d="M12 2.6c.36 4.94 2.46 7.04 7.4 7.4-4.94.36-7.04 2.46-7.4 7.4-.36-4.94-2.46-7.04-7.4-7.4 4.94-.36 7.04-2.46 7.4-7.4Z"
+                fill="currentColor"
+              />
+              <path
+                d="M18.6 15.4c.16 2.2 1.1 3.14 3.3 3.3-2.2.16-3.14 1.1-3.3 3.3-.16-2.2-1.1-3.14-3.3-3.3 2.2-.16 3.14-1.1 3.3-3.3Z"
+                fill="currentColor"
+                opacity=".72"
+              />
+            </svg>
+            <div class="sparkCap">夜间 · 阅读中</div>
+          </div>
+          <div class="sparkStage light busy">
+            <div class="sparkGlow"></div>
+            <svg
+              class="spark"
+              width="44"
+              height="44"
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden="true"
+            >
+              <path
+                d="M12 2.6c.36 4.94 2.46 7.04 7.4 7.4-4.94.36-7.04 2.46-7.4 7.4-.36-4.94-2.46-7.04-7.4-7.4 4.94-.36 7.04-2.46 7.4-7.4Z"
+                fill="currentColor"
+              />
+              <path
+                d="M18.6 15.4c.16 2.2 1.1 3.14 3.3 3.3-2.2.16-3.14 1.1-3.3 3.3-.16-2.2-1.1-3.14-3.3-3.3 2.2-.16 3.14-1.1 3.3-3.3Z"
+                fill="currentColor"
+                opacity=".72"
+              />
+            </svg>
+            <div class="sparkCap">生成中 · 强光</div>
+          </div>
+          <div class="sparkSpec">
+            <div class="specTitle">实际尺寸</div>
+            <div class="specRow">
+              <svg
+                width="23"
+                height="23"
+                viewBox="0 0 24 24"
+                fill="none"
+                aria-hidden="true"
+                style="color: #c2410c"
+              >
+                <path
+                  d="M12 2.6c.36 4.94 2.46 7.04 7.4 7.4-4.94.36-7.04 2.46-7.4 7.4-.36-4.94-2.46-7.04-7.4-7.4 4.94-.36 7.04-2.46 7.4-7.4Z"
+                  fill="currentColor"
+                />
+                <path
+                  d="M18.6 15.4c.16 2.2 1.1 3.14 3.3 3.3-2.2.16-3.14 1.1-3.3 3.3-.16-2.2-1.1-3.14-3.3-3.3 2.2-.16 3.14-1.1 3.3-3.3Z"
+                  fill="currentColor"
+                  opacity=".72"
+                />
+              </svg>
+              <span>23px 星芒</span>
+            </div>
+            <p>
+              按钮只保留 54px
+              的命中区，没有圆底、没有边框；浅色用深珊瑚，夜间用浅珊瑚；生成中只加强光晕，不换图形。
+            </p>
+          </div>
+        </div>
+        <div class="notes" style="margin-top: 16px">
+          <b>星芒的呼吸：</b>光晕 5.2s 一呼一吸，透明度 0.24 → 0.60，缩放 0.94 → 1.06；生成中改为
+          2.8s，光晕提到 0.78。`prefers-reduced-motion` 下只留静态柔光，星芒不缩放。
+        </div>
+      </section>
+
+      <!-- 04 mock -->
+      <section class="card">
+        <div class="cardHead">
+          <span class="num">04</span>
+          <span class="cardName">界面里的样子</span>
+          <span class="cardDesc"
+            >头栏仍是「纸间」，助手入口叫「文疏」；透明星芒落在阅读区右下角，不抢正文。</span
+          >
+        </div>
+        <div class="mock">
+          <div class="mockChrome">
+            <svg width="22" height="22" viewBox="0 0 512 512" aria-hidden="true">
+              <rect width="512" height="512" rx="116" fill="#14131A" />
+              <rect x="104" y="88" width="58" height="336" rx="20" fill="#FF7A59" />
+              <rect x="184" y="88" width="222" height="336" rx="26" fill="#FFFDF7" />
+              <path
+                d="M344 327c1.6 20.9 10.1 29.4 31 31-20.9 1.6-29.4 10.1-31 31-1.6-20.9-10.1-29.4-31-31 20.9-1.6 29.4-10.1 31-31Z"
+                fill="#FF7A59"
+              />
+            </svg>
+            <span class="mockName">纸间</span>
+            <span class="mockDoc">示例文档.pdf · 32 页</span>
+          </div>
+          <div class="mockBody">
+            <div class="mockPage"><i></i><i></i><i></i><i></i></div>
+            <span class="mockCaption">READING CANVAS</span>
+            <div class="mockFabWrap">
+              <div class="sparkMock">
+                <div class="sparkGlow"></div>
+                <svg
+                  class="spark"
+                  width="34"
+                  height="34"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M12 2.6c.36 4.94 2.46 7.04 7.4 7.4-4.94.36-7.04 2.46-7.4 7.4-.36-4.94-2.46-7.04-7.4-7.4 4.94-.36 7.04-2.46 7.4-7.4Z"
+                    fill="currentColor"
+                  />
+                  <path
+                    d="M18.6 15.4c.16 2.2 1.1 3.14 3.3 3.3-2.2.16-3.14 1.1-3.3 3.3-.16-2.2-1.1-3.14-3.3-3.3 2.2-.16 3.14-1.1 3.3-3.3Z"
+                    fill="currentColor"
+                    opacity=".72"
+                  />
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="footer">
+        <b>纸间 × 文疏 · 方向 v3</b> · 2026-11-17 · 显示层定稿预览。应用图标取 C；PDF
+        文件图标白底化；呼吸灯回到透明星芒。<br />
+        生产前仍需：生成 `icon.svg` / `icon-small.svg` / `favicon.svg`，同步 `build-icons.mjs`
+        的写死 favicon；PDF 文件图标若要进资源管理器，单独做 `pdf-file.ico` 与注册表。
+      </div>
+    </div>
+  </body>
+</html>

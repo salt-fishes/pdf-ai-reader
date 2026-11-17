@@ -1,6 +1,6 @@
 # Paper Reader · PDF × AI
 
-A local-first PDF reader with an AI reading assistant. The PDF itself stays on your machine; only the pages, text, screenshots and attachments you explicitly select are sent to the model through a local proxy.
+A local-first PDF reader with Wenshu, its reading assistant. The PDF itself stays on your machine; only the pages, text, screenshots and attachments you explicitly select are sent to the model through a local proxy.
 
 [中文说明](README.md) · [Architecture](docs/ARCHITECTURE.md) · [Privacy](docs/PRIVACY.md) · [Release](docs/RELEASE.md)
 

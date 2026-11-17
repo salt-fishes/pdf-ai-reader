@@ -35,8 +35,8 @@ const POWERSHELL = join(
 const IS_WINDOWS = process.platform === "win32";
 const TITLEBAR_HEIGHT = 52;
 const TITLEBAR_COLORS = {
-  light: { color: "#f6f5f2", symbolColor: "#18202f" },
-  dark: { color: "#0f131b", symbolColor: "#e8eaf1" },
+  light: { color: "#f6f3ed", symbolColor: "#1b1a22" },
+  dark: { color: "#121016", symbolColor: "#ece8e2" },
 };
 
 let serverProcess = null;
@@ -84,23 +84,24 @@ const SPLASH_HTML = `<!doctype html><html lang="zh-CN"><head><meta charset="utf-
 <meta name="color-scheme" content="light"><title>纸间</title>
 <style>
 *{box-sizing:border-box}html,body{height:100%}body{margin:0;display:grid;place-items:center;
-background:#f6f5f2;color:#18202f;font-family:"Segoe UI Variable Text","Segoe UI","Microsoft YaHei UI",sans-serif}
+background:#f6f3ed;color:#1b1a22;font-family:"Segoe UI Variable Text","Segoe UI","Microsoft YaHei UI",sans-serif}
 main{display:flex;flex-direction:column;align-items:center;gap:14px;transform:translateY(-12px)}
-.mark{width:64px;height:64px;border-radius:18px;background:#5b5bd6;display:grid;place-items:center;
-box-shadow:0 18px 40px -18px rgb(91 91 214 / 65%)}
+.mark{width:64px;height:64px;display:grid;place-items:center;
+filter:drop-shadow(0 18px 30px rgb(27 26 34 / 24%))}
 h1{margin:0;font-size:24px;font-weight:600;letter-spacing:.04em}
-p{margin:0;color:#5f6675;font-size:13px}
+p{margin:0;color:#66626d;font-size:13px}
 .dots{display:flex;gap:6px;margin-top:6px}
-.dots i{width:6px;height:6px;border-radius:50%;background:#5b5bd6;opacity:.25;animation:pulse 1.2s ease-in-out infinite}
+.dots i{width:6px;height:6px;border-radius:50%;background:#c2410c;opacity:.25;animation:pulse 1.2s ease-in-out infinite}
 .dots i:nth-child(2){animation-delay:.15s}.dots i:nth-child(3){animation-delay:.3s}
 @keyframes pulse{50%{opacity:.9;transform:scale(1.15)}}
 @media (prefers-reduced-motion:reduce){.dots i{animation:none;opacity:.55}}
 </style></head><body><main>
-<div class="mark"><svg width="38" height="38" viewBox="0 0 24 24" fill="none">
-<rect x="3.2" y="2.4" width="17.6" height="19.2" rx="4.2" fill="#fff" opacity=".16"/>
-<path d="M7.4 7.4h6.1M7.4 11h9.2M7.4 14.6h5.2" stroke="#fff" stroke-width="1.7" stroke-linecap="round"/>
-<path d="M16.5 13.2c.2 2.2 1.3 3.3 3.5 3.5-2.2.2-3.3 1.3-3.5 3.5-.2-2.2-1.3-3.3-3.5-3.5 2.2-.2 3.3-1.3 3.5-3.5Z" fill="#fff"/>
-</svg></div><h1>纸间</h1><p>正在启动本地阅读环境…</p><div class="dots"><i></i><i></i><i></i></div>
+<div class="mark"><svg width="64" height="64" viewBox="0 0 512 512" fill="none">
+<rect width="512" height="512" rx="116" fill="#14131A"/>
+<rect x="104" y="88" width="58" height="336" rx="20" fill="#FF7A59"/>
+<rect x="184" y="88" width="222" height="336" rx="26" fill="#FFFDF7"/>
+<path d="M344 327c1.6 20.9 10.1 29.4 31 31-20.9 1.6-29.4 10.1-31 31-1.6-20.9-10.1-29.4-31-31 20.9-1.6 29.4-10.1 31-31Z" fill="#FF7A59"/>
+</svg></div><h1>纸间 × 文疏</h1><p>正在启动本地阅读环境…</p><div class="dots"><i></i><i></i><i></i></div>
 </main></body></html>`;
 const SPLASH_URL = `data:text/html;charset=utf-8,${encodeURIComponent(SPLASH_HTML)}`;
 
@@ -413,9 +414,9 @@ async function createWindow() {
     minWidth: 1024,
     minHeight: 700,
     show: false,
-    backgroundColor: "#f6f5f2",
+    backgroundColor: "#f6f3ed",
     autoHideMenuBar: true,
-    title: "纸间 · PDF × AI 阅读器",
+    title: "纸间 × 文疏 · PDF 阅读器",
     icon: appIconPath(),
     ...(IS_WINDOWS
       ? {

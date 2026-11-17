@@ -177,7 +177,7 @@ export function AboutSection() {
               <span className={`${styles.statusPill} ${styles.pillWarn}`}>预览版</span>
             ) : null}
           </div>
-          <p className={styles.heroDesc}>本地优先的 PDF 阅读器与 AI 阅读助手。</p>
+          <p className={styles.heroDesc}>本地优先的 PDF 阅读器，阅读助手叫文疏。</p>
         </div>
       </header>
 

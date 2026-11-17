@@ -120,6 +120,9 @@ npm run package:desktop
 - 系统级注册成功后会自动删除当前用户的 `RegisteredApplications` 与 `Capabilities`
   副本，避免设置页同时出现两个“纸间”；应用启动时也会修复旧版本留下的重复项。
 - 每次注册会先清理由旧版本写出的错误子键，并通知 Shell 刷新关联。
+- `.pdf` 的 `DefaultIcon` 指向 exe 同目录的 `pdf-file.ico`（白底 PDF 文件图标）；
+  `ApplicationIcon` 和 `Applications\\PaperReader.exe\\DefaultIcon` 仍指向 exe 的书脊应用图标。
+  注册时如果 `pdf-file.ico` 不存在，会自动回退到 exe 的 0 号图标，不会是空白。
 - 注册本身**不会**改变默认应用；仍需在 Windows 设置中选择“纸间”并确认。
 - 移动可移植目录后，原注册路径会失效；状态会显示“路径已变化”，重新注册即可。
 - “移除关联”只删除纸间的注册项，不修改 `.pdf` 当前默认应用；系统级注册的移除同样需要 UAC。

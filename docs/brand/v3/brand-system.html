@@ -1,0 +1,800 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>纸间 × 文疏 · 品牌系统 v3.1</title>
+    <style>
+      :root {
+        --ink: #1b1a22;
+        --slate: #24232c;
+        --paper: #f6f3ed;
+        --reading: #eae6dd;
+        --surface: #fffdf8;
+        --muted: #66626d;
+        --faint: #9b96a0;
+        --line: rgb(27 26 34 / 9%);
+        --line-strong: rgb(27 26 34 / 16%);
+        --coral: #ff7a59;
+        --amber: #ffb35c;
+        --deep: #c2410c;
+        --deep-hover: #9a3412;
+        --soft: #fdece5;
+        --night-ink: #ece8e2;
+        --night-paper: #121016;
+        --night-reading: #0a0910;
+        --night-surface: #1a1820;
+        --night-muted: #aaa4ad;
+        --night-line: rgb(255 255 255 / 9%);
+        --night-coral: #ff9a78;
+        --night-deep: #ffc4b0;
+        --night-soft: #3a2018;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--paper);
+        color: var(--ink);
+        font-family:
+          "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", sans-serif;
+      }
+      #board {
+        width: 1440px;
+        padding: 56px 64px 44px;
+      }
+      .head {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        margin-bottom: 30px;
+      }
+      .kicker {
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.16em;
+        color: var(--deep);
+      }
+      h1 {
+        margin: 10px 0 8px;
+        font-size: 38px;
+        letter-spacing: -0.01em;
+      }
+      .sub {
+        margin: 0;
+        font-size: 15px;
+        line-height: 1.7;
+        color: var(--muted);
+      }
+      .meta {
+        text-align: right;
+        font-size: 13px;
+        line-height: 1.8;
+        color: var(--muted);
+      }
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 24px;
+        padding: 28px 32px 26px;
+        margin-bottom: 20px;
+        box-shadow: 0 24px 60px -48px rgb(27 26 34 / 40%);
+      }
+      .cardHead {
+        display: flex;
+        align-items: baseline;
+        gap: 12px;
+        margin-bottom: 20px;
+      }
+      .num {
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        color: #fff;
+        background: var(--ink);
+        border-radius: 999px;
+        padding: 4px 9px;
+      }
+      .cardName {
+        font-size: 21px;
+        font-weight: 700;
+      }
+      .cardDesc {
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .palette {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 12px;
+      }
+      .swatch {
+        border-radius: 14px;
+        overflow: hidden;
+        border: 1px solid var(--line);
+      }
+      .chipColor {
+        height: 92px;
+      }
+      .chipMeta {
+        padding: 10px 11px 11px;
+        background: var(--surface);
+      }
+      .chipName {
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .chipHex {
+        font-size: 11px;
+        color: var(--muted);
+        font-variant-numeric: tabular-nums;
+        margin-top: 2px;
+      }
+      .night {
+        background: var(--night-surface);
+        border-color: rgb(255 255 255 / 8%);
+      }
+      .night .chipMeta {
+        background: var(--night-surface);
+        color: var(--night-ink);
+      }
+      .night .chipHex {
+        color: var(--night-muted);
+      }
+      .rows {
+        display: grid;
+        gap: 14px;
+      }
+      .rowLabel {
+        font-size: 11px;
+        letter-spacing: 0.1em;
+        font-weight: 700;
+        color: var(--muted);
+        margin-bottom: 8px;
+      }
+      .typeRow {
+        display: flex;
+        align-items: baseline;
+        gap: 26px;
+        flex-wrap: wrap;
+      }
+      .typeRow b {
+        font-weight: 600;
+      }
+      .contrast {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: 16px;
+      }
+      .badge {
+        font-size: 11px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 5px 9px;
+        color: var(--muted);
+      }
+      .badge b {
+        color: var(--ink);
+      }
+      .components {
+        display: grid;
+        grid-template-columns: 1.2fr 0.9fr 0.9fr;
+        gap: 22px;
+        align-items: start;
+      }
+      .demo {
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        overflow: hidden;
+        background: #fbf8f2;
+      }
+      .demoNight {
+        border: 1px solid rgb(255 255 255 / 8%);
+        border-radius: 16px;
+        overflow: hidden;
+        background: var(--night-surface);
+        color: var(--night-ink);
+      }
+      .demoLabel {
+        font-size: 11px;
+        letter-spacing: 0.1em;
+        font-weight: 700;
+        color: var(--muted);
+        padding: 12px 14px 0;
+      }
+      .headerDemo {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 14px 16px;
+        background: var(--surface);
+        border-bottom: 1px solid var(--line);
+      }
+      .brandMark {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--deep);
+        font-weight: 600;
+        font-size: 14px;
+      }
+      .brandMark svg {
+        color: var(--deep);
+      }
+      .docName {
+        font-size: 12px;
+        color: var(--muted);
+        margin-left: 6px;
+      }
+      .spacer {
+        flex: 1;
+      }
+      .iconBtn {
+        width: 30px;
+        height: 30px;
+        border-radius: 8px;
+        display: grid;
+        place-items: center;
+        color: var(--muted);
+      }
+      .aiBtn {
+        width: 34px;
+        height: 30px;
+        border-radius: 8px;
+        display: grid;
+        place-items: center;
+        background: var(--deep);
+        color: #fff;
+      }
+      .btnRow {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        padding: 16px;
+      }
+      .btn {
+        height: 36px;
+        padding: 0 16px;
+        border-radius: 8px;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 13px;
+        font-weight: 600;
+      }
+      .primary {
+        background: var(--deep);
+        color: #fff;
+      }
+      .secondary {
+        background: var(--soft);
+        color: var(--deep);
+      }
+      .ghost {
+        border: 1px solid var(--line-strong);
+        color: var(--ink);
+      }
+      .chipRow {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        padding: 0 16px 16px;
+      }
+      .chip {
+        font-size: 12px;
+        border-radius: 999px;
+        padding: 5px 10px;
+        background: var(--paper);
+        color: var(--muted);
+      }
+      .chipActive {
+        background: var(--soft);
+        color: var(--deep);
+        font-weight: 600;
+      }
+      .selection {
+        padding: 16px;
+        font-size: 14px;
+        line-height: 1.9;
+      }
+      .selection mark {
+        background: rgb(255 122 89 / 24%);
+        color: inherit;
+        padding: 2px 1px;
+        border-radius: 2px;
+      }
+      .fabDemo {
+        position: relative;
+        min-height: 190px;
+        display: grid;
+        place-items: center;
+        background: var(--reading);
+        overflow: hidden;
+      }
+      .fabGlow {
+        position: absolute;
+        width: 170px;
+        height: 170px;
+        border-radius: 50%;
+        background: radial-gradient(
+          circle,
+          rgb(255 138 92 / 56%) 0%,
+          rgb(255 138 92 / 27%) 30%,
+          rgb(255 138 92 / 9%) 54%,
+          transparent 72%
+        );
+        filter: blur(12px);
+      }
+      .fabStar {
+        position: relative;
+        color: var(--deep);
+        filter: drop-shadow(0 6px 14px rgb(255 122 89 / 26%));
+      }
+      .fabHint {
+        position: absolute;
+        bottom: 14px;
+        left: 0;
+        right: 0;
+        text-align: center;
+        font-size: 11px;
+        color: var(--muted);
+      }
+      .panelDemo {
+        padding: 14px;
+      }
+      .panel {
+        border-radius: 14px;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        padding: 14px;
+        box-shadow: 0 18px 40px -30px rgb(27 26 34 / 40%);
+      }
+      .panelTitle {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 14px;
+        font-weight: 700;
+      }
+      .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--amber);
+      }
+      .bubble {
+        margin-top: 12px;
+        margin-left: 34px;
+        border-radius: 12px;
+        background: var(--soft);
+        padding: 10px 12px;
+        font-size: 12px;
+        line-height: 1.7;
+        color: var(--ink);
+      }
+      .answer {
+        margin-top: 12px;
+        font-size: 12px;
+        line-height: 1.8;
+        color: var(--muted);
+      }
+      .cite {
+        color: var(--deep);
+        font-weight: 600;
+      }
+      .night .headerDemo {
+        background: var(--night-surface);
+        border-color: var(--night-line);
+      }
+      .night .brandMark,
+      .night .brandMark svg {
+        color: var(--night-deep);
+      }
+      .night .aiBtn {
+        background: var(--deep);
+        color: #fff;
+      }
+      .night .btn.primary {
+        background: var(--deep);
+      }
+      .night .btn.secondary {
+        background: var(--night-soft);
+        color: var(--night-deep);
+      }
+      .night .btn.ghost {
+        border-color: rgb(255 255 255 / 16%);
+        color: var(--night-ink);
+      }
+      .night .chip {
+        background: rgb(255 255 255 / 6%);
+        color: var(--night-muted);
+      }
+      .night .chipActive {
+        background: var(--night-soft);
+        color: var(--night-deep);
+      }
+      .night .panel {
+        background: var(--night-surface);
+        border-color: var(--night-line);
+      }
+      .night .bubble {
+        background: var(--night-soft);
+        color: var(--night-ink);
+      }
+      .night .answer {
+        color: var(--night-muted);
+      }
+      .night .cite {
+        color: var(--night-coral);
+      }
+      .rules {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+      }
+      .rule {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 14px 16px;
+        background: #fbf8f2;
+      }
+      .rule b {
+        display: block;
+        font-size: 13px;
+        margin-bottom: 6px;
+      }
+      .rule span {
+        font-size: 12px;
+        line-height: 1.7;
+        color: var(--muted);
+      }
+      code {
+        font-family: Consolas, monospace;
+        font-size: 11px;
+        background: rgb(27 26 34 / 6%);
+        border-radius: 4px;
+        padding: 1px 4px;
+      }
+      .footer {
+        font-size: 12px;
+        line-height: 1.8;
+        color: var(--muted);
+        padding-left: 2px;
+      }
+      .footer b {
+        color: var(--ink);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="board">
+      <div class="head">
+        <div>
+          <div class="kicker">BRAND SYSTEM · V3.1</div>
+          <h1>纸间 × 文疏</h1>
+          <p class="sub">
+            墨、纸、珊瑚、暖光。图标、界面主色、夜间色和选中态使用同一套品牌 token。
+          </p>
+        </div>
+        <div class="meta">2026.11 · 品牌升级验收<br />Light / Night · WCAG AA</div>
+      </div>
+
+      <section class="card">
+        <div class="cardHead">
+          <span class="num">01</span>
+          <span class="cardName">色板</span>
+          <span class="cardDesc">实心按钮使用深珊瑚，装饰图标使用亮珊瑚；两者不混用。</span>
+        </div>
+        <div class="rows">
+          <div>
+            <div class="rowLabel">浅色 · LIGHT</div>
+            <div class="palette">
+              <div class="swatch">
+                <div class="chipColor" style="background: #1b1a22"></div>
+                <div class="chipMeta">
+                  <div class="chipName">墨</div>
+                  <div class="chipHex">#1B1A22</div>
+                </div>
+              </div>
+              <div class="swatch">
+                <div class="chipColor" style="background: #f6f3ed"></div>
+                <div class="chipMeta">
+                  <div class="chipName">纸</div>
+                  <div class="chipHex">#F6F3ED</div>
+                </div>
+              </div>
+              <div class="swatch">
+                <div class="chipColor" style="background: #fffdf8"></div>
+                <div class="chipMeta">
+                  <div class="chipName">纸面</div>
+                  <div class="chipHex">#FFFDF8</div>
+                </div>
+              </div>
+              <div class="swatch">
+                <div class="chipColor" style="background: #c2410c"></div>
+                <div class="chipMeta">
+                  <div class="chipName">深珊瑚</div>
+                  <div class="chipHex">#C2410C</div>
+                </div>
+              </div>
+              <div class="swatch">
+                <div class="chipColor" style="background: #ff7a59"></div>
+                <div class="chipMeta">
+                  <div class="chipName">珊瑚</div>
+                  <div class="chipHex">#FF7A59</div>
+                </div>
+              </div>
+              <div class="swatch">
+                <div class="chipColor" style="background: #ffb35c"></div>
+                <div class="chipMeta">
+                  <div class="chipName">暖光</div>
+                  <div class="chipHex">#FFB35C</div>
+                </div>
+              </div>
+              <div class="swatch">
+                <div class="chipColor" style="background: #fdece5"></div>
+                <div class="chipMeta">
+                  <div class="chipName">柔珊瑚</div>
+                  <div class="chipHex">#FDECE5</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div>
+            <div class="rowLabel">夜间 · NIGHT</div>
+            <div class="palette">
+              <div class="swatch night">
+                <div class="chipColor" style="background: #121016"></div>
+                <div class="chipMeta">
+                  <div class="chipName">夜纸</div>
+                  <div class="chipHex">#121016</div>
+                </div>
+              </div>
+              <div class="swatch night">
+                <div class="chipColor" style="background: #0a0910"></div>
+                <div class="chipMeta">
+                  <div class="chipName">夜读</div>
+                  <div class="chipHex">#0A0910</div>
+                </div>
+              </div>
+              <div class="swatch night">
+                <div class="chipColor" style="background: #1a1820"></div>
+                <div class="chipMeta">
+                  <div class="chipName">夜面</div>
+                  <div class="chipHex">#1A1820</div>
+                </div>
+              </div>
+              <div class="swatch night">
+                <div class="chipColor" style="background: #ece8e2"></div>
+                <div class="chipMeta">
+                  <div class="chipName">夜墨</div>
+                  <div class="chipHex">#ECE8E2</div>
+                </div>
+              </div>
+              <div class="swatch night">
+                <div class="chipColor" style="background: #ff9a78"></div>
+                <div class="chipMeta">
+                  <div class="chipName">夜珊瑚</div>
+                  <div class="chipHex">#FF9A78</div>
+                </div>
+              </div>
+              <div class="swatch night">
+                <div class="chipColor" style="background: #ffc4b0"></div>
+                <div class="chipMeta">
+                  <div class="chipName">夜强调</div>
+                  <div class="chipHex">#FFC4B0</div>
+                </div>
+              </div>
+              <div class="swatch night">
+                <div class="chipColor" style="background: #3a2018"></div>
+                <div class="chipMeta">
+                  <div class="chipName">夜柔珊瑚</div>
+                  <div class="chipHex">#3A2018</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="contrast">
+          <span class="badge">墨 / 纸面 <b>16.97:1</b></span>
+          <span class="badge">次要文字 / 纸面 <b>5.85:1</b></span>
+          <span class="badge">白字 / 深珊瑚 <b>5.18:1</b></span>
+          <span class="badge">夜墨 / 夜面 <b>14.39:1</b></span>
+          <span class="badge">夜珊瑚 / 夜面 <b>8.49:1</b></span>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="cardHead">
+          <span class="num">02</span>
+          <span class="cardName">字体与层级</span>
+          <span class="cardDesc"
+            >界面用 Segoe UI Variable + 微软雅黑；正文 13px 起，标题 24 / 28px。</span
+          >
+        </div>
+        <div class="typeRow">
+          <b style="font-size: 28px">纸间</b>
+          <b style="font-size: 24px">阅读与对话</b>
+          <b style="font-size: 17px">章节标题</b>
+          <span style="font-size: 15px">面板正文</span>
+          <span style="font-size: 14px; color: #66626d">说明文字</span>
+          <span style="font-size: 13px; color: #66626d">元信息 13px</span>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="cardHead">
+          <span class="num">03</span>
+          <span class="cardName">组件</span>
+          <span class="cardDesc">从顶栏到呼吸灯，全部落在同一套墨 / 纸 / 珊瑚关系里。</span>
+        </div>
+        <div class="components">
+          <div class="demo">
+            <div class="demoLabel">顶栏 · 浅色</div>
+            <div class="headerDemo">
+              <span class="brandMark">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <rect x="3.2" y="2.4" width="4.4" height="19.2" rx="2.2" fill="currentColor" />
+                  <rect
+                    x="9.4"
+                    y="2.4"
+                    width="11.4"
+                    height="19.2"
+                    rx="2.6"
+                    fill="currentColor"
+                    opacity=".55"
+                  />
+                  <circle cx="17.7" cy="17.6" r="1.5" fill="currentColor" />
+                </svg>
+                纸间
+              </span>
+              <span class="docName">示例文档.pdf · 32 页</span>
+              <span class="spacer"></span>
+              <span class="iconBtn">⌕</span>
+              <span class="aiBtn">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M12 2.6c.36 4.94 2.46 7.04 7.4 7.4-4.94.36-7.04 2.46-7.4 7.4-.36-4.94-2.46-7.04-7.4-7.4 4.94-.36 7.04-2.46 7.4-7.4Z"
+                    fill="currentColor"
+                  />
+                  <path
+                    d="M18.6 15.4c.16 2.2 1.1 3.14 3.3 3.3-2.2.16-3.14 1.1-3.3 3.3-.16-2.2-1.1-3.14-3.3-3.3 2.2-.16 3.14-1.1 3.3-3.3Z"
+                    fill="currentColor"
+                    opacity=".72"
+                  />
+                </svg>
+              </span>
+            </div>
+            <div class="btnRow">
+              <span class="btn primary">发送</span>
+              <span class="btn secondary">加入上下文</span>
+              <span class="btn ghost">取消</span>
+            </div>
+            <div class="chipRow">
+              <span class="chip">当前页</span>
+              <span class="chip chipActive">第 2–3 页 · 1.8k 字</span>
+              <span class="chip">选中文本</span>
+            </div>
+            <div class="selection">
+              阅读时选中一句话，<mark>用珊瑚色标出</mark>，搜索命中仍用青色。
+            </div>
+          </div>
+
+          <div class="demo">
+            <div class="demoLabel">呼吸灯 · 文疏</div>
+            <div class="fabDemo">
+              <div class="fabGlow"></div>
+              <svg
+                class="fabStar"
+                width="44"
+                height="44"
+                viewBox="0 0 24 24"
+                fill="none"
+                aria-hidden="true"
+              >
+                <path
+                  d="M12 2.6c.36 4.94 2.46 7.04 7.4 7.4-4.94.36-7.04 2.46-7.4 7.4-.36-4.94-2.46-7.04-7.4-7.4 4.94-.36 7.04-2.46 7.4-7.4Z"
+                  fill="currentColor"
+                />
+                <path
+                  d="M18.6 15.4c.16 2.2 1.1 3.14 3.3 3.3-2.2.16-3.14 1.1-3.3 3.3-.16-2.2-1.1-3.14-3.3-3.3 2.2-.16 3.14-1.1 3.3-3.3Z"
+                  fill="currentColor"
+                  opacity=".72"
+                />
+              </svg>
+              <div class="fabHint">透明星芒 · 无圆底 · 暖光呼吸</div>
+            </div>
+          </div>
+
+          <div class="demoNight night">
+            <div class="demoLabel" style="color: #aaa4ad">夜间 · 面板</div>
+            <div class="headerDemo">
+              <span class="brandMark">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <rect x="3.2" y="2.4" width="4.4" height="19.2" rx="2.2" fill="currentColor" />
+                  <rect
+                    x="9.4"
+                    y="2.4"
+                    width="11.4"
+                    height="19.2"
+                    rx="2.6"
+                    fill="currentColor"
+                    opacity=".55"
+                  />
+                  <circle cx="17.7" cy="17.6" r="1.5" fill="currentColor" />
+                </svg>
+                纸间
+              </span>
+              <span class="spacer"></span>
+              <span class="aiBtn">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M12 2.6c.36 4.94 2.46 7.04 7.4 7.4-4.94.36-7.04 2.46-7.4 7.4-.36-4.94-2.46-7.04-7.4-7.4 4.94-.36 7.04-2.46 7.4-7.4Z"
+                    fill="currentColor"
+                  />
+                  <path
+                    d="M18.6 15.4c.16 2.2 1.1 3.14 3.3 3.3-2.2.16-3.14 1.1-3.3 3.3-.16-2.2-1.1-3.14-3.3-3.3 2.2-.16 3.14-1.1 3.3-3.3Z"
+                    fill="currentColor"
+                    opacity=".72"
+                  />
+                </svg>
+              </span>
+            </div>
+            <div class="panelDemo">
+              <div class="panel">
+                <div class="panelTitle">文疏 <span class="dot"></span></div>
+                <div class="bubble">解释第 2 页的上下文组织方式，并总结 2–3 页的核心观点。</div>
+                <div class="answer">
+                  第 2 页把一次提问拆成四层：文档元信息、页面文本、显式引用和最近对话。<span
+                    class="cite"
+                    >p.2</span
+                  >
+                  · <span class="cite">p.3</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="cardHead">
+          <span class="num">04</span>
+          <span class="cardName">三条硬规则</span>
+        </div>
+        <div class="rules">
+          <div class="rule">
+            <b>实心按钮只用深珊瑚</b
+            ><span
+              ><code>--accent-solid</code> <code>#C2410C</code> 对白字 5.18:1；不要用亮珊瑚
+              <code>#FF7A59</code> 配白字。</span
+            >
+          </div>
+          <div class="rule">
+            <b>亮珊瑚只做装饰</b
+            ><span
+              >书脊、星芒、PDF 标签、选中提示用
+              <code>--brand-coral</code>；它不承担正文对比度。</span
+            >
+          </div>
+          <div class="rule">
+            <b>夜间不把实心按钮调浅</b
+            ><span
+              >夜间文字用 <code>#FF9A78</code>，实心按钮仍是 <code>#C2410C</code>；<code
+                >--accent-solid</code
+              >
+              不随主题变浅。</span
+            >
+          </div>
+        </div>
+      </section>
+
+      <div class="footer">
+        <b>纸间 × 文疏 · 品牌系统 v3.1</b> · 2026-11-17 · 与
+        <code>src/styles/tokens.css</code> 同步。<br />
+        图标稿见同目录 <code>brand-v3.png</code>；生产色值以 token 文件为准。
+      </div>
+    </div>
+  </body>
+</html>

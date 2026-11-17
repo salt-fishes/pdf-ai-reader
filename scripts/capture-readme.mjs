@@ -86,6 +86,9 @@ await page.locator('[data-page="6"] [class*="ocrBadge"]').waitFor({ timeout: 15_
 await page.getByRole("button", { name: /缩放 \d+%/ }).click();
 await page.getByRole("menuitem", { name: "适合页面" }).click();
 await page.waitForTimeout(900);
+// The OCR badge sits next to the page label at the bottom of the page.
+await page.locator('[data-page="6"] [class*="label"]').scrollIntoViewIfNeeded();
+await page.waitForTimeout(500);
 await shot("ocr");
 
 await browser.close();

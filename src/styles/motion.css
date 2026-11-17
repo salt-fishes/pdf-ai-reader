@@ -155,7 +155,7 @@
   }
 }
 
-/* Assistant FAB: one soft halo, opacity only, no hard rings. */
+/* Assistant FAB: one soft halo behind a transparent sparkle. */
 @keyframes fab-glow {
   0%,
   100% {

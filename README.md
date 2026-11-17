@@ -1,10 +1,10 @@
 # 纸间 · PDF × AI 阅读器
 
-本地优先的 PDF 阅读器与 AI 阅读助手。主 PDF 不上传；只有你明确选中的页、文字、截图和附件会发给模型。
+本地优先的 PDF 阅读器，阅读助手叫文疏。主 PDF 不上传；只有你明确选中的页、文字、截图和附件会发给模型。
 
 [![CI](https://github.com/salt-fishes/pdf-ai-reader/actions/workflows/ci.yml/badge.svg)](https://github.com/salt-fishes/pdf-ai-reader/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/salt-fishes/pdf-ai-reader)](https://github.com/salt-fishes/pdf-ai-reader/releases)
-[![License: MIT](https://img.shields.io/badge/license-MIT-5b5bd6.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/license-MIT-c2410c.svg)](LICENSE)
 
 ![阅读态](docs/screenshots/reading.png)
 
@@ -72,9 +72,9 @@
 **桌面与隐私**
 
 - Electron 壳自动启动本机代理，provider 配置、OCR 组件与模型、阅读数据写入本机应用数据目录。
-- 无边框标题栏使用 Windows 原生窗口按钮，亮色/夜间主题同步；安装器、exe 与快捷方式统一图标。
+- 无边框标题栏使用 Windows 原生窗口按钮，亮色/夜间主题同步；安装器、exe 与快捷方式统一应用图标，`.pdf` 文件使用单独的白底文档图标。
 - 双击关联的 PDF 直接打开；应用已运行时再次双击会复用窗口。
-- 可在 设置 → 关于 中注册为 PDF 打开方式；不会自动修改默认应用，是否设为默认由 Windows 设置确认。
+- 可在 设置 → 关于 中注册为 PDF 打开方式；`.pdf` 的 `DefaultIcon` 会指向随包的白底图标，缺失时回退到 exe 图标。不会自动修改默认应用，是否设为默认由 Windows 设置确认。
 - 启动页先显示品牌壳，本地代理并行启动；本机实测窗口约 0.5s 出现、应用约 1.4s 就绪。
 - 手动检查更新，只打开发布页；不后台轮询、不自动下载。
 - 无遥测、无统计上报；代理默认只监听 `127.0.0.1`。

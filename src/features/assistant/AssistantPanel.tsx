@@ -446,7 +446,7 @@ export function AssistantPanel({ onOpenSettings }: { onOpenSettings: () => void 
         data-assistant-panel
         data-assistant-mode={sidebar ? "sidebar" : "float"}
         role="dialog"
-        aria-label="AI 阅读助手"
+        aria-label="文疏 AI 阅读助手"
         style={
           sidebar
             ? {
@@ -545,7 +545,7 @@ export function AssistantPanel({ onOpenSettings }: { onOpenSettings: () => void 
           <div className={styles.sessionWrap} ref={sessionRef}>
             <div className={styles.sessionHeading}>
               <div className={styles.panelTitle} data-panel-drag>
-                阅读助手
+                文疏
                 <span className={`${styles.dot} ${streaming ? styles.dotBusy : ""}`} />
               </div>
               <button
