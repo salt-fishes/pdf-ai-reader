@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.8.1] — 2026-11-17
+
+### 修复
+
+- **Windows“默认应用”列表找不到“纸间”**：`Capabilities` 下的 `ApplicationName`、`ApplicationDescription`、`ApplicationIcon` 与 `FileAssociations\.pdf` 之前被写成了子键。Windows 只读取命名值，缺少这些值时会直接忽略整个应用，即使 ProgID 已注册。现在按系统格式写入，并在注册时清理旧版本留下的错误子键。
+- 系统级注册脚本使用 `New-Item -Force` 创建已存在的注册表键时，会清空该键已有的值，导致 `Capabilities` 最终只剩一个值。现在只在键不存在时创建。
+- 系统级注册改为写入临时 PowerShell 脚本（UTF-8 BOM）再以 UAC 执行，避免较长的 `-EncodedCommand` 在提权链路上静默失败、连错误日志都无法生成。
+- PDF 关联状态改为同时校验 `RegisteredApplications`、`Capabilities` 与 `.pdf` 映射，不再只看 ProgID 命令；旧版本的不完整注册会显示“尚未注册”，可直接重新注册修复。
+- 打开默认应用设置时按实际注册范围使用 `registeredAppMachine` 或 `registeredAppUser`，系统级注册不再错误地按用户级参数打开。
+- 系统级注册成功后清理当前用户的重复注册。此前 `HKCU` 与 `HKLM` 各有一份时，默认应用列表会出现两个“纸间”；应用启动时也会自动修复旧版本留下的重复项。
+- 注册或移除关联后通知 Shell 刷新，无需重新登录。
+
+### 已知问题
+
+- 未做代码签名，Windows SmartScreen 会提示未知发布者。
+- MSI 文件本身的图标由 Windows Installer 决定；electron-builder 26 只保证 exe、快捷方式与控制面板图标。
+
 ## [0.8.0] — 2026-11-17
 
 ### 新增

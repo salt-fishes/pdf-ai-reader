@@ -98,8 +98,8 @@ export function AboutSection() {
       setAssociation(status);
       setAssociationMessage(
         scope === "machine"
-          ? "已注册到系统。请在 Windows 设置中选择“纸间”并确认。"
-          : "已注册到当前用户。Windows 11 默认应用列表可能只显示系统级注册。",
+          ? "已注册到系统。正在打开 Windows 默认应用设置。"
+          : "已注册到当前用户。正在打开 Windows 默认应用设置。",
       );
       await openPdfDefaultApps();
     } catch (error) {
@@ -250,18 +250,22 @@ export function AboutSection() {
                 打开默认应用设置
               </button>
             ) : null}
-            {association.scope !== "machine" ? (
+            {association.scope !== "machine" || !association.registered || association.stale ? (
               <button
                 className={`${styles.button} ${styles.primary}`}
                 onClick={() => void registerAssociation("machine")}
                 disabled={associationBusy}
               >
-                {associationBusy ? "处理中…" : association.stale ? "重新注册到系统" : "注册到系统"}
+                {associationBusy
+                  ? "处理中…"
+                  : association.stale || !association.registered
+                    ? "重新注册到系统"
+                    : "注册到系统"}
               </button>
             ) : null}
             <details className={styles.moreActions}>
               <summary>更多</summary>
-              {!association.registered || association.stale ? (
+              {association.scope !== "machine" && (!association.registered || association.stale) ? (
                 <button
                   className={styles.button}
                   onClick={() => void registerAssociation("user")}

@@ -1,7 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain, net, session, shell } from "electron";
 import { execFile, spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import { readFile, unlink } from "node:fs/promises";
+import { readFile, unlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -11,6 +11,7 @@ import {
   pdfAssociationStatus,
   registerPdfAssociation,
   removePdfAssociation,
+  removeUserPdfRegistration,
   unsupportedPdfAssociation,
 } from "./pdf-association.mjs";
 import { pdfArgFrom, readPdfPayload } from "./pdf-args.mjs";
@@ -146,14 +147,27 @@ function currentAssociationStatus() {
     : Promise.resolve(unsupportedPdfAssociation());
 }
 
+/** Heal installs that registered both scopes before 0.8.1. */
+async function cleanupDuplicatePdfRegistration() {
+  if (!PDF_ASSOCIATION_SUPPORTED) return;
+  try {
+    const status = await currentAssociationStatus();
+    if (status.registered && status.scope === "machine") {
+      await removeUserPdfRegistration();
+    }
+  } catch {
+    // Registration status is advisory; startup must not fail because of it.
+  }
+}
+
 function psQuote(value) {
   return `'${String(value).replace(/'/g, "''")}'`;
 }
 
 /**
- * Windows 11's Default Apps list reads machine-wide registrations; a portable
- * HKCU registration only appears in "Open with". Run the same registry writes
- * in an elevated PowerShell process so the app shows up in Settings too.
+ * Windows 11 lists both per-user and machine-wide registrations. A machine-wide
+ * entry makes the app available to every account, so run the registry writes in
+ * an elevated PowerShell process.
  */
 function associationScript(scope, mode) {
   return associationPowerShellScript({ exePath: process.execPath, scope, mode });
@@ -162,9 +176,11 @@ function associationScript(scope, mode) {
 async function runElevatedAssociation(scope, mode) {
   const stamp = `${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const logFile = join(tmpdir(), `paper-reader-assoc-${stamp}.log`);
+  const scriptFile = join(tmpdir(), `paper-reader-assoc-${stamp}.ps1`);
   // Start-Process cannot combine -Verb RunAs with redirected output, so the
-  // elevated script writes its own log. This is the only way to surface the
-  // real error (for example a registry permission failure) to the UI.
+  // elevated script writes its own log. The script goes to a BOM-prefixed file:
+  // passing it through -EncodedCommand makes UAC fail silently with longer
+  // scripts, leaving no log at all.
   const wrapped = [
     "$ErrorActionPreference = 'Stop'",
     `$log = ${psQuote(logFile)}`,
@@ -179,11 +195,11 @@ async function runElevatedAssociation(scope, mode) {
     "  exit 1",
     "}",
   ].join("\r\n");
-  const encoded = Buffer.from(wrapped, "utf16le").toString("base64");
+  await writeFile(scriptFile, `\uFEFF${wrapped}`, "utf8");
   const command = [
     "$ErrorActionPreference = 'Stop'",
     "try {",
-    `  $p = Start-Process -FilePath powershell.exe -Verb RunAs -Wait -PassThru -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-EncodedCommand','${encoded}')`,
+    `  $p = Start-Process -FilePath powershell.exe -Verb RunAs -Wait -PassThru -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File','"${scriptFile}"')`,
     "} catch {",
     "  if ($_.Exception.NativeErrorCode -eq 1223 -or ($_.Exception.HResult -band 0xFFFF) -eq 1223) { exit 1223 }",
     "  [Console]::Error.WriteLine($_.Exception.Message)",
@@ -210,7 +226,10 @@ async function runElevatedAssociation(scope, mode) {
         : "需要管理员权限";
     throw new Error(`系统级注册失败：${detail}`);
   } finally {
-    await unlink(logFile).catch(() => undefined);
+    await Promise.all([
+      unlink(logFile).catch(() => undefined),
+      unlink(scriptFile).catch(() => undefined),
+    ]);
   }
 }
 
@@ -222,6 +241,9 @@ ipcMain.handle("app:pdf-association-register", async (_event, scope = "user") =>
   }
   if (scope === "machine") {
     await runElevatedAssociation("machine", "register");
+    // A machine-wide entry wins; remove the per-user copy so Settings does not
+    // list 纸间 twice.
+    await removeUserPdfRegistration().catch(() => undefined);
     return currentAssociationStatus();
   }
   return registerPdfAssociation(process.execPath, "user");
@@ -248,14 +270,21 @@ ipcMain.handle("app:pdf-association-open-settings", async () => {
   if (!PDF_ASSOCIATION_SUPPORTED) {
     throw new Error("只有 Windows 桌面版支持打开默认应用设置。");
   }
+  const status = await currentAssociationStatus();
+  // Windows uses different deep-link parameters for per-user and machine-wide
+  // registrations; passing the wrong one opens the page without selecting the
+  // app.
+  const parameter = status.scope === "machine" ? "registeredAppMachine" : "registeredAppUser";
   try {
     await shell.openExternal(
-      `ms-settings:defaultapps?registeredAppUser=${encodeURIComponent("纸间")}`,
+      status.registered
+        ? `ms-settings:defaultapps?${parameter}=${encodeURIComponent(status.appName)}`
+        : "ms-settings:defaultapps",
     );
   } catch {
     await shell.openExternal("ms-settings:defaultapps");
   }
-  return currentAssociationStatus();
+  return status;
 });
 
 ipcMain.handle("app:check-for-updates", async () => {
@@ -463,6 +492,7 @@ if (!gotLock) {
     app.setAppUserModelId("cn.paperreader.app");
     try {
       await createWindow();
+      void cleanupDuplicatePdfRegistration();
     } catch (error) {
       dialog.showErrorBox("纸间启动失败", error instanceof Error ? error.message : String(error));
       app.quit();

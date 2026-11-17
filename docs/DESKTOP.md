@@ -57,13 +57,13 @@ npm run package:desktop
 
 安装包由 electron-builder 生成：
 
-- NSIS：`release/paper-reader-v0.8.0-x64.exe`，支持选择安装目录、创建桌面与开始菜单快捷方式。
+- NSIS：`release/paper-reader-v0.8.1-x64.exe`，支持选择安装目录、创建桌面与开始菜单快捷方式。
   安装器、卸载器、exe、桌面/开始菜单快捷方式使用同一套纸间图标。
   安装向导增加“PDF 打开方式”页：
   - 默认勾选“在 PDF 的‘打开方式’中显示纸间”，只写 OpenWith 声明，不影响默认应用。
   - 可选“安装完成后打开 Windows 默认应用设置”，默认不勾选；勾选后仍需在系统设置里确认。
   - 静默安装 `/S` 不显示该页，也不会自动写声明。
-- MSI：`release/paper-reader-v0.8.0-x64.msi`，使用 `build/zh-CN.wxl` 的 GBK 代码页；中文产品名、快捷方式与卸载项正常。
+- MSI：`release/paper-reader-v0.8.1-x64.msi`，使用 `build/zh-CN.wxl` 的 GBK 代码页；中文产品名、快捷方式与卸载项正常。
   MSI 暂不提供该勾选页，安装后可在 设置 → 关于 中注册。`.msi` 文件本身的图标由 Windows Installer 决定；
   electron-builder 26 只通过 `win.icon` 控制 exe、快捷方式与控制面板图标。
 - 两者都按当前用户安装到 `%LOCALAPPDATA%\Programs\PaperReader`，安装后的可执行文件为
@@ -96,12 +96,18 @@ npm run package:desktop
 
 设置 → 关于 → **默认 PDF 应用**：
 
-- Windows 11 的“默认应用”列表只显示**系统级**注册（`HKLM`）。便携版或按用户安装时，
-  仅写 `HKCU` 只会出现在“打开方式”，不会出现在默认应用列表，这是系统行为。
+- `Capabilities` 下的 `ApplicationName`、`ApplicationDescription`、`ApplicationIcon`
+  必须是**命名值**；`.pdf` 必须是 `FileAssociations` 下的命名值。写成同名子键时，
+  Windows 仍会接受 ProgID，但默认应用列表会直接忽略整个应用（0.8.0 的问题）。
 - “注册到系统（需要管理员）”会弹出一次 UAC，把 ProgID、OpenWithProgids、
-  `RegisteredApplications` 与 `Capabilities` 写入 `HKLM`，并创建公共开始菜单快捷方式；
-  之后即可在默认应用列表中找到“纸间”。
-- “仅当前用户”不弹 UAC，只写 `HKCU`；适合只想通过“打开方式”临时选择的场景。
+  `RegisteredApplications` 与 `Capabilities` 写入 `HKLM`，并创建开始菜单快捷方式；
+  之后即可在默认应用列表中找到“纸间”。提权脚本写入带 BOM 的临时 `.ps1` 后执行，
+  避免中文被按 ANSI 读取或长命令在 UAC 链路上被截断。
+- “仅当前用户”不弹 UAC，只写 `HKCU`；Windows 11 同样会列出用户级注册。
+  系统级注册仍更适合多用户和便携版以外的安装场景。
+- 系统级注册成功后会自动删除当前用户的 `RegisteredApplications` 与 `Capabilities`
+  副本，避免设置页同时出现两个“纸间”；应用启动时也会修复旧版本留下的重复项。
+- 每次注册会先清理由旧版本写出的错误子键，并通知 Shell 刷新关联。
 - 注册本身**不会**改变默认应用；仍需在 Windows 设置中选择“纸间”并确认。
 - 移动可移植目录后，原注册路径会失效；状态会显示“路径已变化”，重新注册即可。
 - “移除关联”只删除纸间的注册项，不修改 `.pdf` 当前默认应用；系统级注册的移除同样需要 UAC。

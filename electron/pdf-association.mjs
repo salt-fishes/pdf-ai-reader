@@ -5,6 +5,13 @@ import { promisify } from "node:util";
 
 const exec = promisify(execFile);
 const REG_EXE = path.join(process.env.SystemRoot ?? "C:\\Windows", "System32", "reg.exe");
+const POWERSHELL = path.join(
+  process.env.SystemRoot ?? "C:\\Windows",
+  "System32",
+  "WindowsPowerShell",
+  "v1.0",
+  "powershell.exe",
+);
 
 export const PDF_PROG_ID = "PaperReader.pdf";
 /** Display name; must match the value name under RegisteredApplications. */
@@ -82,33 +89,35 @@ function normalized(value) {
   return value.trim().replace(/^"|"$/g, "").toLowerCase();
 }
 
-/** Registry entries needed for one scope, used by both direct and elevated installs. */
+/**
+ * Registry entries needed for one scope, used by both direct and elevated
+ * installs. `ApplicationName`, `ApplicationDescription` and `ApplicationIcon`
+ * are values of `Capabilities`, not subkeys: Windows silently drops the whole
+ * entry from Default Apps when they are missing.
+ */
 export function associationEntries(exePath, scope = "user") {
   const k = keys(scope);
-  const quoted = `"${path.resolve(exePath)}"`;
-  const icon = `${quoted},0`;
-  const command = `${quoted} "%1"`;
+  const exe = path.resolve(exePath);
+  const icon = `${exe},0`;
+  const command = `"${exe}" "%1"`;
   return [
     { key: k.progId, value: "PDF 文档" },
     { key: `${k.progId}\\DefaultIcon`, value: icon },
-    { key: `${k.progId}\\Application`, value: PDF_APPLICATION_NAME },
-    { key: `${k.progId}\\Application\\ApplicationName`, value: PDF_APPLICATION_NAME },
-    { key: `${k.progId}\\Application\\ApplicationIcon`, value: icon },
     { key: k.command, value: command },
     { key: k.openWith, name: PDF_PROG_ID, type: "REG_NONE", value: null },
     { key: k.applications, value: PDF_APPLICATION_NAME },
     { key: `${k.applications}\\FriendlyAppName`, value: PDF_APPLICATION_NAME },
     { key: `${k.applications}\\DefaultIcon`, value: icon },
     { key: `${k.applications}\\shell\\open\\command`, value: command },
-    { key: `${k.applications}\\SupportedTypes\\.pdf`, type: "REG_NONE", value: null },
-    { key: k.capabilities, value: PDF_APPLICATION_NAME },
-    { key: `${k.capabilities}\\ApplicationName`, value: PDF_APPLICATION_NAME },
+    { key: `${k.applications}\\SupportedTypes`, name: ".pdf", type: "REG_NONE", value: null },
+    { key: k.capabilities, name: "ApplicationName", value: PDF_APPLICATION_NAME },
     {
-      key: `${k.capabilities}\\ApplicationDescription`,
+      key: k.capabilities,
+      name: "ApplicationDescription",
       value: "本地优先的 PDF 阅读器与 AI 阅读助手",
     },
-    { key: `${k.capabilities}\\ApplicationIcon`, value: icon },
-    { key: `${k.capabilities}\\FileAssociations\\.pdf`, value: PDF_PROG_ID },
+    { key: k.capabilities, name: "ApplicationIcon", value: icon },
+    { key: `${k.capabilities}\\FileAssociations`, name: ".pdf", value: PDF_PROG_ID },
     {
       key: k.registered,
       name: PDF_APPLICATION_NAME,
@@ -117,18 +126,63 @@ export function associationEntries(exePath, scope = "user") {
   ];
 }
 
+/**
+ * Keys written by app versions before 0.8.1, when the capabilities values were
+ * created as subkeys. Leaving them behind is harmless but confusing, so every
+ * registration run removes them first.
+ */
+export function legacyAssociationKeys(scope = "user") {
+  const k = keys(scope);
+  return [
+    `${k.capabilities}\\ApplicationName`,
+    `${k.capabilities}\\ApplicationDescription`,
+    `${k.capabilities}\\ApplicationIcon`,
+    `${k.capabilities}\\FileAssociations\\.pdf`,
+    `${k.applications}\\SupportedTypes\\.pdf`,
+  ];
+}
+
+async function registrationState(scope) {
+  const k = keys(scope);
+  const command = lastValue(await query(k.command));
+  const name = lastValue(await query(k.capabilities, "ApplicationName"));
+  const pdfProgId = lastValue(await query(`${k.capabilities}\\FileAssociations`, ".pdf"));
+  const capabilities = lastValue(await query(k.registered, PDF_APPLICATION_NAME));
+  const expectedCapabilities = `Software\\${CAPABILITIES_ROOT}\\Capabilities`.toLowerCase();
+  return {
+    command,
+    complete:
+      Boolean(command) &&
+      // reg.exe writes the OEM code page on Chinese Windows, so compare the
+      // presence of the value instead of its (possibly mojibaked) bytes.
+      Boolean(name) &&
+      pdfProgId?.toLowerCase() === PDF_PROG_ID.toLowerCase() &&
+      capabilities?.replace(/\//g, "\\").toLowerCase() === expectedCapabilities,
+  };
+}
+
 export async function pdfAssociationStatus(exePath) {
-  const machine = keys("machine");
-  const user = keys("user");
-  const machineCommand = lastValue(await query(machine.command));
-  const userCommand = lastValue(await query(user.command));
-  const command = machineCommand ?? userCommand;
-  const scope = machineCommand ? "machine" : userCommand ? "user" : null;
+  const [machine, user] = await Promise.all([
+    registrationState("machine"),
+    registrationState("user"),
+  ]);
+  const scope = machine.complete
+    ? "machine"
+    : user.complete
+      ? "user"
+      : machine.command
+        ? "machine"
+        : user.command
+          ? "user"
+          : null;
+  const command = scope === "machine" ? machine.command : user.command;
   const stale = Boolean(command && !normalized(command).includes(normalized(exePath)));
-  const currentDefault = progId(await query(user.userChoice, "ProgId"));
+  const currentDefault = progId(await query(keys("user").userChoice, "ProgId"));
   return {
     supported: true,
-    registered: Boolean(command),
+    // `registered` means Windows can list the app in Default Apps, not merely
+    // that a ProgID command exists.
+    registered: machine.complete || user.complete,
     scope,
     stale,
     isDefault:
@@ -139,11 +193,32 @@ export async function pdfAssociationStatus(exePath) {
   };
 }
 
+const SHELL_NOTIFY_SCRIPT = [
+  "Add-Type -Namespace PaperReader -Name ShellNotify -MemberDefinition '[System.Runtime.InteropServices.DllImport(\"shell32.dll\")] public static extern void SHChangeNotify(int eventId, uint flags, System.IntPtr item1, System.IntPtr item2);'",
+  "[PaperReader.ShellNotify]::SHChangeNotify(0x08000000,0,[IntPtr]::Zero,[IntPtr]::Zero)",
+].join("; ");
+
+async function notifyShell() {
+  try {
+    await exec(POWERSHELL, ["-NoProfile", "-NonInteractive", "-Command", SHELL_NOTIFY_SCRIPT], {
+      windowsHide: true,
+      timeout: 10_000,
+      maxBuffer: 64 * 1024,
+    });
+  } catch {
+    // Best effort: Explorer picks the registration up on its next refresh.
+  }
+}
+
 export async function registerPdfAssociation(exePath, scope = "user") {
   if (!existsSync(exePath)) throw new Error("找不到当前应用的可执行文件");
+  for (const key of legacyAssociationKeys(scope)) {
+    await removeKey(key);
+  }
   for (const entry of associationEntries(exePath, scope)) {
     await add(entry.key, entry.value, entry.type, entry.name);
   }
+  await notifyShell();
   return pdfAssociationStatus(exePath);
 }
 
@@ -161,6 +236,18 @@ async function removeValue(key, name) {
   } catch {
     // Already absent is fine.
   }
+}
+
+/**
+ * Drop the per-user Default Apps listing after a machine-wide registration.
+ * Windows lists HKCU and HKLM registrations separately, so leaving both makes
+ * the same application appear twice. The per-user ProgID stays as a fallback.
+ */
+export async function removeUserPdfRegistration() {
+  const k = keys("user");
+  await removeValue(k.registered, PDF_APPLICATION_NAME);
+  await removeValue(k.registered, "PaperReader");
+  await removeKey(`${k.hive}\\Software\\${CAPABILITIES_ROOT}`);
 }
 
 export async function removePdfAssociation(exePath, scope = "user") {
@@ -199,6 +286,11 @@ export function associationPowerShellScript({ exePath, scope = "machine", mode =
     "$reg = Join-Path $env:SystemRoot 'System32\\reg.exe'",
   ];
   if (mode === "register") {
+    for (const key of legacyAssociationKeys(scope)) {
+      lines.push(
+        `Remove-Item -Path ${psQuote(registryProviderPath(key))} -Recurse -Force -ErrorAction SilentlyContinue`,
+      );
+    }
     for (const entry of associationEntries(exePath, scope)) {
       if (entry.type === "REG_NONE") {
         const args = ["& $reg", "add", psQuote(entry.key)];
@@ -214,7 +306,9 @@ export function associationPowerShellScript({ exePath, scope = "machine", mode =
       const providerPath = registryProviderPath(entry.key);
       const valueName = entry.name ? psQuote(entry.name) : "'(default)'";
       lines.push(`$key = ${psQuote(providerPath)}`);
-      lines.push("New-Item -Path $key -Force | Out-Null");
+      // New-Item -Force recreates an existing registry key and wipes every
+      // value in it; only create the key when it is really absent.
+      lines.push("if (-not (Test-Path -Path $key)) { New-Item -Path $key -Force | Out-Null }");
       lines.push(
         `Set-ItemProperty -Path $key -Name ${valueName} -Value ${psQuote(entry.value ?? "")}`,
       );
@@ -270,6 +364,16 @@ export function associationPowerShellScript({ exePath, scope = "machine", mode =
       lines.push("Remove-Item -Path $commonLnk -Force -ErrorAction SilentlyContinue");
     }
   }
+  // Tell Explorer that associations changed so "Open with" and the Default
+  // Apps page refresh without a sign-out.
+  lines.push("try {");
+  lines.push(
+    "  Add-Type -Namespace PaperReader -Name ShellNotify -MemberDefinition '[System.Runtime.InteropServices.DllImport(\"shell32.dll\")] public static extern void SHChangeNotify(int eventId, uint flags, System.IntPtr item1, System.IntPtr item2);'",
+  );
+  lines.push(
+    "  [PaperReader.ShellNotify]::SHChangeNotify(0x08000000,0,[IntPtr]::Zero,[IntPtr]::Zero)",
+  );
+  lines.push("} catch { }");
   return lines.join("\r\n");
 }
 
