@@ -19,7 +19,7 @@ describe("desktop PDF argv parsing", () => {
   it("finds an existing PDF among Electron and Chromium arguments", async () => {
     const file = path.join(dir, "paper.pdf");
     await writeFile(file, "%PDF-1.7");
-    const argv = ["PaperReader.exe", "--no-sandbox", "C:\\app\\resources\\app", file];
+    const argv = ["Wenshu.exe", "--no-sandbox", "C:\\app\\resources\\app", file];
     expect(pdfArgFrom(argv)).toBe(path.resolve(file));
   });
 

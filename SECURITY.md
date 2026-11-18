@@ -20,7 +20,7 @@
 - 只有用户明确选择的页码、文字、截图、附件与问题会发给模型。
 - API Key 只保存在本机代理的 `server/.env` 或 `server/data/provider.json`，不会返回给浏览器。
 - 桌面版把 provider 配置、OCR 运行时与模型放在 Electron `userData` 目录；
-  运行时被安全软件拦截时回退到 `%TEMP%/paper-reader-ocr`。
+  运行时被安全软件拦截时回退到 `%TEMP%/wenshu-ocr`（兼容旧 `paper-reader-ocr` 目录）。
 - PDF 打开方式默认只写当前用户 `HKCU`；选择“注册到系统”时会请求一次 UAC 写入 `HKLM`，
   注册和移除都由用户显式触发，不会自动修改默认应用。
 - 自定义 OCR 镜像只允许 http(s)，目录结构与限制见 [docs/OCR-MIRROR.md](docs/OCR-MIRROR.md)。

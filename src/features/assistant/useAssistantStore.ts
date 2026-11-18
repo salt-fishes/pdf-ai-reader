@@ -115,6 +115,7 @@ type AssistantState = {
   thinking: ThinkingEffort;
   contextBudget: number;
   historyLimit: number;
+  documentOnly: boolean;
   pricing: Pricing;
 
   messages: ChatMessage[];
@@ -166,6 +167,7 @@ type AssistantState = {
   setThinking: (thinking: ThinkingEffort) => void;
   setContextBudget: (tokens: number) => void;
   setHistoryLimit: (limit: number) => void;
+  setDocumentOnly: (documentOnly: boolean) => void;
   setPricing: (pricing: Pricing) => void;
   setDraft: (draft: string) => void;
   setPanel: (rect: PanelRect) => void;
@@ -320,7 +322,7 @@ function normalizeStoredMessages(raw: unknown): ChatMessage[] {
 
 function defaultPanel(): PanelRect {
   const width = Math.min(380, window.innerWidth - 32);
-  const height = Math.min(460, window.innerHeight - 140);
+  const height = Math.min(560, window.innerHeight - 140);
   return {
     left: Math.max(16, window.innerWidth - 24 - width),
     top: Math.max(64, window.innerHeight - 92 - height),
@@ -480,6 +482,7 @@ export const useAssistant = create<AssistantState>((set, get) => {
     thinking: settings.thinking ?? "high",
     contextBudget: initialBudget,
     historyLimit: settings.historyLimit ?? DEFAULT_HISTORY_LIMIT,
+    documentOnly: settings.documentOnly ?? false,
     pricing: initialPricing,
 
     messages: [],
@@ -641,6 +644,11 @@ export const useAssistant = create<AssistantState>((set, get) => {
       set({ historyLimit });
       saveSettings({ historyLimit });
       recalc();
+    },
+
+    setDocumentOnly: (documentOnly) => {
+      set({ documentOnly });
+      saveSettings({ documentOnly });
     },
 
     setPricing: (pricing) => {
@@ -1488,6 +1496,7 @@ export const useAssistant = create<AssistantState>((set, get) => {
         history: history.messages,
         historyOmitted: history.omitted,
         question: text,
+        documentOnly: state.documentOnly,
       });
       const hash = currentHash(state.model, state.config?.baseUrlHost ?? "");
       const surface = estimateSurface({
@@ -1621,6 +1630,7 @@ export const useAssistant = create<AssistantState>((set, get) => {
             },
           },
           controller.signal,
+          state.documentOnly,
         );
         if (flushTimer) clearTimeout(flushTimer);
         flush();
@@ -1865,6 +1875,7 @@ export const useAssistant = create<AssistantState>((set, get) => {
             },
           },
           controller.signal,
+          true,
         );
         if (controller.signal.aborted || stale()) {
           throw new DOMException("aborted", "AbortError");
@@ -2067,6 +2078,7 @@ export const useAssistant = create<AssistantState>((set, get) => {
             },
           },
           controller.signal,
+          true,
         );
         if (stale()) return;
         if (result.usage) usageRaw = result.usage;

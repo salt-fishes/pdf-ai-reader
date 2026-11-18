@@ -69,7 +69,9 @@ psRemove(join(out, "resources", "default_app.asar"));
 const pdfIcon = join(root, "build", "pdf-file.ico");
 if (existsSync(pdfIcon)) psCopy(pdfIcon, join(out, "pdf-file.ico"));
 
-const exe = join(out, "PaperReader.exe");
+const exe = join(out, "Wenshu.exe");
+// Remove the pre-0.10.2 executable if this directory was packaged before.
+psRemove(join(out, "PaperReader.exe"));
 if (existsSync(join(out, "electron.exe"))) {
   psCopy(join(out, "electron.exe"), exe);
   execFileSync("powershell", [
@@ -117,10 +119,10 @@ if (rcedit && existsSync(join(root, "build", "icon.ico"))) {
       "Copyright © 2026 Wenshu contributors",
       "--set-version-string",
       "OriginalFilename",
-      "PaperReader.exe",
+      "Wenshu.exe",
       "--set-version-string",
       "InternalName",
-      "PaperReader",
+      "Wenshu",
     ]);
   } catch {
     console.warn("rcedit 失败，保留默认 Electron 图标");
@@ -132,7 +134,7 @@ writeFileSync(
   [
     "文疏 · PDF 阅读器",
     "",
-    "1. 双击 PaperReader.exe 启动。",
+    "1. 双击 Wenshu.exe 启动。",
     "2. 第一次使用：打开右上角设置 → 模型服务，填入 Base URL、模型名与 API Key。",
     "3. 配置、阅读记录、OCR 组件与模型都保存在这台电脑上，不上传。",
     "4. 扫描件 OCR 是可选组件：首次开启时下载约 26MB 组件 + 6MB tiny 模型，之后可离线使用。",
@@ -145,5 +147,5 @@ writeFileSync(
 
 console.log(`portable desktop app ready: ${out}`);
 console.log(
-  `zip it with: Compress-Archive -Path '${join(out, "*")}' -DestinationPath '${join(release, `paper-reader-${version}-win-x64.zip`)}'`,
+  `zip it with: Compress-Archive -Path '${join(out, "*")}' -DestinationPath '${join(release, `wenshu-v${version}-win-x64.zip`)}'`,
 );

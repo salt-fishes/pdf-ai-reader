@@ -16,7 +16,7 @@ import {
 import { getActiveDocument, getPageText } from "../../lib/pdf/pdf";
 import { copyText } from "../../lib/clipboard";
 import { useViewer } from "../viewer/useViewerStore";
-import { QuoteIcon } from "../../components/icons/SparkleIcon";
+import { QuoteIcon, SparkleIcon } from "../../components/icons/SparkleIcon";
 import { useAssistant } from "./useAssistantStore";
 import styles from "./Assistant.module.css";
 
@@ -87,10 +87,6 @@ export function MessageView({ message, onQuote, onContextMenu }: Props) {
     [message.allowedPages, message.citedPages, citations],
   );
 
-  const cited = useMemo(
-    () => [...new Set(citations.map((citation) => citation.page))],
-    [citations],
-  );
   const invalid = useMemo(
     () => (message.role === "assistant" ? countInvalidCitations(message.content, allowed) : 0),
     [message.content, allowed, message.role],
@@ -163,7 +159,14 @@ export function MessageView({ message, onQuote, onContextMenu }: Props) {
     message.role === "assistant"
       ? normalizeMath(markdownWithCitations(message.content, allowed))
       : "";
-  const showToggle = message.role === "assistant" && message.content.length > 220;
+  const showToggle = message.role === "assistant" && message.content.length > 900;
+  const tools = message.tools?.length ?? 0;
+  const general =
+    message.role === "assistant" &&
+    !citations.length &&
+    !tools &&
+    Boolean(message.content.trim()) &&
+    message.status !== "error";
 
   if (message.role === "user") {
     return (
@@ -261,18 +264,39 @@ export function MessageView({ message, onQuote, onContextMenu }: Props) {
         </div>
       ) : null}
 
-      {citations.length ? (
-        <div className={styles.citationDock} ref={citationRef}>
-          <button
-            className={styles.citationBadge}
-            onClick={() => setCitationsOpen((open) => !open)}
-            aria-label="查看引用"
-            aria-expanded={citationsOpen}
-            title="查看引用来源"
-          >
-            <Icon name="page" size={10} />
-            引用 {citations.length}
-          </button>
+      {citations.length || tools || general ? (
+        <div className={styles.sourceDock} ref={citationRef}>
+          {tools ? (
+            <span
+              className={styles.sourceBadge}
+              title={`本次使用了 ${tools} 个外部工具`}
+              aria-label={`使用了 ${tools} 个外部工具`}
+            >
+              <Icon name="globe" size={11} />
+              {tools}
+            </span>
+          ) : null}
+          {general ? (
+            <span
+              className={styles.sourceBadge}
+              title="通用知识，非文档内容"
+              aria-label="通用知识，非文档内容"
+            >
+              <SparkleIcon size={11} />
+            </span>
+          ) : null}
+          {citations.length ? (
+            <button
+              className={styles.citationBadge}
+              onClick={() => setCitationsOpen((open) => !open)}
+              aria-label="查看引用"
+              aria-expanded={citationsOpen}
+              title="查看引用来源"
+            >
+              <Icon name="page" size={11} />
+              {citations.length}
+            </button>
+          ) : null}
           {citationsOpen ? (
             <div className={styles.citationPopover} role="menu" aria-label="引用来源">
               {citations.map((citation, index) => {
@@ -364,8 +388,10 @@ export function MessageView({ message, onQuote, onContextMenu }: Props) {
             setExpanded(next);
             setBoostAnswer(next);
           }}
+          aria-label={expanded ? "收起" : "展开全文"}
+          title={expanded ? "收起" : "展开全文"}
         >
-          {expanded ? "收起" : "展开全文"}
+          <Icon name={expanded ? "chevronUp" : "chevronDown"} size={16} />
         </button>
       ) : null}
 
@@ -385,34 +411,32 @@ export function MessageView({ message, onQuote, onContextMenu }: Props) {
       {message.status === "stopped" ? <div className={styles.excludedTag}>已停止生成</div> : null}
 
       <div className={styles.messageActions}>
-        <button className={styles.actionButton} onClick={handleCopy} title="复制回答">
+        <button
+          className={styles.actionButton}
+          onClick={handleCopy}
+          title={copied ? "已复制" : "复制回答"}
+          aria-label="复制回答"
+        >
           <StateIcon off="copy" on="check" active={copied} size={14} />
-          <span>复制</span>
         </button>
         <button
           className={styles.actionButton}
           onClick={() => void retry(message.id)}
           disabled={Boolean(streamingId)}
           title="重新生成"
+          aria-label="重新生成"
         >
           <Icon name="retry" size={14} />
-          <span>重试</span>
         </button>
         <button
           className={`${styles.actionButton} ${isQuoted ? styles.actionActive : ""}`}
           onClick={() => onQuote(message)}
           title={isQuoted ? "取消引用" : "引用为上下文"}
+          aria-label={isQuoted ? "取消引用" : "引用为上下文"}
           aria-pressed={isQuoted}
         >
           <QuoteIcon size={14} />
-          <span>引用</span>
         </button>
-        {cited.length ? (
-          <span className={styles.actionButton} aria-hidden="true">
-            <Icon name="page" size={14} />
-            {cited.join(", ")}
-          </span>
-        ) : null}
       </div>
     </div>
   );

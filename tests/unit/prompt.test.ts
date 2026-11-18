@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildRequest, SYSTEM_PROMPT } from "../../src/lib/ai/prompt";
+import { buildRequest, SYSTEM_PROMPT, SYSTEM_PROMPT_DOCUMENT } from "../../src/lib/ai/prompt";
 import type { ChatMessage, ContextState } from "../../src/lib/ai/types";
 
 const context: ContextState = {
@@ -126,6 +126,29 @@ describe("buildRequest", () => {
 
   it("allows citations only for context pages", () => {
     expect(request.allowedPages).toEqual([2, 3, 4]);
+  });
+
+  it("switches to the strict prompt in document-only mode", () => {
+    const strict = buildRequest({
+      docName: "示例.pdf",
+      totalPages: 10,
+      context,
+      history: [],
+      question: "文档之外的内容呢？",
+      documentOnly: true,
+    });
+    expect(strict.system).toBe(SYSTEM_PROMPT_DOCUMENT);
+    expect(strict.messages[0]).toEqual({ role: "system", content: SYSTEM_PROMPT_DOCUMENT });
+    expect(String(strict.messages[strict.messages.length - 1].content)).not.toContain(
+      "请只依据上下文回答",
+    );
+  });
+
+  it("does not prefix history with role labels", () => {
+    const content = String(request.messages[2].content);
+    expect(content).toBe("第一个问题");
+    expect(request.historyText[0]).toBe("第一个问题");
+    expect(request.historyText[1]).toBe("第一个回答");
   });
 
   it("labels OCR selections and warns the model about recognition errors", () => {

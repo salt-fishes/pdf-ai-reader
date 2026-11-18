@@ -65,13 +65,14 @@ export async function streamChat(
   effort: ThinkingEffort,
   handlers: StreamHandlers,
   signal: AbortSignal,
+  documentOnly = false,
 ): Promise<StreamResult> {
   let response: Response;
   try {
     response = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages, model, effort }),
+      body: JSON.stringify({ messages, model, effort, documentOnly }),
       signal,
     });
   } catch (error) {

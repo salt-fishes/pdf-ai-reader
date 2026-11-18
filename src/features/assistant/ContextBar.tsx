@@ -23,6 +23,7 @@ export function ContextBar() {
   const anchor = useAssistant((state) => state.anchor);
   const usage = useAssistant((state) => state.usage);
   const removeCurrentPage = useAssistant((state) => state.removeCurrentPage);
+  const addCurrentPage = useAssistant((state) => state.addCurrentPage);
   const removePageRange = useAssistant((state) => state.removePageRange);
   const removeSmartFilter = useAssistant((state) => state.removeSmartFilter);
   const removeSelection = useAssistant((state) => state.removeSelection);
@@ -93,6 +94,13 @@ export function ContextBar() {
     selectionPages.length > 1
       ? `P${Math.min(...selectionPages)}–P${Math.max(...selectionPages)}`
       : `P${context.selection?.page ?? 1}`;
+  const pageHint = context.pageRange
+    ? formatPageList(context.pageRange)
+    : autoCurrentPage && context.currentPage
+      ? `P${context.currentPage}`
+      : context.selection
+        ? selectionLabel
+        : "—";
   return (
     <div className={styles.context}>
       {autoCurrentPage && context.currentPage && scannedPages.includes(context.currentPage) ? (
@@ -111,32 +119,52 @@ export function ContextBar() {
           </span>
         </div>
       ) : null}
-      <button
-        className={styles.contextRow}
-        onClick={() => {
-          const next = !expanded;
-          setExpanded(next);
-          setBoostContext(next);
-        }}
-        aria-expanded={expanded}
-        aria-label="上下文详情"
-      >
-        <span className={styles.sourceStack} aria-hidden="true">
-          {(icons.length ? icons : (["page"] as const)).slice(0, 3).map((glyph, index) => (
-            <span key={`${glyph}_${index}`} className={styles.sourceIcon}>
-              <Icon name={glyph} size={14} />
-            </span>
-          ))}
-        </span>
-        <span className={styles.contextCount}>{count} 个来源</span>
-        <span className={styles.contextMeta}>· {formatTokens(projected)}</span>
-        <span className={styles.contextSpacer} />
-        <TokenRing value={occupancy} />
-        <span className={styles.contextMeta}>{Math.max(1, Math.round(occupancy * 100))}%</span>
-        <span className={styles.chevron}>
-          <StateIcon off="chevronDown" on="chevronUp" active={expanded} size={14} strokeWidth={2} />
-        </span>
-      </button>
+      <div className={styles.contextTop}>
+        <button
+          className={styles.contextRow}
+          onClick={() => {
+            const next = !expanded;
+            setExpanded(next);
+            setBoostContext(next);
+          }}
+          aria-expanded={expanded}
+          aria-label="上下文详情"
+          title="上下文与用量"
+        >
+          <span className={styles.sourceStack} aria-hidden="true">
+            {(icons.length ? icons : (["page"] as const)).slice(0, 3).map((glyph, index) => (
+              <span key={`${glyph}_${index}`} className={styles.sourceIcon}>
+                <Icon name={glyph} size={14} />
+              </span>
+            ))}
+          </span>
+          <span className={styles.contextCount}>{count}</span>
+          <span className="visually-hidden">{count} 个来源</span>
+          <span className={styles.contextMeta}>≈{formatTokens(projected)}</span>
+          <span className={styles.contextSpacer} />
+          <span className={styles.contextPage}>{pageHint}</span>
+          <TokenRing value={occupancy} />
+          <span className={styles.contextMeta}>{Math.max(1, Math.round(occupancy * 100))}%</span>
+          <span className={styles.chevron}>
+            <StateIcon
+              off="chevronDown"
+              on="chevronUp"
+              active={expanded}
+              size={14}
+              strokeWidth={2}
+            />
+          </span>
+        </button>
+        <button
+          className={`${styles.followButton} ${autoCurrentPage ? styles.followActive : ""}`}
+          onClick={() => (autoCurrentPage ? removeCurrentPage() : void addCurrentPage())}
+          aria-label={autoCurrentPage ? "停止跟随当前页" : "跟随当前页"}
+          aria-pressed={autoCurrentPage}
+          title={autoCurrentPage ? "跟随当前页：开" : "跟随当前页：关"}
+        >
+          <Icon name="pin" size={15} />
+        </button>
+      </div>
 
       {expanded ? (
         <div className={styles.contextExpanded}>

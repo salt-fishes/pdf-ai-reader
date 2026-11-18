@@ -75,144 +75,146 @@ export function Composer() {
         if (event.dataTransfer.files.length) void handleFiles(event.dataTransfer.files);
       }}
     >
-      <textarea
-        ref={inputRef}
-        className={styles.input}
-        value={draft}
-        rows={1}
-        placeholder="就这份文档提问…"
-        aria-label="提问"
-        onChange={(event) => setDraft(event.target.value)}
-        onPaste={(event) => {
-          const files = [...event.clipboardData.items]
-            .filter((item) => item.kind === "file" && item.type.startsWith("image/"))
-            .map((item) => item.getAsFile())
-            .filter((file): file is File => Boolean(file));
-          if (files.length) {
-            event.preventDefault();
-            void handleFiles(files);
-          }
-        }}
-        onKeyDown={(event) => {
-          if (event.nativeEvent.isComposing) return;
-          if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
-            event.preventDefault();
-            submit();
-            return;
-          }
-          if (event.key === "Enter" && !event.shiftKey) {
-            event.preventDefault();
-            submit();
-          }
-        }}
-      />
-
-      {filtering ? (
-        <div className={styles.filterProgress} role="status">
-          <span className="spin" />
-          正在本地筛选 {filtering.done}/{filtering.total} 页…
-        </div>
-      ) : null}
-
-      {sendError ? (
-        <div className={styles.exceeded}>
-          <span>{sendError}</span>
-          {draft.trim() && numPages >= 8 ? (
-            <button
-              className={styles.exceededAction}
-              onClick={() => void smartFilter()}
-              disabled={Boolean(filtering)}
-            >
-              智能筛选全文
-            </button>
-          ) : null}
-        </div>
-      ) : null}
-
-      <div className={styles.composerRow}>
-        <input
-          ref={fileRef}
-          type="file"
-          hidden
-          multiple
-          accept=".pdf,application/pdf,image/*,.txt,.md,.markdown,.csv,.json"
-          onChange={(event) => {
-            if (event.target.files) void handleFiles(event.target.files);
-            event.target.value = "";
+      <div className={`${styles.inputCard} ${pageOpen ? styles.inputCardOpen : ""}`}>
+        <textarea
+          ref={inputRef}
+          className={styles.input}
+          value={draft}
+          rows={1}
+          placeholder="问这一页…"
+          aria-label="提问"
+          onChange={(event) => setDraft(event.target.value)}
+          onPaste={(event) => {
+            const files = [...event.clipboardData.items]
+              .filter((item) => item.kind === "file" && item.type.startsWith("image/"))
+              .map((item) => item.getAsFile())
+              .filter((file): file is File => Boolean(file));
+            if (files.length) {
+              event.preventDefault();
+              void handleFiles(files);
+            }
+          }}
+          onKeyDown={(event) => {
+            if (event.nativeEvent.isComposing) return;
+            if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+              event.preventDefault();
+              submit();
+              return;
+            }
+            if (event.key === "Enter" && !event.shiftKey) {
+              event.preventDefault();
+              submit();
+            }
           }}
         />
-        <button
-          className={styles.toolButton}
-          onClick={() => fileRef.current?.click()}
-          disabled={attaching}
-          title="添加附件（PDF / 图片 / 文本）"
-          aria-label="添加附件"
-        >
-          {attaching ? <span className="spin" /> : <Icon name="attach" size={16} />}
-        </button>
-        <button
-          className={styles.toolButton}
-          onClick={() => {
-            const page = useViewer.getState().currentPage;
-            void capturePage(page);
-          }}
-          disabled={capturingPage !== null || !useViewer.getState().docHash}
-          title="截取当前页"
-          aria-label="截取当前页"
-          aria-keyshortcuts="Control+Alt+S"
-        >
-          {capturingPage !== null ? <span className="spin" /> : <Icon name="camera" size={16} />}
-        </button>
-        <button
-          className={styles.toolButton}
-          onClick={() => {
-            const page = useViewer.getState().currentPage;
-            startRegionCapture(page);
-          }}
-          disabled={capturingPage !== null || !useViewer.getState().docHash}
-          title="框选截图（在页面上拖拽）"
-          aria-label="框选截图"
-          aria-keyshortcuts="Control+Alt+R"
-        >
-          {capturingPage !== null ? <span className="spin" /> : <Icon name="crop" size={16} />}
-        </button>
-        <button
-          className={styles.toolButton}
-          onClick={() => void summarizeDocument()}
-          disabled={Boolean(summary) || streaming || !useViewer.getState().docHash}
-          title="总结整份文档（自动分段，不把全部页面塞进当前上下文）"
-          aria-label="总结整份文档"
-        >
-          {summary ? <span className="spin" /> : <Icon name="outline" size={16} />}
-        </button>
-        <button
-          className={`${styles.toolButton} ${pageOpen ? styles.actionActive : ""}`}
-          onClick={() => setPageOpen((open) => !open)}
-          title="限定页码"
-          aria-label="限定页码"
-          aria-expanded={pageOpen}
-        >
-          <Icon name="page" size={16} />
-        </button>
 
-        <div className={styles.composerSpacer} />
+        {filtering ? (
+          <div className={styles.filterProgress} role="status">
+            <span className="spin" />
+            正在本地筛选 {filtering.done}/{filtering.total} 页…
+          </div>
+        ) : null}
 
-        <span
-          className={`${styles.tokenHint} ${overBudget ? styles.tokenWarn : ""}`}
-          title="本次发送的 token 估算"
-        >
-          ≈ {formatTokens(projected)}
-          {context.screenshots.length ? ` · ${context.screenshots.length} 图` : ""}
-        </span>
-        <button
-          className={`${styles.sendButton} ${streaming ? styles.stop : ""}`}
-          onClick={submit}
-          disabled={!streaming && (!draft.trim() || Boolean(filtering))}
-          aria-label={streaming ? "停止生成" : "发送"}
-          title={streaming ? "停止生成" : "发送（Enter）"}
-        >
-          <StateIcon off="send" on="stop" active={streaming} size={16} strokeWidth={2} />
-        </button>
+        {sendError ? (
+          <div className={styles.exceeded}>
+            <span>{sendError}</span>
+            {draft.trim() && numPages >= 8 ? (
+              <button
+                className={styles.exceededAction}
+                onClick={() => void smartFilter()}
+                disabled={Boolean(filtering)}
+              >
+                智能筛选全文
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+
+        <div className={styles.composerRow}>
+          <input
+            ref={fileRef}
+            type="file"
+            hidden
+            multiple
+            accept=".pdf,application/pdf,image/*,.txt,.md,.markdown,.csv,.json"
+            onChange={(event) => {
+              if (event.target.files) void handleFiles(event.target.files);
+              event.target.value = "";
+            }}
+          />
+          <button
+            className={styles.toolButton}
+            onClick={() => fileRef.current?.click()}
+            disabled={attaching}
+            title="添加附件（PDF / 图片 / 文本）"
+            aria-label="添加附件"
+          >
+            {attaching ? <span className="spin" /> : <Icon name="attach" size={16} />}
+          </button>
+          <button
+            className={styles.toolButton}
+            onClick={() => {
+              const page = useViewer.getState().currentPage;
+              void capturePage(page);
+            }}
+            disabled={capturingPage !== null || !useViewer.getState().docHash}
+            title="截取当前页"
+            aria-label="截取当前页"
+            aria-keyshortcuts="Control+Alt+S"
+          >
+            {capturingPage !== null ? <span className="spin" /> : <Icon name="camera" size={16} />}
+          </button>
+          <button
+            className={styles.toolButton}
+            onClick={() => {
+              const page = useViewer.getState().currentPage;
+              startRegionCapture(page);
+            }}
+            disabled={capturingPage !== null || !useViewer.getState().docHash}
+            title="框选截图（在页面上拖拽）"
+            aria-label="框选截图"
+            aria-keyshortcuts="Control+Alt+R"
+          >
+            {capturingPage !== null ? <span className="spin" /> : <Icon name="crop" size={16} />}
+          </button>
+          <button
+            className={styles.toolButton}
+            onClick={() => void summarizeDocument()}
+            disabled={Boolean(summary) || streaming || !useViewer.getState().docHash}
+            title="总结整份文档（自动分段，不把全部页面塞进当前上下文）"
+            aria-label="总结整份文档"
+          >
+            {summary ? <span className="spin" /> : <Icon name="outline" size={16} />}
+          </button>
+          <button
+            className={`${styles.toolButton} ${pageOpen ? styles.actionActive : ""}`}
+            onClick={() => setPageOpen((open) => !open)}
+            title="限定页码"
+            aria-label="限定页码"
+            aria-expanded={pageOpen}
+          >
+            <Icon name="page" size={16} />
+          </button>
+
+          <div className={styles.composerSpacer} />
+
+          <span
+            className={`${styles.tokenHint} ${overBudget ? styles.tokenWarn : ""}`}
+            title="本次发送的 token 估算"
+          >
+            ≈ {formatTokens(projected)}
+            {context.screenshots.length ? ` · ${context.screenshots.length} 图` : ""}
+          </span>
+          <button
+            className={`${styles.sendButton} ${streaming ? styles.stop : ""}`}
+            onClick={submit}
+            disabled={!streaming && (!draft.trim() || Boolean(filtering))}
+            aria-label={streaming ? "停止生成" : "发送"}
+            title={streaming ? "停止生成" : "发送（Enter）"}
+          >
+            <StateIcon off="send" on="stop" active={streaming} size={16} strokeWidth={2} />
+          </button>
+        </div>
       </div>
 
       {pageOpen ? (

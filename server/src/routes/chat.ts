@@ -88,7 +88,9 @@ export function registerChatRoute(app: Hono): void {
     // When external tools are enabled, the proxy owns the tool loop and
     // re-emits the same SSE shape plus tool events. With no tools, keep the
     // original zero-copy passthrough so existing behavior is untouched.
-    const toolset = await getToolset();
+    // Strict document mode never exposes external tools: the model must stay
+    // grounded in the supplied pages.
+    const toolset = body.documentOnly ? { tools: [], prompt: "" } : await getToolset();
     if (toolset.tools.length) {
       return agentChatResponse({
         messages,

@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import type { ChatMessage } from "../../lib/ai/types";
 import { QuoteIcon, SparkleIcon } from "../../components/icons/SparkleIcon";
-import { Icon } from "../../components/icons/Icon";
-import { formatTokens } from "../../lib/tokens/estimate";
+import { Icon, type IconName } from "../../components/icons/Icon";
 import { useViewer } from "../viewer/useViewerStore";
 import { useAssistant, useContextCount } from "./useAssistantStore";
 import { MessageView } from "./MessageView";
@@ -22,21 +21,24 @@ export function MessageList() {
   const summary = useAssistant((state) => state.summary);
   const stopSummary = useAssistant((state) => state.stopSummary);
   const context = useAssistant((state) => state.context);
-  const projected = useAssistant((state) => state.projected);
   const boostContext = useAssistant((state) => state.boostContext);
   const count = useContextCount();
   const docName = useViewer((state) => state.docName);
   const numPages = useViewer((state) => state.numPages);
+  const currentPage = useViewer((state) => state.currentPage);
 
-  const suggestions = useMemo(() => {
+  const suggestions = useMemo<Array<{ text: string; label: string; icon: IconName }>>(() => {
     if (!docName) return [];
-    const list: string[] = [];
-    if (context.screenshots.length) list.push("这张截图里有什么？");
-    if (context.selection) list.push("解释这段选中文字");
-    if (context.smart) list.push("概括筛选出的内容");
-    if (context.pageRange || context.currentPage) list.push("总结当前页的要点");
-    list.push("当前页有哪些关键概念？");
-    return [...new Set(list)].slice(0, 2);
+    const list: Array<{ text: string; label: string; icon: IconName }> = [];
+    if (context.screenshots.length)
+      list.push({ text: "这张截图里有什么？", label: "看图", icon: "camera" });
+    if (context.selection)
+      list.push({ text: "解释这段选中文字", label: "解释选中", icon: "highlight" });
+    if (context.smart) list.push({ text: "概括筛选出的内容", label: "概括筛选", icon: "search" });
+    if (context.pageRange || context.currentPage)
+      list.push({ text: "总结当前页的要点", label: "总结本页", icon: "page" });
+    list.push({ text: "当前页有哪些关键概念？", label: "关键概念", icon: "outline" });
+    return [...new Map(list.map((item) => [item.text, item])).values()].slice(0, 3);
   }, [
     context.screenshots.length,
     context.selection,
@@ -48,14 +50,17 @@ export function MessageList() {
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickRef = useRef(true);
+  const lastTopRef = useRef(0);
   const previousStreaming = useRef<string | null>(null);
   const [menu, setMenu] = useState<MenuState>(null);
+  const [atBottom, setAtBottom] = useState(true);
 
   useEffect(() => {
     const element = scrollRef.current;
     if (!element) return;
     if (stickRef.current) {
       element.scrollTop = element.scrollHeight;
+      setAtBottom(true);
     }
   }, [messages]);
 
@@ -129,95 +134,127 @@ export function MessageList() {
 
   return (
     <>
-      <div
-        className={styles.messages}
-        ref={scrollRef}
-        tabIndex={0}
-        aria-label="对话消息"
-        onScroll={(event) => {
-          const element = event.currentTarget;
-          stickRef.current = element.scrollHeight - element.scrollTop - element.clientHeight < 60;
-        }}
-      >
-        {summary ? (
-          <div className={styles.summaryStatus} role="status" aria-live="polite">
-            <span className="spin" />
-            <span>{summaryLabel}</span>
-            <button className={styles.summaryStop} onClick={stopSummary}>
-              取消
-            </button>
-          </div>
-        ) : null}
-        {loadingChat ? (
-          <div className={styles.emptyState}>
-            <div className="spin" style={{ margin: "0 auto" }} />
-          </div>
-        ) : messages.length === 0 ? (
-          boostContext && count > 0 ? (
-            <div className={styles.emptyCompact}>上下文已就绪，直接提问即可。</div>
-          ) : (
-            <div className={styles.emptyState}>
-              <div className={styles.emptyIcon}>
-                <SparkleIcon size={20} />
-              </div>
-              <div className={styles.emptyTitle}>
-                {count > 0 ? "上下文已就绪" : "从眼前的内容开始"}
-              </div>
-              <div className={styles.emptyText}>
-                {count > 0 ? (
-                  <>
-                    {count} 个来源 · ≈ {formatTokens(projected)} token
-                    <br />
-                    直接提问，或从下面开始。
-                  </>
-                ) : (
-                  <>
-                    选中文字引用、截一张图，或限定页码，
-                    <br />
-                    再问任何你想问的。
-                  </>
-                )}
-              </div>
-              {suggestions.length || numPages > 0 ? (
-                <div className={styles.suggestions}>
-                  {numPages > 0 ? (
-                    <button
-                      className={`${styles.suggestion} ${styles.summarySuggestion}`}
-                      onClick={summarize}
-                      disabled={Boolean(summary) || Boolean(streamingId)}
-                    >
-                      <span className={styles.summaryText}>
-                        <span>总结整份文档</span>
-                        <small>{summary ? summaryLabel : `全文 ${numPages} 页 · 自动分段`}</small>
-                      </span>
-                      <span aria-hidden="true">→</span>
-                    </button>
-                  ) : null}
-                  {suggestions.map((text) => (
-                    <button
-                      key={text}
-                      className={styles.suggestion}
-                      onClick={() => void send(text)}
-                      disabled={Boolean(summary)}
-                    >
-                      {text}
-                      <span aria-hidden="true">→</span>
-                    </button>
-                  ))}
-                </div>
-              ) : null}
+      <div className={styles.messageArea}>
+        <div
+          className={`${styles.messages} ${messages.length === 0 ? styles.messagesEmpty : ""}`}
+          ref={scrollRef}
+          tabIndex={0}
+          aria-label="对话消息"
+          onScroll={(event) => {
+            const element = event.currentTarget;
+            const bottom = element.scrollHeight - element.scrollTop - element.clientHeight < 60;
+            if (bottom) stickRef.current = true;
+            else if (element.scrollTop < lastTopRef.current - 2) stickRef.current = false;
+            lastTopRef.current = element.scrollTop;
+            setAtBottom(bottom);
+          }}
+        >
+          {summary ? (
+            <div className={styles.summaryStatus} role="status" aria-live="polite">
+              <span className="spin" />
+              <span>{summaryLabel}</span>
+              <button className={styles.summaryStop} onClick={stopSummary}>
+                取消
+              </button>
             </div>
-          )
-        ) : (
-          messages.map((message) => (
-            <MessageView
-              key={message.id}
-              message={message}
-              onQuote={(item) => toggleQuote(item)}
-              onContextMenu={openMenu}
-            />
-          ))
-        )}
+          ) : null}
+          {loadingChat ? (
+            <div className={styles.emptyState}>
+              <div className="spin" style={{ margin: "0 auto" }} />
+            </div>
+          ) : messages.length === 0 ? (
+            boostContext && count > 0 ? (
+              <div className={styles.emptyCompact}>上下文已就绪，直接提问即可。</div>
+            ) : (
+              <div className={styles.emptyState}>
+                <div className={styles.emptyHero}>
+                  <div className={styles.emptyIcon}>
+                    <SparkleIcon size={20} />
+                  </div>
+                  {docName ? (
+                    <div className={styles.docChip} title={docName}>
+                      <Icon name="page" size={12} />
+                      <span className={styles.docName}>{docName}</span>
+                      <span className={styles.docMeta}>
+                        {numPages} 页 · P{currentPage}
+                      </span>
+                    </div>
+                  ) : null}
+                  <div className={styles.emptyTitle}>
+                    {count > 0 ? "上下文已就绪" : "从这一页开始"}
+                  </div>
+                  <div className={styles.emptyText}>
+                    {count > 0 ? "直接提问，或从下面开始。" : "选中文字、截图或指定页码，再提问。"}
+                  </div>
+                </div>
+                {suggestions.length || numPages > 0 ? (
+                  <div className={styles.emptyActions}>
+                    {numPages > 0 ? (
+                      <button
+                        className={`${styles.emptyAction} ${styles.summarySuggestion}`}
+                        onClick={summarize}
+                        disabled={Boolean(summary) || Boolean(streamingId)}
+                        title={`总结整份文档 · 全文 ${numPages} 页，自动分段`}
+                      >
+                        <span className={styles.emptyActionIcon}>
+                          <Icon name="outline" size={17} />
+                        </span>
+                        <span className={styles.emptyActionText}>
+                          <span className={styles.emptyActionLabel}>总结全文</span>
+                          <span className={styles.emptyActionMeta}>
+                            {summary ? summaryLabel : `${numPages} 页`}
+                          </span>
+                        </span>
+                      </button>
+                    ) : null}
+                    {suggestions.map((item) => (
+                      <button
+                        key={item.text}
+                        className={styles.emptyAction}
+                        onClick={() => void send(item.text)}
+                        disabled={Boolean(summary)}
+                        title={item.text}
+                      >
+                        <span className={styles.emptyActionIcon}>
+                          <Icon name={item.icon} size={17} />
+                        </span>
+                        <span className={styles.emptyActionText}>
+                          <span className={styles.emptyActionLabel}>{item.label}</span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            )
+          ) : (
+            messages.map((message) => (
+              <MessageView
+                key={message.id}
+                message={message}
+                onQuote={(item) => toggleQuote(item)}
+                onContextMenu={openMenu}
+              />
+            ))
+          )}
+        </div>
+        {!atBottom && messages.length ? (
+          <button
+            className={styles.jumpLatest}
+            onClick={() => {
+              const element = scrollRef.current;
+              if (!element) return;
+              stickRef.current = true;
+              setAtBottom(true);
+              element.scrollTo({ top: element.scrollHeight, behavior: "smooth" });
+            }}
+            aria-label="回到最新"
+            title="回到最新"
+          >
+            <Icon name="down" size={16} />
+            {streamingId ? <span className={styles.jumpDot} aria-hidden="true" /> : null}
+          </button>
+        ) : null}
       </div>
 
       {menu ? (

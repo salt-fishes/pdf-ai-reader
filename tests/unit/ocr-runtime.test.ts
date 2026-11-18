@@ -15,13 +15,13 @@ const HASH = "89186c9f8c38d4a978d239af49f9be29e2e96b3b80ae2d38063cf6d34bf42202";
 describe("OCR runtime pack checksums", () => {
   it("matches the requested asset and ignores other lines", () => {
     const text = [
-      `${HASH}  paper-reader-v0.3.1-win-x64.zip`,
-      `${"a".repeat(64)} *paper-reader-ocr-v0.3.1-win-x64.zip`,
+      `${HASH}  wenshu-v0.3.1-win-x64.zip`,
+      `${"a".repeat(64)} *wenshu-ocr-v0.3.1-win-x64.zip`,
       "",
       "not a checksum line",
     ].join("\n");
-    expect(parseChecksum(text, "paper-reader-ocr-v0.3.1-win-x64.zip")).toBe("a".repeat(64));
-    expect(parseChecksum(text, "paper-reader-v0.3.1-win-x64.zip")).toBe(HASH);
+    expect(parseChecksum(text, "wenshu-ocr-v0.3.1-win-x64.zip")).toBe("a".repeat(64));
+    expect(parseChecksum(text, "wenshu-v0.3.1-win-x64.zip")).toBe(HASH);
     expect(parseChecksum(text, "missing.zip")).toBeNull();
   });
 

@@ -1,7 +1,7 @@
 {
   "name": "pdf-ai-reader",
   "private": true,
-  "version": "0.10.1",
+  "version": "0.11.0",
   "type": "module",
   "description": "Wenshu, a local-first PDF reader with reading and conversation on one page",
   "main": "electron/main.mjs",
@@ -110,7 +110,7 @@
   "build": {
     "appId": "cn.paperreader.app",
     "productName": "文疏",
-    "artifactName": "paper-reader-v${version}-${arch}.${ext}",
+    "artifactName": "wenshu-v${version}-${arch}.${ext}",
     "asar": false,
     "electronLanguages": [
       "zh-CN",
@@ -141,7 +141,7 @@
         "portable"
       ],
       "icon": "build/icon.ico",
-      "executableName": "PaperReader",
+      "executableName": "Wenshu",
       "signExecutable": false
     },
     "nsis": {
@@ -171,7 +171,7 @@
       ]
     },
     "portable": {
-      "artifactName": "paper-reader-v${version}-portable.${ext}"
+      "artifactName": "wenshu-v${version}-portable.${ext}"
     }
   }
 }

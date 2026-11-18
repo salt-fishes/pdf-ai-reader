@@ -55,6 +55,8 @@ export function AssistantPanel({ onOpenSettings }: { onOpenSettings: () => void 
   const model = useAssistant((state) => state.model);
   const models = useAssistant((state) => state.models);
   const config = useAssistant((state) => state.config);
+  const documentOnly = useAssistant((state) => state.documentOnly);
+  const setDocumentOnly = useAssistant((state) => state.setDocumentOnly);
   const boostContext = useAssistant((state) => state.boostContext);
   const boostAnswer = useAssistant((state) => state.boostAnswer);
   const boosted = boostContext || boostAnswer;
@@ -77,11 +79,13 @@ export function AssistantPanel({ onOpenSettings }: { onOpenSettings: () => void 
   const panelRef = useRef<HTMLDivElement>(null);
   const modelRef = useRef<HTMLDivElement>(null);
   const sessionRef = useRef<HTMLDivElement>(null);
+  const moreRef = useRef<HTMLDivElement>(null);
   const exitingRef = useRef(false);
   const entranceRef = useRef(false);
   const [rect, setRect] = useState(panel);
   const [modelOpen, setModelOpen] = useState(false);
   const [sessionOpen, setSessionOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const [modelList, setModelList] = useState<string[]>(models);
   const [modelBusy, setModelBusy] = useState(false);
@@ -99,7 +103,7 @@ export function AssistantPanel({ onOpenSettings }: { onOpenSettings: () => void 
   const effectiveHeight = rect.manual
     ? rect.height
     : boosted
-      ? Math.min(540, window.innerHeight - 140)
+      ? Math.min(620, window.innerHeight - 140)
       : rect.height;
   const effectiveTop =
     boosted && !rect.manual ? Math.max(56, rect.top + rect.height - effectiveHeight) : rect.top;
@@ -274,6 +278,25 @@ export function AssistantPanel({ onOpenSettings }: { onOpenSettings: () => void 
     };
   }, [sessionOpen]);
 
+  useEffect(() => {
+    if (!moreOpen) return;
+    const onPointer = (event: PointerEvent) => {
+      if (!moreRef.current?.contains(event.target as Node)) setMoreOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.stopPropagation();
+        setMoreOpen(false);
+      }
+    };
+    window.addEventListener("pointerdown", onPointer);
+    window.addEventListener("keydown", onKey, true);
+    return () => {
+      window.removeEventListener("pointerdown", onPointer);
+      window.removeEventListener("keydown", onKey, true);
+    };
+  }, [moreOpen]);
+
   const refreshModels = async () => {
     setModelBusy(true);
     setModelError("");
@@ -437,6 +460,7 @@ export function AssistantPanel({ onOpenSettings }: { onOpenSettings: () => void 
   const list = modelList.length ? modelList : (config?.models ?? [model]);
   const allowed = new Set(config?.models ?? [model]);
   const orderedSessions = [...sessions].sort((a, b) => b.updatedAt - a.updatedAt);
+  const activeTitle = sessions.find((session) => session.id === activeSessionId)?.title ?? "新对话";
 
   return (
     <>
@@ -469,13 +493,16 @@ export function AssistantPanel({ onOpenSettings }: { onOpenSettings: () => void 
               className={styles.modelButton}
               onClick={() => {
                 setModelOpen((open) => !open);
+                setSessionOpen(false);
+                setMoreOpen(false);
                 if (!modelOpen) void refreshModels();
               }}
               title={`${model} · ${modelLabel(model)}`}
               aria-label="切换模型"
               aria-expanded={modelOpen}
             >
-              <ModelIcon model={model} size={19} />
+              <ModelIcon model={model} size={17} />
+              <Icon name="chevronDown" size={10} className={styles.modelCaret} />
             </button>
             {modelOpen ? (
               <div className={styles.modelPicker} role="menu">
@@ -496,6 +523,9 @@ export function AssistantPanel({ onOpenSettings }: { onOpenSettings: () => void 
                     <ModelIcon model={item} size={18} colored />
                     <span className={styles.modelName}>{item}</span>
                     {isMultimodal(item) ? <span className={styles.modelTag}>多模态</span> : null}
+                    {item === model ? (
+                      <Icon name="check" size={14} className={styles.modelCheck} />
+                    ) : null}
                   </button>
                 ))}
                 {modelError ? <div className={styles.modelEmpty}>{modelError}</div> : null}
@@ -543,25 +573,24 @@ export function AssistantPanel({ onOpenSettings }: { onOpenSettings: () => void 
           </div>
 
           <div className={styles.sessionWrap} ref={sessionRef}>
-            <div className={styles.sessionHeading}>
-              <div className={styles.panelTitle} data-panel-drag>
-                文疏
-                <span className={`${styles.dot} ${streaming ? styles.dotBusy : ""}`} />
-              </div>
-              <button
-                className={styles.sessionToggle}
-                onClick={() => {
-                  setSessionOpen((open) => !open);
-                  setModelOpen(false);
-                  setPendingDelete(null);
-                }}
-                aria-label="对话会话"
-                aria-expanded={sessionOpen}
-                title="切换对话会话"
-              >
-                <Icon name="chevronDown" size={14} />
-              </button>
+            <div className={styles.titleBlock} data-panel-drag title={activeTitle}>
+              <span className={`${styles.dot} ${streaming ? styles.dotBusy : ""}`} />
+              <span className={styles.sessionTitle}>{activeTitle}</span>
             </div>
+            <button
+              className={styles.sessionToggle}
+              onClick={() => {
+                setSessionOpen((open) => !open);
+                setModelOpen(false);
+                setMoreOpen(false);
+                setPendingDelete(null);
+              }}
+              aria-label="对话会话"
+              aria-expanded={sessionOpen}
+              title="对话列表"
+            >
+              <Icon name="chevronDown" size={14} />
+            </button>
 
             {sessionOpen ? (
               <div
@@ -580,7 +609,7 @@ export function AssistantPanel({ onOpenSettings }: { onOpenSettings: () => void 
                       setPendingDelete(null);
                     }}
                   >
-                    <span aria-hidden="true">＋</span>
+                    <Icon name="plus" size={13} />
                     新对话
                   </button>
                 </div>
@@ -659,51 +688,123 @@ export function AssistantPanel({ onOpenSettings }: { onOpenSettings: () => void 
 
           <span className={styles.headerSpacer} />
 
-          {!narrow ? (
-            <div className={styles.modeSwitch} role="group" aria-label="助手形态">
-              <button
-                className={`${styles.modeOption} ${!sidebar ? styles.modeActive : ""}`}
-                onPointerDown={(event) => event.stopPropagation()}
-                onClick={() => setMode("float")}
-                aria-label="悬浮窗"
-                aria-pressed={!sidebar}
-                title="悬浮窗：覆盖在阅读区上，可拖动缩放"
-              >
-                <Icon name="float" size={14} />
-              </button>
-              <button
-                className={`${styles.modeOption} ${sidebar ? styles.modeActive : ""}`}
-                onPointerDown={(event) => event.stopPropagation()}
-                onClick={() => setMode("sidebar")}
-                aria-label="侧边栏"
-                aria-pressed={sidebar}
-                title="侧边栏：停靠右侧，阅读区自动让位"
-              >
-                <Icon name="sidebar" size={14} />
-              </button>
-            </div>
+          {documentOnly ? (
+            <button
+              className={styles.docLock}
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={() => setDocumentOnly(false)}
+              aria-label="仅依据文档，点击关闭"
+              title="仅依据文档：已关闭通用知识与外部工具"
+            >
+              <Icon name="lock" size={12} />
+            </button>
           ) : null}
-          <span className={styles.headerSep} />
 
-          <button
-            className={`${styles.headerButton} ${styles.danger}`}
-            onPointerDown={(event) => event.stopPropagation()}
-            onClick={() => setClearConfirm(true)}
-            aria-label="清空当前对话与上下文"
-            title="清空当前对话与上下文"
-          >
-            <Icon name="clear" size={16} />
-          </button>
-          <span className={styles.headerSep} />
           <button
             className={styles.headerButton}
             onPointerDown={(event) => event.stopPropagation()}
-            onClick={() => animateOut("minimize")}
-            aria-label="最小化"
-            title="最小化（Esc）"
+            onClick={() => newSession()}
+            aria-label="新建对话"
+            title="新建对话"
           >
-            <Icon name="minimize" size={16} />
+            <Icon name="plus" size={17} />
           </button>
+
+          {!narrow ? (
+            <button
+              className={styles.modeToggle}
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={() => setMode(sidebar ? "float" : "sidebar")}
+              aria-label={sidebar ? "悬浮窗" : "侧边栏"}
+              aria-pressed={sidebar}
+              title={sidebar ? "切换为悬浮窗" : "切换为侧边栏"}
+            >
+              <Icon name={sidebar ? "float" : "sidebar"} size={16} />
+            </button>
+          ) : null}
+
+          <div className={styles.moreWrap} ref={moreRef}>
+            <button
+              className={styles.headerButton}
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={() => {
+                setMoreOpen((open) => !open);
+                setModelOpen(false);
+                setSessionOpen(false);
+              }}
+              aria-label="更多操作"
+              aria-expanded={moreOpen}
+              title="更多"
+            >
+              <Icon name="more" size={17} />
+            </button>
+            {moreOpen ? (
+              <div
+                className={styles.moreMenu}
+                role="menu"
+                aria-label="更多操作"
+                onPointerDown={(event) => event.stopPropagation()}
+              >
+                <button
+                  className={styles.moreItem}
+                  role="menuitemcheckbox"
+                  aria-checked={documentOnly}
+                  onClick={() => setDocumentOnly(!documentOnly)}
+                  title={
+                    documentOnly
+                      ? "只依据当前文档回答，不使用通用知识与外部工具"
+                      : "文档优先；允许通用知识与已启用的外部工具"
+                  }
+                >
+                  <Icon name="page" size={15} />
+                  <span className={styles.moreLabel}>仅依据文档</span>
+                  <span
+                    className={`${styles.miniSwitch} ${documentOnly ? styles.miniSwitchOn : ""}`}
+                    aria-hidden="true"
+                  />
+                </button>
+                <div className={styles.moreDivider} />
+                <button
+                  className={styles.moreItem}
+                  role="menuitem"
+                  onClick={() => {
+                    setMoreOpen(false);
+                    onOpenSettings();
+                  }}
+                >
+                  <Icon name="settings" size={15} />
+                  设置
+                </button>
+                <button
+                  className={`${styles.moreItem} ${styles.moreDanger}`}
+                  role="menuitem"
+                  aria-label="清空当前对话与上下文"
+                  onClick={() => {
+                    setMoreOpen(false);
+                    setClearConfirm(true);
+                  }}
+                >
+                  <Icon name="clear" size={15} />
+                  清空对话
+                </button>
+              </div>
+            ) : null}
+          </div>
+
+          {!sidebar ? (
+            <>
+              <span className={styles.headerSep} />
+              <button
+                className={styles.headerButton}
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={() => animateOut("minimize")}
+                aria-label="最小化"
+                title="最小化（Esc）"
+              >
+                <Icon name="minimize" size={16} />
+              </button>
+            </>
+          ) : null}
           <button
             className={styles.headerButton}
             onPointerDown={(event) => event.stopPropagation()}

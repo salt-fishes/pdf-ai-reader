@@ -92,5 +92,5 @@ function directoryBytes(dir) {
 console.log(`OCR runtime pack ready: ${out}`);
 console.log(`size: ${(Number(directoryBytes(out)) / 1024 / 1024).toFixed(1)}MB (unpacked)`);
 console.log(
-  `zip it with: Compress-Archive -Path '${join(out, "*")}' -DestinationPath '${join(release, `paper-reader-ocr-v${version}-win-x64.zip`)}'`,
+  `zip it with: Compress-Archive -Path '${join(out, "*")}' -DestinationPath '${join(release, `wenshu-ocr-v${version}-win-x64.zip`)}'`,
 );

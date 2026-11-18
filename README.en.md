@@ -34,6 +34,8 @@ Wenshu is a local-first PDF reader that keeps reading and conversation on the sa
 - Context: current page, all pages, ranges, TOC chapters, selection, page/region screenshots, attachments and quoted messages.
 - Local BM25 filtering and map-reduce summaries with progress and cancellation.
 - Streaming answers, reasoning stream, line-level citations with jump-and-flash, Markdown + KaTeX, token meter and configurable pricing.
+- Icon-first assistant panel: one-row header, 2×2 quick actions, compact source badges, jump-to-latest and follow-current-page.
+- Document-first answer policy with general knowledge and enabled external tools; source icons distinguish `▤` / `✦` / `⚙`, and a document-only switch turns the latter two off.
 - Multiple chat sessions, history window, per-message quote/exclude.
 - Local PP-OCRv6 tiny/small/medium with a line-level text layer; custom mirror root supported.
 - Electron shell, local proxy, manual update check, no telemetry.
@@ -74,7 +76,7 @@ Set `MOCK_AI=1` to stream a local mock answer without calling a real model.
   downloaded only when you enable OCR in Settings. Downloads follow the Windows system proxy
   and always bypass it for localhost.
 - Update checks run only when you click the button, and only against GitHub Releases.
-- Settings → About can register PaperReader as a PDF opener. It never changes the default
+- Settings → About can register Wenshu as a PDF opener. It never changes the default
   silently; Windows Settings asks you to confirm.
 
 See [docs/PRIVACY.md](docs/PRIVACY.md) for details.

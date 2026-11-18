@@ -1,6 +1,6 @@
 # 架构审计：大文档、长会话与本机代理边界
 
-> 历史审计（0.1.0 时期）。其中“所有页都挂载”“单一 2000 行 store”等问题已在 0.2.0 部分处理：页面已虚拟化，OCR 已后台化；0.4 起 OCR 运行时与模型改为按需下载。当前测试数字与未完成项见 [CHANGELOG](../CHANGELOG.md) 与 [ROADMAP](ROADMAP.md)。
+> 历史审计（0.1.0 时期）。其中“所有页都挂载”“单一 2000 行 store”等问题已在 0.2.0 部分处理：页面已虚拟化，OCR 已后台化；0.4 起 OCR 运行时与模型改为按需下载。文中的 `paper-reader-*` 与 `PaperReader.exe` 是当时产物名，当前发布物为 `wenshu-*` 与 `Wenshu.exe`。当前测试数字与未完成项见 [CHANGELOG](../CHANGELOG.md) 与 [ROADMAP](ROADMAP.md)。
 
 - 版本：0.1.0
 - 日期：2026-11-16

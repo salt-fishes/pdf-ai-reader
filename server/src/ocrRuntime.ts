@@ -41,12 +41,30 @@ const RUNTIME_MARKER = "runtime.json";
 const preferredRoot = process.env.OCR_RUNTIME_DIR?.trim()
   ? path.resolve(process.env.OCR_RUNTIME_DIR)
   : null;
-const FALLBACK_PARENT = path.join(tmpdir(), "paper-reader-ocr");
+const FALLBACK_PARENT = path.join(tmpdir(), "wenshu-ocr");
+const LEGACY_FALLBACK_PARENT = path.join(tmpdir(), "paper-reader-ocr");
 const fallbackRoot = path.join(FALLBACK_PARENT, `runtime-v${OCR_RUNTIME_FORMAT}`);
 
 function assetName(): string {
+  return PACK_VERSION ? `wenshu-ocr-v${PACK_VERSION}-win-x64.zip` : "";
+}
+
+/** Pre-0.10.2 asset name; kept so local 0.10.1 builds can still install OCR. */
+function legacyAssetName(): string {
   return PACK_VERSION ? `paper-reader-ocr-v${PACK_VERSION}-win-x64.zip` : "";
 }
+
+function assetNames(): string[] {
+  return [...new Set([assetName(), legacyAssetName()].filter(Boolean))];
+}
+
+function ocrPackUrls(): string[] {
+  const custom = process.env.OCR_PACK_URL?.trim();
+  if (custom) return [custom];
+  return assetNames().map((name) => `${releaseAssetBase()}/${name}`);
+}
+
+let downloadedAssetName = "";
 
 function releaseAssetBase(): string {
   return PACK_VERSION ? `${RELEASE_ROOT}/v${PACK_VERSION}` : "";
@@ -136,32 +154,37 @@ async function rootIsReady(root: string): Promise<boolean> {
 }
 
 /**
- * Older builds put the temp fallback under the app version. Keep accepting
- * those directories so users who were already forced out of the preferred
- * folder do not re-download after upgrading.
+ * Older builds put the temp fallback under the app version, and before 0.10.2
+ * under `%TEMP%/paper-reader-ocr`. Keep accepting both layouts so users who
+ * were already forced out of the preferred folder do not re-download after
+ * upgrading.
  */
 function legacyFallbackRoots(): string[] {
-  let entries;
-  try {
-    entries = readdirSync(FALLBACK_PARENT, { withFileTypes: true });
-  } catch {
-    return [];
-  }
   const current = path.basename(fallbackRoot);
-  return entries
-    .filter(
-      (entry) => entry.isDirectory() && entry.name !== current && /^\d+\.\d+\.\d+/.test(entry.name),
-    )
-    .map((entry) => {
-      const full = path.join(FALLBACK_PARENT, entry.name);
+  const found: { full: string; mtime: number }[] = [];
+  for (const parent of [FALLBACK_PARENT, LEGACY_FALLBACK_PARENT]) {
+    let entries;
+    try {
+      entries = readdirSync(parent, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      if (!entry.isDirectory() || entry.name === current) continue;
+      if (!/^\d+\.\d+\.\d+/.test(entry.name) && entry.name !== `runtime-v${OCR_RUNTIME_FORMAT}`) {
+        continue;
+      }
+      const full = path.join(parent, entry.name);
       let mtime = 0;
       try {
         mtime = statSync(full).mtimeMs;
       } catch {
         // Race with Windows temp cleanup; keep it last.
       }
-      return { full, mtime };
-    })
+      found.push({ full, mtime });
+    }
+  }
+  return found
     .sort((a, b) => b.mtime - a.mtime)
     .slice(0, 4)
     .map((entry) => entry.full);
@@ -237,26 +260,45 @@ async function fetchChecksum(): Promise<string> {
     throw new Error("无法获取 OCR 组件校验和，请检查网络或代理");
   }
   if (!response.ok) throw new Error(`无法获取 OCR 组件校验和（${response.status}）`);
-  const expected = parseChecksum(await response.text(), ocrPackFileName());
-  if (!expected) throw new Error("校验和文件中没有 OCR 组件，拒绝安装");
-  return expected;
+  const text = await response.text();
+  const candidates = [downloadedAssetName, ocrPackFileName(), ...assetNames()].filter(Boolean);
+  for (const name of candidates) {
+    const expected = parseChecksum(text, name);
+    if (expected) return expected;
+  }
+  throw new Error("校验和文件中没有 OCR 组件，拒绝安装");
 }
 
 async function downloadPack(target: string): Promise<void> {
-  const url = ocrPackUrl();
-  if (!url) throw new Error("此构建没有配置 OCR 组件下载地址");
+  const urls = ocrPackUrls();
+  if (!urls.length) throw new Error("此构建没有配置 OCR 组件下载地址");
   state.total = OCR_RUNTIME_APPROX_BYTES;
-  let response: Response;
-  try {
-    response = await fetch(url, {
-      redirect: "follow",
-      signal: AbortSignal.timeout(15 * 60 * 1000),
-    });
-  } catch {
-    throw new Error("无法连接 OCR 组件下载源，请检查网络或代理");
+  let lastStatus = 0;
+  let response: Response | null = null;
+  for (const url of urls) {
+    try {
+      const candidate = await fetch(url, {
+        redirect: "follow",
+        signal: AbortSignal.timeout(15 * 60 * 1000),
+      });
+      if (candidate.ok && candidate.body) {
+        response = candidate;
+        downloadedAssetName = decodeURIComponent(new URL(url).pathname.split("/").pop() ?? "");
+        break;
+      }
+      lastStatus = candidate.status;
+    } catch {
+      lastStatus = 0;
+    }
+    if (process.env.OCR_PACK_URL?.trim()) break;
   }
-  if (!response.ok || !response.body) {
-    throw new Error(`OCR 组件下载失败（${response.status}）`);
+  if (!response || !response.body) {
+    if (lastStatus === 404) throw new Error("OCR 组件下载失败（404），该版本可能尚未上传组件包");
+    throw new Error(
+      lastStatus
+        ? `OCR 组件下载失败（${lastStatus}）`
+        : "无法连接 OCR 组件下载源，请检查网络或代理",
+    );
   }
   const length = Number(response.headers.get("content-length") ?? 0);
   if (length > MAX_PACK_BYTES) throw new Error("OCR 组件超过 200MB 上限");
@@ -358,7 +400,7 @@ async function runInstall(force: boolean): Promise<void> {
     throw new Error("此构建没有配置 OCR 组件下载源");
   }
 
-  const archive = path.join(tmpdir(), `paper-reader-ocr-${process.pid}.zip.part`);
+  const archive = path.join(tmpdir(), `wenshu-ocr-${process.pid}.zip.part`);
   state.active = true;
   state.downloaded = 0;
   state.error = null;

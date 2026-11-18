@@ -17,6 +17,25 @@ BrandMark 是文疏的唯一品牌几何：珊瑚书脊 + 米白纸页 + 星芒�
 
 呼吸灯不使用实心按钮：`AssistantFab` 只渲染 54px 命中区里的透明星芒，暖光由 `.glow` 承担。星芒使用 `--accent`（浅色为深珊瑚、夜间为浅珊瑚），生成中只加强光晕，不换图形。
 
+## 命名边界
+
+用户可见层统一使用「文疏 / Wenshu」，内部兼容标识不要随手改：
+
+| 标识                     | 当前值                                    | 原因                                                                 |
+| ------------------------ | ----------------------------------------- | -------------------------------------------------------------------- |
+| 可执行文件               | `Wenshu.exe`                              | 安装目录、快捷方式、任务管理器与文件属性都显示新品牌。               |
+| 安装目录                 | `%LOCALAPPDATA%\Programs\Wenshu`          | 由 `win.executableName` 决定。                                       |
+| 安装包 / 便携包 / OCR 包 | `wenshu-v*`、`wenshu-ocr-v*`              | 发布物与 checksum 文件名同步。                                       |
+| PDF ProgID               | `Wenshu.pdf`                              | 资源管理器“打开方式”与 `DefaultIcon` 使用。                          |
+| Capabilities 根          | `Software\Wenshu`                         | 默认应用列表中的应用信息。                                           |
+| `appId`                  | `cn.paperreader.app`                      | Windows 安装身份与覆盖升级；改动会让旧版变成另一个产品。             |
+| npm 包名 / 用户数据目录  | `pdf-ai-reader`                           | `app.getPath("userData")` 依赖它；改动会丢失配置、密钥与 OCR 组件。  |
+| preload 桥 / SSE 事件    | `window.paperReader`、`paper_reader_tool` | 渲染进程与本地代理之间的内部协议，不显示给用户；改名只增加回归风险。 |
+| localStorage 键          | `pdf-ai-reader:*`                         | 保留历史偏好与数据兼容。                                             |
+| GitHub 仓库              | `salt-fishes/pdf-ai-reader`               | 远程仓库地址，重命名仓库后再统一。                                   |
+
+安装器与 PDF 关联会在注册时清理旧的 `PaperReader.pdf`、`Applications\PaperReader.exe`、`Software\PaperReader`、`RegisteredApplications\PaperReader` 与更早的「纸间」项；旧快捷方式也会删除。
+
 ## 桌面使用
 
 - `win.icon`、NSIS 安装器/卸载器、exe 资源、快捷方式都使用 `build/icon.ico`。

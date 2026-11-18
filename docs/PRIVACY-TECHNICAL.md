@@ -4,22 +4,22 @@
 
 ## 数据位置
 
-| 数据                                               | 位置                                                                    | 说明                                                                                  |
-| -------------------------------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| 主 PDF                                             | 浏览器/渲染进程内存                                                     | 通过 pdf.js 解析，不上传文件；关闭文档后释放。                                        |
-| 阅读位置、对话、高亮、OCR 文本、页面尺寸、摘要分段 | IndexedDB                                                               | 未加密；可在设置中清空。                                                              |
-| 最近文档缓存                                       | IndexedDB                                                               | 单个文件 ≤24MB，总量 ≤64MB，最多 8 条；超出预算时按最近使用淘汰缓存字节，记录仍保留。 |
-| 界面偏好                                           | localStorage                                                            | 主题、助手形态、思考强度、上下文预算等。                                              |
-| PDF 打开方式（可选）                               | `HKCU` 或 `HKLM` 的 `Software\Classes` 与 `Software\PaperReader`        | 只有点击注册后才写入；系统级注册需管理员授权，可在设置中移除。                        |
-| API Key、Base URL、模型允许列表                    | 本机代理（`server/data/provider.json`，桌面版在 `userData/data`）       | 不进入前端 bundle，不返回给浏览器。                                                   |
-| Sciverse token、MCP 地址与请求头                   | 本机代理（`server/data/mcp.json`，桌面版在 `userData/data`）            | 文件权限 `0600`；接口只返回 `hasToken`、尾号与请求头名称，不返回明文。                |
-| OCR 运行时与模型                                   | `server/models`、桌面版 `userData/ocr-runtime` 与 `userData/ocr-models` | 首次下载后可离线使用；安全软件拦截时运行时回退到 `%TEMP%/paper-reader-ocr`。          |
+| 数据                                               | 位置                                                                    | 说明                                                                                          |
+| -------------------------------------------------- | ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| 主 PDF                                             | 浏览器/渲染进程内存                                                     | 通过 pdf.js 解析，不上传文件；关闭文档后释放。                                                |
+| 阅读位置、对话、高亮、OCR 文本、页面尺寸、摘要分段 | IndexedDB                                                               | 未加密；可在设置中清空。                                                                      |
+| 最近文档缓存                                       | IndexedDB                                                               | 单个文件 ≤24MB，总量 ≤64MB，最多 8 条；超出预算时按最近使用淘汰缓存字节，记录仍保留。         |
+| 界面偏好                                           | localStorage                                                            | 主题、助手形态、思考强度、上下文预算等。                                                      |
+| PDF 打开方式（可选）                               | `HKCU` 或 `HKLM` 的 `Software\Classes` 与 `Software\Wenshu`             | 只有点击注册后才写入；系统级注册需管理员授权，可在设置中移除。旧 `PaperReader` 键会自动清理。 |
+| API Key、Base URL、模型允许列表                    | 本机代理（`server/data/provider.json`，桌面版在 `userData/data`）       | 不进入前端 bundle，不返回给浏览器。                                                           |
+| Sciverse token、MCP 地址与请求头                   | 本机代理（`server/data/mcp.json`，桌面版在 `userData/data`）            | 文件权限 `0600`；接口只返回 `hasToken`、尾号与请求头名称，不返回明文。                        |
+| OCR 运行时与模型                                   | `server/models`、桌面版 `userData/ocr-runtime` 与 `userData/ocr-models` | 首次下载后可离线使用；安全软件拦截时运行时回退到 `%TEMP%/wenshu-ocr`。                        |
 
 ## OCR 组件复用
 
 - 运行时目录由 `OCR_RUNTIME_FORMAT` 标识，不与应用版本绑定。
 - 旧版本写入的 `runtime.json` 没有 `format` 字段，按兼容处理。
-- 临时回退目录为 `%TEMP%/paper-reader-ocr/runtime-v<format>`；旧版本按应用版本命名的目录会作为候选继续复用。
+- 临时回退目录为 `%TEMP%/wenshu-ocr/runtime-v<format>`；旧版 `%TEMP%/paper-reader-ocr` 与按应用版本命名的目录会作为候选继续复用。
 - 用户主动点击“修复组件”时，先停止 OCR worker，再强制重新下载并替换运行时。
 - 模型目录稳定在 `userData/ocr-models`，不随应用升级变化。
 

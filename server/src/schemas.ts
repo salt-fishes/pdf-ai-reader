@@ -38,6 +38,7 @@ export const chatSchema = z.object({
   messages: z.unknown(),
   model: modelName.optional(),
   effort: z.string().max(16).optional(),
+  documentOnly: z.boolean().optional(),
 });
 
 export type ProviderConfigInput = z.infer<typeof providerConfigSchema>;

@@ -52,8 +52,10 @@ function extractResult(input: unknown): ToolResult {
   };
 }
 
+const CLIENT_VERSION = process.env.APP_VERSION?.replace(/^v/, "") || "0.10.1";
+
 async function connect(server: McpServerSettings): Promise<Cached> {
-  const client = new Client({ name: "paper-reader", version: "0.9.0" });
+  const client = new Client({ name: "wenshu", version: CLIENT_VERSION });
   const transport = new StreamableHTTPClientTransport(new URL(server.url), {
     requestInit: { headers: server.headers },
   });

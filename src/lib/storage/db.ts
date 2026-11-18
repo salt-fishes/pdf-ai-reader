@@ -297,6 +297,8 @@ export type StoredSettings = {
   thinking?: "none" | "low" | "high" | "max";
   contextBudget?: number;
   historyLimit?: number;
+  /** Strict document-only answers; disables general knowledge and tools. */
+  documentOnly?: boolean;
   pricing?: { inputMiss: number; inputHit: number; output: number };
   shortcuts?: Partial<Record<string, ShortcutBinding[]>>;
   showShortcuts?: boolean;

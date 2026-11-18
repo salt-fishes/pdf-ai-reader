@@ -9,8 +9,8 @@ import {
 } from "../../electron/pdf-association.mjs";
 
 // A path with a space exercises the same quoting on every CI platform.
-const exePath = resolve("Wenshu", "PaperReader.exe");
-const capabilities = "HKLM\\Software\\PaperReader\\Capabilities";
+const exePath = resolve("Wenshu", "Wenshu.exe");
+const capabilities = "HKLM\\Software\\Wenshu\\Capabilities";
 const legacyName = "\u7eb8\u95f4";
 
 describe("associationEntries", () => {
@@ -34,7 +34,7 @@ describe("associationEntries", () => {
     expect(entries).toContainEqual({
       key: `${capabilities}\\FileAssociations`,
       name: ".pdf",
-      value: "PaperReader.pdf",
+      value: "Wenshu.pdf",
     });
     // Windows ignores the whole Default Apps entry when these are keys.
     expect(entries.some((entry) => entry.key === `${capabilities}\\ApplicationName`)).toBe(false);
@@ -45,18 +45,18 @@ describe("associationEntries", () => {
   });
 
   it("uses the shipped PDF icon for documents and the exe icon for the app", () => {
-    const dir = mkdtempSync(join(tmpdir(), "paper-reader-icon-"));
+    const dir = mkdtempSync(join(tmpdir(), "wenshu-icon-"));
     try {
-      const exe = join(dir, "PaperReader.exe");
+      const exe = join(dir, "Wenshu.exe");
       const ico = join(dir, "pdf-file.ico");
       writeFileSync(ico, "ico");
       const entries = associationEntries(exe, "user");
       expect(entries).toContainEqual({
-        key: "HKCU\\Software\\Classes\\PaperReader.pdf\\DefaultIcon",
+        key: "HKCU\\Software\\Classes\\Wenshu.pdf\\DefaultIcon",
         value: `${ico},0`,
       });
       expect(entries).toContainEqual({
-        key: "HKCU\\Software\\Classes\\Applications\\PaperReader.exe\\DefaultIcon",
+        key: "HKCU\\Software\\Classes\\Applications\\Wenshu.exe\\DefaultIcon",
         value: `${exe},0`,
       });
     } finally {
@@ -67,7 +67,7 @@ describe("associationEntries", () => {
   it("falls back to the exe icon when pdf-file.ico is not shipped", () => {
     const entries = associationEntries(exePath, "machine");
     expect(entries).toContainEqual({
-      key: "HKLM\\Software\\Classes\\PaperReader.pdf\\DefaultIcon",
+      key: "HKLM\\Software\\Classes\\Wenshu.pdf\\DefaultIcon",
       value: `${exePath},0`,
     });
   });
@@ -78,7 +78,16 @@ describe("associationEntries", () => {
       `${capabilities}\\ApplicationDescription`,
       `${capabilities}\\ApplicationIcon`,
       `${capabilities}\\FileAssociations\\.pdf`,
-      "HKLM\\Software\\Classes\\Applications\\PaperReader.exe\\SupportedTypes\\.pdf",
+      "HKLM\\Software\\Classes\\Applications\\Wenshu.exe\\SupportedTypes\\.pdf",
+      "HKLM\\Software\\Classes\\PaperReader.pdf",
+      "HKLM\\Software\\Classes\\PaperReader.pdf\\DefaultIcon",
+      "HKLM\\Software\\Classes\\PaperReader.pdf\\shell\\open\\command",
+      "HKLM\\Software\\Classes\\Applications\\PaperReader.exe",
+      "HKLM\\Software\\Classes\\Applications\\PaperReader.exe\\FriendlyAppName",
+      "HKLM\\Software\\Classes\\Applications\\PaperReader.exe\\DefaultIcon",
+      "HKLM\\Software\\Classes\\Applications\\PaperReader.exe\\shell\\open\\command",
+      "HKLM\\Software\\Classes\\Applications\\PaperReader.exe\\SupportedTypes",
+      "HKLM\\Software\\PaperReader",
     ]);
   });
 });
@@ -90,7 +99,7 @@ describe("associationPowerShellScript", () => {
     expect(script).toContain(`-Value '"${exePath}" "%1"'`);
     // reg.exe /d would split the embedded quotes on PowerShell 5.1.
     expect(script).not.toContain(
-      "& $reg add 'HKLM\\Software\\Classes\\PaperReader.pdf\\shell\\open\\command'",
+      "& $reg add 'HKLM\\Software\\Classes\\Wenshu.pdf\\shell\\open\\command'",
     );
     expect(script).toContain("oldCommon");
     expect(script).toContain("SpecialFolder]::StartMenu");
@@ -118,7 +127,7 @@ describe("associationPowerShellScript", () => {
 
   it("uses provider removals and deletes the common Start Menu link", () => {
     const script = associationPowerShellScript({ exePath, scope: "machine", mode: "remove" });
-    expect(script).toContain("Remove-Item -Path 'HKLM:\\Software\\Classes\\PaperReader.pdf'");
+    expect(script).toContain("Remove-Item -Path 'HKLM:\\Software\\Classes\\Wenshu.pdf'");
     expect(script).toContain("Remove-ItemProperty");
     expect(script).toContain("CommonStartMenu");
     expect(script).toContain("'文疏.lnk'");

@@ -176,8 +176,8 @@ function associationScript(scope, mode) {
 
 async function runElevatedAssociation(scope, mode) {
   const stamp = `${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  const logFile = join(tmpdir(), `paper-reader-assoc-${stamp}.log`);
-  const scriptFile = join(tmpdir(), `paper-reader-assoc-${stamp}.ps1`);
+  const logFile = join(tmpdir(), `wenshu-assoc-${stamp}.log`);
+  const scriptFile = join(tmpdir(), `wenshu-assoc-${stamp}.ps1`);
   // Start-Process cannot combine -Verb RunAs with redirected output, so the
   // elevated script writes its own log. The script goes to a BOM-prefixed file:
   // passing it through -EncodedCommand makes UAC fail silently with longer
@@ -291,7 +291,7 @@ ipcMain.handle("app:pdf-association-open-settings", async () => {
 ipcMain.handle("app:check-for-updates", async () => {
   const current = app.getVersion();
   const response = await net.fetch(RELEASES_API, {
-    headers: { Accept: "application/vnd.github+json", "User-Agent": "paper-reader" },
+    headers: { Accept: "application/vnd.github+json", "User-Agent": "wenshu" },
     signal: AbortSignal.timeout(8000),
   });
   if (response.status === 403 || response.status === 429) {
@@ -389,6 +389,7 @@ async function startServer() {
       OCR_MODEL_DIR: join(userData, "ocr-models"),
       OCR_RUNTIME_DIR: join(userData, "ocr-runtime"),
       OCR_PACK_VERSION: app.getVersion(),
+      APP_VERSION: app.getVersion(),
       APP_ORIGIN,
       NODE_ENV: "production",
       NO_PROXY: [process.env.NO_PROXY, "127.0.0.1,localhost"].filter(Boolean).join(","),

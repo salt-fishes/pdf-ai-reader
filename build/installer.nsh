@@ -1,8 +1,11 @@
 !include "nsDialogs.nsh"
 !include "LogicLib.nsh"
 
-; Previous display name, kept only to clean up shortcuts and registry entries.
+; Previous display and internal names, kept only to clean up shortcuts and registry entries.
 !define LEGACY_APP_NAME "纸间"
+!define LEGACY_EXE_NAME "PaperReader.exe"
+!define LEGACY_PROG_ID "PaperReader.pdf"
+!define LEGACY_CAPABILITIES "PaperReader"
 
 !ifndef BUILD_UNINSTALLER
 Var PdfAssocCheckbox
@@ -44,30 +47,39 @@ FunctionEnd
   ; Remove shortcuts left by older installs that used the previous name.
   Delete "$DESKTOP\${LEGACY_APP_NAME}.lnk"
   Delete "$SMPROGRAMS\${LEGACY_APP_NAME}.lnk"
+  Delete "$DESKTOP\${LEGACY_CAPABILITIES}.lnk"
+  Delete "$SMPROGRAMS\${LEGACY_CAPABILITIES}.lnk"
 
   ${If} $PdfAssocState == ${BST_CHECKED}
-    WriteRegNone SHELL_CONTEXT "Software\Classes\.pdf\OpenWithProgids" "PaperReader.pdf"
-
-    WriteRegStr SHELL_CONTEXT "Software\Classes\Applications\PaperReader.exe" "" "文疏"
-    WriteRegStr SHELL_CONTEXT "Software\Classes\Applications\PaperReader.exe\FriendlyAppName" "" "文疏"
-    WriteRegStr SHELL_CONTEXT "Software\Classes\Applications\PaperReader.exe\DefaultIcon" "" "$INSTDIR\PaperReader.exe,0"
-    WriteRegStr SHELL_CONTEXT "Software\Classes\Applications\PaperReader.exe\shell\open\command" "" '"$INSTDIR\PaperReader.exe" "%1"'
-    WriteRegNone SHELL_CONTEXT "Software\Classes\Applications\PaperReader.exe\SupportedTypes" ".pdf"
-
-    WriteRegStr SHELL_CONTEXT "Software\Classes\PaperReader.pdf" "" "PDF 文档"
-    ${If} ${FileExists} "$INSTDIR\pdf-file.ico"
-      WriteRegStr SHELL_CONTEXT "Software\Classes\PaperReader.pdf\DefaultIcon" "" "$INSTDIR\pdf-file.ico,0"
-    ${Else}
-      WriteRegStr SHELL_CONTEXT "Software\Classes\PaperReader.pdf\DefaultIcon" "" "$INSTDIR\PaperReader.exe,0"
-    ${EndIf}
-    WriteRegStr SHELL_CONTEXT "Software\Classes\PaperReader.pdf\shell\open\command" "" '"$INSTDIR\PaperReader.exe" "%1"'
-
+    ; Remove the pre-0.10.2 PaperReader registration before writing Wenshu.
+    DeleteRegValue SHELL_CONTEXT "Software\Classes\.pdf\OpenWithProgids" "${LEGACY_PROG_ID}"
+    DeleteRegKey SHELL_CONTEXT "Software\Classes\Applications\${LEGACY_EXE_NAME}"
+    DeleteRegKey SHELL_CONTEXT "Software\Classes\${LEGACY_PROG_ID}"
+    DeleteRegKey SHELL_CONTEXT "Software\${LEGACY_CAPABILITIES}"
+    DeleteRegValue SHELL_CONTEXT "Software\RegisteredApplications" "${LEGACY_CAPABILITIES}"
     DeleteRegValue SHELL_CONTEXT "Software\RegisteredApplications" "${LEGACY_APP_NAME}"
-    WriteRegStr SHELL_CONTEXT "Software\RegisteredApplications" "文疏" "Software\PaperReader\Capabilities"
-    WriteRegStr SHELL_CONTEXT "Software\PaperReader\Capabilities" "ApplicationName" "文疏"
-    WriteRegStr SHELL_CONTEXT "Software\PaperReader\Capabilities" "ApplicationDescription" "本地优先的 PDF 阅读器，阅读与对话发生在同一页"
-    WriteRegStr SHELL_CONTEXT "Software\PaperReader\Capabilities" "ApplicationIcon" "$INSTDIR\PaperReader.exe,0"
-    WriteRegStr SHELL_CONTEXT "Software\PaperReader\Capabilities\FileAssociations" ".pdf" "PaperReader.pdf"
+
+    WriteRegNone SHELL_CONTEXT "Software\Classes\.pdf\OpenWithProgids" "Wenshu.pdf"
+
+    WriteRegStr SHELL_CONTEXT "Software\Classes\Applications\Wenshu.exe" "" "文疏"
+    WriteRegStr SHELL_CONTEXT "Software\Classes\Applications\Wenshu.exe\FriendlyAppName" "" "文疏"
+    WriteRegStr SHELL_CONTEXT "Software\Classes\Applications\Wenshu.exe\DefaultIcon" "" "$INSTDIR\Wenshu.exe,0"
+    WriteRegStr SHELL_CONTEXT "Software\Classes\Applications\Wenshu.exe\shell\open\command" "" '"$INSTDIR\Wenshu.exe" "%1"'
+    WriteRegNone SHELL_CONTEXT "Software\Classes\Applications\Wenshu.exe\SupportedTypes" ".pdf"
+
+    WriteRegStr SHELL_CONTEXT "Software\Classes\Wenshu.pdf" "" "PDF 文档"
+    ${If} ${FileExists} "$INSTDIR\pdf-file.ico"
+      WriteRegStr SHELL_CONTEXT "Software\Classes\Wenshu.pdf\DefaultIcon" "" "$INSTDIR\pdf-file.ico,0"
+    ${Else}
+      WriteRegStr SHELL_CONTEXT "Software\Classes\Wenshu.pdf\DefaultIcon" "" "$INSTDIR\Wenshu.exe,0"
+    ${EndIf}
+    WriteRegStr SHELL_CONTEXT "Software\Classes\Wenshu.pdf\shell\open\command" "" '"$INSTDIR\Wenshu.exe" "%1"'
+
+    WriteRegStr SHELL_CONTEXT "Software\RegisteredApplications" "文疏" "Software\Wenshu\Capabilities"
+    WriteRegStr SHELL_CONTEXT "Software\Wenshu\Capabilities" "ApplicationName" "文疏"
+    WriteRegStr SHELL_CONTEXT "Software\Wenshu\Capabilities" "ApplicationDescription" "文疏 · 本地优先的 PDF 阅读器与 AI 阅读助手"
+    WriteRegStr SHELL_CONTEXT "Software\Wenshu\Capabilities" "ApplicationIcon" "$INSTDIR\Wenshu.exe,0"
+    WriteRegStr SHELL_CONTEXT "Software\Wenshu\Capabilities\FileAssociations" ".pdf" "Wenshu.pdf"
   ${EndIf}
 
   ${If} $PdfSettingsState == ${BST_CHECKED}
@@ -76,12 +88,21 @@ FunctionEnd
 !macroend
 
 !macro customUnInstall
-  DeleteRegValue SHELL_CONTEXT "Software\Classes\.pdf\OpenWithProgids" "PaperReader.pdf"
-  DeleteRegKey SHELL_CONTEXT "Software\Classes\Applications\PaperReader.exe"
-  DeleteRegKey SHELL_CONTEXT "Software\Classes\PaperReader.pdf"
-  DeleteRegKey SHELL_CONTEXT "Software\PaperReader"
+  DeleteRegValue SHELL_CONTEXT "Software\Classes\.pdf\OpenWithProgids" "Wenshu.pdf"
+  DeleteRegKey SHELL_CONTEXT "Software\Classes\Applications\Wenshu.exe"
+  DeleteRegKey SHELL_CONTEXT "Software\Classes\Wenshu.pdf"
+  DeleteRegKey SHELL_CONTEXT "Software\Wenshu"
   DeleteRegValue SHELL_CONTEXT "Software\RegisteredApplications" "文疏"
+
+  DeleteRegValue SHELL_CONTEXT "Software\Classes\.pdf\OpenWithProgids" "${LEGACY_PROG_ID}"
+  DeleteRegKey SHELL_CONTEXT "Software\Classes\Applications\${LEGACY_EXE_NAME}"
+  DeleteRegKey SHELL_CONTEXT "Software\Classes\${LEGACY_PROG_ID}"
+  DeleteRegKey SHELL_CONTEXT "Software\${LEGACY_CAPABILITIES}"
+  DeleteRegValue SHELL_CONTEXT "Software\RegisteredApplications" "${LEGACY_CAPABILITIES}"
   DeleteRegValue SHELL_CONTEXT "Software\RegisteredApplications" "${LEGACY_APP_NAME}"
+
   Delete "$DESKTOP\${LEGACY_APP_NAME}.lnk"
   Delete "$SMPROGRAMS\${LEGACY_APP_NAME}.lnk"
+  Delete "$DESKTOP\${LEGACY_CAPABILITIES}.lnk"
+  Delete "$SMPROGRAMS\${LEGACY_CAPABILITIES}.lnk"
 !macroend

@@ -417,6 +417,7 @@ test("right-click removes a message from context and clear resets", async ({ pag
   await page.getByRole("menuitem", { name: /从上下文移除/ }).click();
   await expect(assistant).toHaveClass(/excluded/);
 
+  await panel.locator('button[aria-label="更多操作"]').click();
   await panel.locator('button[aria-label="清空当前对话与上下文"]').click();
   await expect(panel.getByRole("alertdialog")).toContainText("PDF、页码和阅读位置保留");
   await panel.getByRole("button", { name: "清空", exact: true }).click();
@@ -456,6 +457,59 @@ test("selection toolbar quotes text into the context", async ({ page }) => {
   await expect(panel).toContainText("2 个来源");
   await panel.locator('button[aria-label="上下文详情"]').click();
   await expect(panel).toContainText("选中");
+});
+
+test("document-only mode disables external knowledge and marks general answers", async ({
+  page,
+}) => {
+  let requestBody: Record<string, unknown> | null = null;
+  page.on("request", (request) => {
+    if (request.url().endsWith("/api/chat") && request.method() === "POST") {
+      requestBody = request.postDataJSON() as Record<string, unknown>;
+    }
+  });
+  await page.route("**/api/chat", async (route) => {
+    const answer = "这是文档之外的通用知识，不引用页码。";
+    const payload = [
+      `data: ${JSON.stringify({ choices: [{ delta: { content: answer } }] })}`,
+      "",
+      `data: ${JSON.stringify({ choices: [], usage: { prompt_tokens: 80, completion_tokens: 12 } })}`,
+      "",
+      "data: [DONE]",
+      "",
+      "",
+    ].join("\n");
+    await route.fulfill({
+      status: 200,
+      headers: { "Content-Type": "text/event-stream; charset=utf-8" },
+      body: payload,
+    });
+  });
+
+  await openSample(page);
+  await page.locator("[data-assistant-fab]").click();
+  const panel = page.locator("[data-assistant-panel]");
+  await expect(panel).toBeVisible();
+
+  await panel.locator('button[aria-label="更多操作"]').click();
+  const docOnly = panel.getByRole("menuitemcheckbox", { name: /仅依据文档/ });
+  await expect(docOnly).toHaveAttribute("aria-checked", "false");
+  await docOnly.click();
+  await expect(docOnly).toHaveAttribute("aria-checked", "true");
+  await page.keyboard.press("Escape");
+  await expect(panel.getByRole("button", { name: "仅依据文档，点击关闭" })).toBeVisible();
+
+  await panel.locator("textarea").fill("Transformer 是什么？");
+  await panel.locator('button[aria-label="发送"]').click();
+  await expect(panel).toContainText("这是文档之外的通用知识");
+  await expect(panel.getByLabel("通用知识，非文档内容")).toBeVisible();
+
+  const body = requestBody as unknown as {
+    documentOnly?: boolean;
+    messages: Array<{ role: string; content: unknown }>;
+  };
+  expect(body.documentOnly).toBe(true);
+  expect(String(body.messages[0].content)).toContain("本次只依据");
 });
 
 test("document switch keeps the old answer and does not leak it into the new document", async ({

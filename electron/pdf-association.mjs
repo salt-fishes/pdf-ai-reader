@@ -13,12 +13,17 @@ const POWERSHELL = path.join(
   "powershell.exe",
 );
 
-export const PDF_PROG_ID = "PaperReader.pdf";
+export const PDF_PROG_ID = "Wenshu.pdf";
 /** Display name; must match the value name under RegisteredApplications. */
 export const PDF_APPLICATION_NAME = "文疏";
+export const PDF_EXE_NAME = "Wenshu.exe";
 /** Previous display name, kept only so upgrades remove the old registration. */
 const LEGACY_APPLICATION_NAME = "\u7eb8\u95f4";
-const CAPABILITIES_ROOT = "PaperReader";
+/** Pre-0.10.2 internal names; kept only for clean upgrades. */
+const LEGACY_PROG_ID = "PaperReader.pdf";
+const LEGACY_EXE_NAME = "PaperReader.exe";
+const CAPABILITIES_ROOT = "Wenshu";
+const LEGACY_CAPABILITIES_ROOT = "PaperReader";
 
 const HIVES = {
   user: "HKCU",
@@ -32,12 +37,24 @@ function keys(scope) {
     hive,
     progId: `${hive}\\Software\\Classes\\${PDF_PROG_ID}`,
     command: `${hive}\\Software\\Classes\\${PDF_PROG_ID}\\shell\\open\\command`,
-    applications: `${hive}\\Software\\Classes\\Applications\\PaperReader.exe`,
+    applications: `${hive}\\Software\\Classes\\Applications\\${PDF_EXE_NAME}`,
+    capabilitiesRoot: `${hive}\\Software\\${CAPABILITIES_ROOT}`,
     capabilities: `${hive}\\Software\\${CAPABILITIES_ROOT}\\Capabilities`,
     registered: `${hive}\\Software\\RegisteredApplications`,
     openWith: `${hive}\\Software\\Classes\\.pdf\\OpenWithProgids`,
     userChoice:
       "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\.pdf\\UserChoice",
+  };
+}
+
+function legacyKeys(scope) {
+  const hive = HIVES[scope];
+  if (!hive) throw new Error("未知的注册范围");
+  return {
+    progId: `${hive}\\Software\\Classes\\${LEGACY_PROG_ID}`,
+    applications: `${hive}\\Software\\Classes\\Applications\\${LEGACY_EXE_NAME}`,
+    capabilitiesRoot: `${hive}\\Software\\${LEGACY_CAPABILITIES_ROOT}`,
+    capabilities: `${hive}\\Software\\${LEGACY_CAPABILITIES_ROOT}\\Capabilities`,
   };
 }
 
@@ -131,7 +148,7 @@ export function associationEntries(
     {
       key: k.capabilities,
       name: "ApplicationDescription",
-      value: "本地优先的 PDF 阅读器与 AI 阅读助手",
+      value: "文疏 · 本地优先的 PDF 阅读器与 AI 阅读助手",
     },
     { key: k.capabilities, name: "ApplicationIcon", value: appIcon },
     { key: `${k.capabilities}\\FileAssociations`, name: ".pdf", value: PDF_PROG_ID },
@@ -150,12 +167,22 @@ export function associationEntries(
  */
 export function legacyAssociationKeys(scope = "user") {
   const k = keys(scope);
+  const old = legacyKeys(scope);
   return [
     `${k.capabilities}\\ApplicationName`,
     `${k.capabilities}\\ApplicationDescription`,
     `${k.capabilities}\\ApplicationIcon`,
     `${k.capabilities}\\FileAssociations\\.pdf`,
     `${k.applications}\\SupportedTypes\\.pdf`,
+    old.progId,
+    `${old.progId}\\DefaultIcon`,
+    `${old.progId}\\shell\\open\\command`,
+    old.applications,
+    `${old.applications}\\FriendlyAppName`,
+    `${old.applications}\\DefaultIcon`,
+    `${old.applications}\\shell\\open\\command`,
+    `${old.applications}\\SupportedTypes`,
+    old.capabilitiesRoot,
   ];
 }
 
@@ -204,15 +231,17 @@ export async function pdfAssociationStatus(exePath) {
     stale,
     isDefault:
       currentDefault === PDF_PROG_ID ||
-      currentDefault?.toLowerCase() === "applications\\paperreader.exe",
+      currentDefault?.toLowerCase() === `applications\\${PDF_EXE_NAME.toLowerCase()}` ||
+      currentDefault === LEGACY_PROG_ID ||
+      currentDefault?.toLowerCase() === `applications\\${LEGACY_EXE_NAME.toLowerCase()}`,
     currentDefault,
     appName: PDF_APPLICATION_NAME,
   };
 }
 
 const SHELL_NOTIFY_SCRIPT = [
-  "Add-Type -Namespace PaperReader -Name ShellNotify -MemberDefinition '[System.Runtime.InteropServices.DllImport(\"shell32.dll\")] public static extern void SHChangeNotify(int eventId, uint flags, System.IntPtr item1, System.IntPtr item2);'",
-  "[PaperReader.ShellNotify]::SHChangeNotify(0x08000000,0,[IntPtr]::Zero,[IntPtr]::Zero)",
+  "Add-Type -Namespace Wenshu -Name ShellNotify -MemberDefinition '[System.Runtime.InteropServices.DllImport(\"shell32.dll\")] public static extern void SHChangeNotify(int eventId, uint flags, System.IntPtr item1, System.IntPtr item2);'",
+  "[Wenshu.ShellNotify]::SHChangeNotify(0x08000000,0,[IntPtr]::Zero,[IntPtr]::Zero)",
 ].join("; ");
 
 async function notifyShell() {
@@ -232,8 +261,10 @@ export async function registerPdfAssociation(exePath, scope = "user") {
   for (const key of legacyAssociationKeys(scope)) {
     await removeKey(key);
   }
-  await removeValue(keys(scope).registered, LEGACY_APPLICATION_NAME);
-  await removeValue(keys(scope).registered, "PaperReader");
+  const k = keys(scope);
+  await removeValue(k.registered, LEGACY_APPLICATION_NAME);
+  await removeValue(k.registered, "PaperReader");
+  await removeValue(k.openWith, LEGACY_PROG_ID);
   for (const entry of associationEntries(exePath, scope)) {
     await add(entry.key, entry.value, entry.type, entry.name);
   }
@@ -267,7 +298,8 @@ export async function removeUserPdfRegistration() {
   await removeValue(k.registered, PDF_APPLICATION_NAME);
   await removeValue(k.registered, LEGACY_APPLICATION_NAME);
   await removeValue(k.registered, "PaperReader");
-  await removeKey(`${k.hive}\\Software\\${CAPABILITIES_ROOT}`);
+  await removeKey(k.capabilitiesRoot);
+  await removeKey(legacyKeys("user").capabilitiesRoot);
 }
 
 export async function removePdfAssociation(exePath, scope = "user") {
@@ -276,13 +308,17 @@ export async function removePdfAssociation(exePath, scope = "user") {
     throw new Error("文疏当前是默认 PDF 应用，请先在 Windows 设置中改为其他应用，再移除关联。");
   }
   const k = keys(scope);
+  for (const key of legacyAssociationKeys(scope)) {
+    await removeKey(key);
+  }
   await removeKey(k.progId);
   await removeKey(k.applications);
-  await removeKey(`${k.hive}\\Software\\${CAPABILITIES_ROOT}`);
+  await removeKey(k.capabilitiesRoot);
   await removeValue(k.registered, PDF_APPLICATION_NAME);
   await removeValue(k.registered, LEGACY_APPLICATION_NAME);
   await removeValue(k.registered, "PaperReader");
   await removeValue(k.openWith, PDF_PROG_ID);
+  await removeValue(k.openWith, LEGACY_PROG_ID);
   return pdfAssociationStatus(exePath);
 }
 
@@ -315,6 +351,9 @@ export function associationPowerShellScript({ exePath, scope = "machine", mode =
     lines.push(
       `Remove-ItemProperty -Path '${registryProviderPath(keys(scope).registered)}' -Name ${psQuote(LEGACY_APPLICATION_NAME)} -Force -ErrorAction SilentlyContinue`,
     );
+    lines.push(
+      `Remove-ItemProperty -Path '${registryProviderPath(keys(scope).registered)}' -Name 'PaperReader' -Force -ErrorAction SilentlyContinue`,
+    );
     for (const entry of associationEntries(exePath, scope)) {
       if (entry.type === "REG_NONE") {
         const args = ["& $reg", "add", psQuote(entry.key)];
@@ -345,7 +384,7 @@ export function associationPowerShellScript({ exePath, scope = "machine", mode =
       lines.push(
         "$commonStartMenu = [Environment]::GetFolderPath([Environment+SpecialFolder]::CommonStartMenu)",
       );
-      for (const name of [PDF_APPLICATION_NAME, LEGACY_APPLICATION_NAME]) {
+      for (const name of [PDF_APPLICATION_NAME, LEGACY_APPLICATION_NAME, "PaperReader"]) {
         lines.push(`$oldCommon = Join-Path $commonStartMenu ${psQuote(`${name}.lnk`)}`);
         lines.push(
           "if (Test-Path $oldCommon) { Remove-Item -Path $oldCommon -Force -ErrorAction SilentlyContinue }",
@@ -354,10 +393,12 @@ export function associationPowerShellScript({ exePath, scope = "machine", mode =
     }
     lines.push("$startMenu = [Environment]::GetFolderPath([Environment+SpecialFolder]::StartMenu)");
     lines.push(`$lnkPath = Join-Path $startMenu ${psQuote(`${PDF_APPLICATION_NAME}.lnk`)}`);
-    lines.push(`$legacyLnk = Join-Path $startMenu ${psQuote(`${LEGACY_APPLICATION_NAME}.lnk`)}`);
-    lines.push(
-      "if (Test-Path $legacyLnk) { Remove-Item -Path $legacyLnk -Force -ErrorAction SilentlyContinue }",
-    );
+    for (const name of [LEGACY_APPLICATION_NAME, "PaperReader"]) {
+      lines.push(`$legacyLnk = Join-Path $startMenu ${psQuote(`${name}.lnk`)}`);
+      lines.push(
+        "if (Test-Path $legacyLnk) { Remove-Item -Path $legacyLnk -Force -ErrorAction SilentlyContinue }",
+      );
+    }
     lines.push("try {");
     lines.push(
       "  if (Test-Path $lnkPath) { Remove-Item -Path $lnkPath -Force -ErrorAction SilentlyContinue }",
@@ -392,7 +433,7 @@ export function associationPowerShellScript({ exePath, scope = "machine", mode =
       lines.push(
         "$commonStartMenu = [Environment]::GetFolderPath([Environment+SpecialFolder]::CommonStartMenu)",
       );
-      for (const name of [PDF_APPLICATION_NAME, LEGACY_APPLICATION_NAME]) {
+      for (const name of [PDF_APPLICATION_NAME, LEGACY_APPLICATION_NAME, "PaperReader"]) {
         lines.push(`$commonLnk = Join-Path $commonStartMenu ${psQuote(`${name}.lnk`)}`);
         lines.push("Remove-Item -Path $commonLnk -Force -ErrorAction SilentlyContinue");
       }
@@ -402,24 +443,31 @@ export function associationPowerShellScript({ exePath, scope = "machine", mode =
   // Apps page refresh without a sign-out.
   lines.push("try {");
   lines.push(
-    "  Add-Type -Namespace PaperReader -Name ShellNotify -MemberDefinition '[System.Runtime.InteropServices.DllImport(\"shell32.dll\")] public static extern void SHChangeNotify(int eventId, uint flags, System.IntPtr item1, System.IntPtr item2);'",
+    "  Add-Type -Namespace Wenshu -Name ShellNotify -MemberDefinition '[System.Runtime.InteropServices.DllImport(\"shell32.dll\")] public static extern void SHChangeNotify(int eventId, uint flags, System.IntPtr item1, System.IntPtr item2);'",
   );
-  lines.push(
-    "  [PaperReader.ShellNotify]::SHChangeNotify(0x08000000,0,[IntPtr]::Zero,[IntPtr]::Zero)",
-  );
+  lines.push("  [Wenshu.ShellNotify]::SHChangeNotify(0x08000000,0,[IntPtr]::Zero,[IntPtr]::Zero)");
   lines.push("} catch { }");
   return lines.join("\r\n");
 }
 
 export function associationRemovals(scope = "user") {
   const k = keys(scope);
+  const old = legacyKeys(scope);
   return {
-    keys: [k.progId, k.applications, `${k.hive}\\Software\\${CAPABILITIES_ROOT}`],
+    keys: [
+      k.progId,
+      k.applications,
+      k.capabilitiesRoot,
+      old.progId,
+      old.applications,
+      old.capabilitiesRoot,
+    ],
     values: [
       [k.registered, PDF_APPLICATION_NAME],
       [k.registered, LEGACY_APPLICATION_NAME],
       [k.registered, "PaperReader"],
       [k.openWith, PDF_PROG_ID],
+      [k.openWith, LEGACY_PROG_ID],
     ],
   };
 }
