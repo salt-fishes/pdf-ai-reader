@@ -172,14 +172,26 @@ test("color modes recolor pages, sync chrome and persist strength", async ({ pag
   const headerBg = await page
     .locator("header")
     .evaluate((element) => getComputedStyle(element).backgroundColor);
-  expect(headerBg).toBe("rgb(246, 245, 242)");
+  const tokenColor = (name: string) =>
+    page.evaluate((token) => {
+      // Theme variables live on the app shell, not :root; read them inside the
+      // header so the probe resolves the same scope as the header background.
+      const host = document.querySelector("header") ?? document.body;
+      const probe = document.createElement("span");
+      probe.style.color = `var(${token})`;
+      host.append(probe);
+      const color = getComputedStyle(probe).color;
+      probe.remove();
+      return color;
+    }, name);
+  expect(headerBg).toBe(await tokenColor("--paper"));
 
   await dialog.getByRole("button", { name: "智能暗色" }).click();
   await expect(app).toHaveAttribute("data-theme", "night");
   const headerNight = await page
     .locator("header")
     .evaluate((element) => getComputedStyle(element).backgroundColor);
-  expect(headerNight).toBe("rgb(15, 19, 27)");
+  expect(headerNight).toBe(await tokenColor("--paper"));
 
   await slider.evaluate((element) => {
     const input = element as HTMLInputElement;
