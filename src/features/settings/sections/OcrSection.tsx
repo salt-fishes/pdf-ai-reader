@@ -10,7 +10,7 @@ import {
   type OcrSourceInfo,
 } from "../../../lib/ocr/client";
 import { useOcr } from "../../ocr/useOcrStore";
-import styles from "../../../components/Modal.module.css";
+import styles from "../SettingsUI.module.css";
 
 function mb(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
@@ -35,7 +35,9 @@ export function OcrSection() {
   const error = useOcr((state) => state.error);
   const installing = useOcr((state) => state.installing);
   const enabled = useOcr((state) => state.enabled);
+  const autoEnabled = useOcr((state) => state.autoEnabled);
   const setEnabled = useOcr((state) => state.setEnabled);
+  const setAutoEnabled = useOcr((state) => state.setAutoEnabled);
   const refreshStatus = useOcr((state) => state.refreshStatus);
   const install = useOcr((state) => state.install);
   const repair = useOcr((state) => state.repair);
@@ -230,10 +232,22 @@ export function OcrSection() {
         <div className={styles.row}>
           <span className={styles.label}>自动识别没有文字层的页面</span>
           <button
+            className={`${styles.switch} ${autoEnabled ? styles.switchOn : ""}`}
+            role="switch"
+            aria-checked={autoEnabled}
+            aria-label="自动识别没有文字层的页面"
+            onClick={() => setAutoEnabled(!autoEnabled)}
+          >
+            <i />
+          </button>
+        </div>
+        <div className={styles.row}>
+          <span className={styles.label}>显示 OCR 可选择文字层</span>
+          <button
             className={`${styles.switch} ${enabled ? styles.switchOn : ""}`}
             role="switch"
             aria-checked={enabled}
-            aria-label="自动识别没有文字层的页面"
+            aria-label="显示 OCR 可选择文字层"
             onClick={() => setEnabled(!enabled)}
           >
             <i />

@@ -33,6 +33,7 @@ const POWERSHELL = join(
   "powershell.exe",
 );
 const IS_WINDOWS = process.platform === "win32";
+const APP_USER_MODEL_ID = "cn.paperreader.app.wenshu";
 const TITLEBAR_HEIGHT = 52;
 const TITLEBAR_COLORS = {
   light: { color: "#f6f3ed", symbolColor: "#1b1a22" },
@@ -491,7 +492,7 @@ if (!gotLock) {
   });
 
   app.whenReady().then(async () => {
-    app.setAppUserModelId("cn.paperreader.app");
+    app.setAppUserModelId(APP_USER_MODEL_ID);
     try {
       await createWindow();
       void cleanupDuplicatePdfRegistration();

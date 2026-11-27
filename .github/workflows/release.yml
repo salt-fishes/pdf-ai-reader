@@ -49,10 +49,10 @@ jobs:
           $tag = "${{ github.ref_name || 'dry-run' }}"
           Compress-Archive -Path release/win-unpacked/* -DestinationPath "release/wenshu-$tag-win-x64.zip"
           Compress-Archive -Path release/ocr-pack/* -DestinationPath "release/wenshu-ocr-$tag-win-x64.zip"
-      - name: Build NSIS and MSI installers
+      - name: Build NSIS and wrapped MSI installers
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
-        run: npx electron-builder --win nsis msi --x64 --publish never
+        run: node scripts/build-installers.mjs
       - name: Checksum
         shell: pwsh
         run: |

@@ -30,13 +30,21 @@ let session: {
 
 let generation = 0;
 
-const nativeTextCache = new WeakMap<PDFDocumentProxy, Map<number, string>>();
+const nativeTextCache = new WeakMap<PDFDocumentProxy, Map<number, Promise<string>>>();
 const ocrTextCache = new WeakMap<PDFDocumentProxy, Map<number, string>>();
 const pageSizeCache = new WeakMap<
   PDFDocumentProxy,
   Map<number, { width: number; height: number }>
 >();
 const thumbCache = new WeakMap<PDFDocumentProxy, Map<number, string>>();
+const THUMB_CACHE_LIMIT = 160;
+
+function clearDocumentCaches(doc: PDFDocumentProxy) {
+  nativeTextCache.get(doc)?.clear();
+  ocrTextCache.get(doc)?.clear();
+  pageSizeCache.get(doc)?.clear();
+  thumbCache.get(doc)?.clear();
+}
 
 export function getActiveDocument(): PDFDocumentProxy | null {
   return session?.doc ?? null;
@@ -46,9 +54,9 @@ export async function openPdf(bytes: ArrayBuffer, password?: string): Promise<PD
   const mine = ++generation;
   const { getDocument } = await loadPdfjs();
   const loadingTask = getDocument({
-    // pdf.js transfers the buffer to its worker; copy it so a password retry
-    // can reuse the original bytes instead of a detached ArrayBuffer.
-    data: new Uint8Array(bytes.slice(0)),
+    // pdf.js transfers this view to its worker. The caller keeps the File (not
+    // the ArrayBuffer), so password retries can read a fresh copy only when needed.
+    data: new Uint8Array(bytes),
     ...PDF_ASSETS,
     useSystemFonts: true,
   });
@@ -82,6 +90,7 @@ export async function openPdf(bytes: ArrayBuffer, password?: string): Promise<PD
     throw new DOMException("Superseded by a newer document", "AbortError");
   }
   if (session) {
+    clearDocumentCaches(session.doc);
     session.task.destroy().catch(() => {});
   }
   session = { doc, task: loadingTask };
@@ -92,7 +101,10 @@ export async function closePdf(): Promise<void> {
   generation += 1;
   const current = session;
   session = null;
-  if (current) await current.task.destroy().catch(() => {});
+  if (current) {
+    clearDocumentCaches(current.doc);
+    await current.task.destroy().catch(() => {});
+  }
 }
 
 export async function getPage(pdf: PDFDocumentProxy, pageNumber: number): Promise<PDFPageProxy> {
@@ -137,9 +149,9 @@ export function getNativePageText(pdf: PDFDocumentProxy, pageNumber: number): Pr
     nativeTextCache.set(pdf, cache);
   }
   const hit = cache.get(pageNumber);
-  if (hit != null) return Promise.resolve(hit);
+  if (hit) return hit;
 
-  return pdf
+  const pending = pdf
     .getPage(pageNumber)
     .then((page) => page.getTextContent())
     .then((content) => {
@@ -150,9 +162,14 @@ export function getNativePageText(pdf: PDFDocumentProxy, pageNumber: number): Pr
         if (item.hasEOL) text += "\n";
       }
       const normalized = normalizeText(text);
-      cache!.set(pageNumber, normalized);
+      cache.set(pageNumber, Promise.resolve(normalized));
       return normalized;
     });
+  cache.set(pageNumber, pending);
+  void pending.catch(() => {
+    if (cache.get(pageNumber) === pending) cache.delete(pageNumber);
+  });
+  return pending;
 }
 
 export async function getPageText(pdf: PDFDocumentProxy, pageNumber: number): Promise<string> {
@@ -180,12 +197,14 @@ export async function getPagesText(
   const parts: string[] = [];
   let done = 0;
   let chars = 0;
-  for (const number of ordered) {
+  for (let index = 0; index < ordered.length; index += 1) {
+    const number = ordered[index];
     const text = await getPageText(pdf, number);
     parts.push(`<<<PAGE ${number}>>>\n${text}`);
     chars += text.length;
     done += 1;
     onProgress?.(done, ordered.length);
+    if (index % 8 === 7) await new Promise((resolve) => setTimeout(resolve, 0));
   }
   return { text: parts.join("\n\n"), chars, pages: ordered };
 }
@@ -379,6 +398,11 @@ export async function renderPageThumbnail(
   const result = await renderPageToCanvas(page, scale, 1);
   const dataUrl = result.canvas.toDataURL("image/jpeg", 0.72);
   cache.set(pageNumber, dataUrl);
+  while (cache.size > THUMB_CACHE_LIMIT) {
+    const oldest = cache.keys().next().value;
+    if (oldest === undefined) break;
+    cache.delete(oldest);
+  }
   return dataUrl;
 }
 

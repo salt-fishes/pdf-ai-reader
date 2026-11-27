@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Icon } from "../../../components/icons/Icon";
-import styles from "../../../components/Modal.module.css";
+import styles from "../SettingsUI.module.css";
 import {
   fetchMcpConfig,
   saveMcpConfig,

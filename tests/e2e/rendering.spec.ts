@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { openSample, registerMockGuard } from "./helpers";
+import { dropFixture, openSample, registerMockGuard } from "./helpers";
 registerMockGuard();
 test("text layer stays aligned with the rendered page while zooming", async ({ page }) => {
   await openSample(page);
@@ -94,7 +94,7 @@ test("canvas re-renders at the new device pixel ratio after browser zoom", async
   expect(ratio).toBeLessThan(3.2);
 });
 
-test("color modes recolor pages, sync chrome and persist strength", async ({ page }) => {
+test("color modes recolor pages and persist independently from app theme", async ({ page }) => {
   await openSample(page);
   const app = page.locator("[data-theme]").first();
   await expect(app).toHaveAttribute("data-theme", "paper");
@@ -133,7 +133,7 @@ test("color modes recolor pages, sync chrome and persist strength", async ({ pag
 
   await dialog.getByRole("button", { name: "智能暗色" }).click();
   await expect(app).toHaveAttribute("data-color-mode", "smart");
-  await expect(app).toHaveAttribute("data-theme", "night");
+  await expect(app).toHaveAttribute("data-theme", "paper");
   await page.waitForTimeout(250);
   const smart = await stats();
   expect(smart.luminance).toBeLessThan(original.luminance - 50);
@@ -186,22 +186,30 @@ test("color modes recolor pages, sync chrome and persist strength", async ({ pag
     }, name);
   expect(headerBg).toBe(await tokenColor("--paper"));
 
-  await dialog.getByRole("button", { name: "智能暗色" }).click();
+  await page.keyboard.press("Escape");
+  await page.locator('button[aria-label="设置"]').first().click();
+  const settings = page.getByRole("dialog", { name: "设置" });
+  await settings.getByRole("button", { name: "深色 低亮度界面，适合夜间使用" }).click();
+  await settings.getByRole("button", { name: "关闭设置" }).click();
   await expect(app).toHaveAttribute("data-theme", "night");
   const headerNight = await page
     .locator("header")
     .evaluate((element) => getComputedStyle(element).backgroundColor);
   expect(headerNight).toBe(await tokenColor("--paper"));
 
-  await slider.evaluate((element) => {
+  await trigger.click();
+  const colorDialog = page.getByRole("dialog", { name: "色彩模式" });
+  await colorDialog.getByRole("button", { name: "智能暗色" }).click();
+  const intensity = colorDialog.getByRole("slider", { name: "色彩强度" });
+  await intensity.evaluate((element) => {
     const input = element as HTMLInputElement;
     const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
     setter?.call(input, "65");
     input.dispatchEvent(new Event("input", { bubbles: true }));
   });
-  await expect(slider).toHaveAttribute("aria-valuetext", "65%");
+  await expect(intensity).toHaveAttribute("aria-valuetext", "65%");
   await page.keyboard.press("Escape");
-  await expect(dialog).toBeHidden();
+  await expect(colorDialog).toBeHidden();
   await trigger.click();
   await expect(page.getByRole("dialog", { name: "色彩模式" })).toBeVisible();
 
@@ -211,9 +219,11 @@ test("color modes recolor pages, sync chrome and persist strength", async ({ pag
   const panelBg = await panel.evaluate((element) => getComputedStyle(element).backgroundColor);
   expect(panelBg).not.toBe("rgb(255, 255, 255)");
   await page.keyboard.press("Escape");
+  await page.waitForTimeout(650);
 
   await page.reload();
   await expect(page.locator("[data-theme]").first()).toHaveAttribute("data-theme", "night");
+  await openSample(page);
   await expect(page.locator("[data-theme]").first()).toHaveAttribute("data-color-mode", "smart");
   await expect(page.locator('[aria-label^="色彩模式"]')).toHaveAttribute(
     "aria-label",
@@ -229,6 +239,69 @@ test("color modes recolor pages, sync chrome and persist strength", async ({ pag
     "data-color-mode",
     "grayscale",
   );
+});
+
+test("full-strength invert keeps raw canvas pixels crisp", async ({ page }) => {
+  await openSample(page);
+  const sample = () =>
+    page.locator('[data-page="1"] canvas').evaluate((element) => {
+      const canvas = element as HTMLCanvasElement;
+      const context = canvas.getContext("2d");
+      if (!context) return [];
+      const x = Math.max(0, Math.floor(canvas.width / 2) - 32);
+      const y = Math.max(0, Math.floor(canvas.height / 2) - 32);
+      return Array.from(context.getImageData(x, y, 64, 64).data);
+    });
+
+  const original = await sample();
+  await page.locator('[aria-label^="色彩模式"]').click();
+  const dialog = page.getByRole("dialog", { name: "色彩模式" });
+  await dialog.getByRole("button", { name: "反转" }).click();
+  await page.waitForTimeout(250);
+  const inverted = await sample();
+  expect(inverted.length).toBe(original.length);
+  let maxError = 0;
+  for (let index = 0; index < original.length; index += 4) {
+    for (let channel = 0; channel < 3; channel += 1) {
+      maxError = Math.max(
+        maxError,
+        Math.abs(original[index + channel] - (255 - inverted[index + channel])),
+      );
+    }
+  }
+  expect(maxError).toBeLessThanOrEqual(1);
+});
+
+test("application theme and per-document PDF color stay independent", async ({ page }) => {
+  await openSample(page, "sample-cn.pdf");
+  await page.locator('[aria-label^="色彩模式"]').click();
+  await page
+    .getByRole("dialog", { name: "色彩模式" })
+    .getByRole("button", { name: "智能暗色" })
+    .click();
+  await page.keyboard.press("Escape");
+
+  const app = page.locator("[data-theme]").first();
+  await expect(app).toHaveAttribute("data-color-mode", "smart");
+  await expect(app).toHaveAttribute("data-theme", "paper");
+
+  await page.locator('button[aria-label="设置"]').first().click();
+  const settings = page.getByRole("dialog", { name: "设置" });
+  await settings.getByRole("button", { name: "深色 低亮度界面，适合夜间使用" }).click();
+  await expect(settings).toHaveAttribute("data-theme", "night");
+  await expect(app).toHaveAttribute("data-theme", "night");
+  await expect(app).toHaveAttribute("data-color-mode", "smart");
+  await settings.getByRole("button", { name: "关闭设置" }).click();
+  await page.waitForTimeout(650);
+
+  await openSample(page, "sample-cn.pdf");
+  await expect(page.locator("[data-theme]").first()).toHaveAttribute("data-color-mode", "smart");
+  await expect(page.locator("[data-theme]").first()).toHaveAttribute("data-theme", "night");
+
+  await dropFixture(page, "sample-small.pdf");
+  await expect(page.locator('[data-page="1"] .textLayer span').first()).toBeVisible();
+  await expect(page.locator("[data-theme]").first()).toHaveAttribute("data-color-mode", "original");
+  await expect(page.locator("[data-theme]").first()).toHaveAttribute("data-theme", "night");
 });
 
 test("responsive layout has no horizontal overflow at 1024 and 390", async ({ page }) => {

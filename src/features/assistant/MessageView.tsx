@@ -1,4 +1,14 @@
-import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentProps,
+  type MouseEvent as ReactMouseEvent,
+  type ReactNode,
+} from "react";
 import ReactMarkdown, { defaultUrlTransform } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -14,8 +24,10 @@ import {
   type Citation,
 } from "../../lib/ai/citations";
 import { getActiveDocument, getPageText } from "../../lib/pdf/pdf";
+import { loadRecentBytes } from "../../lib/storage/db";
 import { copyText } from "../../lib/clipboard";
 import { useViewer } from "../viewer/useViewerStore";
+import { useTabs } from "../tabs/useTabStore";
 import { QuoteIcon, SparkleIcon } from "../../components/icons/SparkleIcon";
 import { useAssistant } from "./useAssistantStore";
 import styles from "./Assistant.module.css";
@@ -69,7 +81,16 @@ function normalizeMath(markdown: string): string {
     .join("");
 }
 
-export function MessageView({ message, onQuote, onContextMenu }: Props) {
+const REMARK_PLUGINS = [remarkGfm, remarkMath];
+const KATEX_PLUGINS: NonNullable<ComponentProps<typeof ReactMarkdown>["rehypePlugins"]> = [
+  [rehypeKatex, { throwOnError: false, strict: false, errorColor: "#d14d4d" }],
+];
+
+function markdownUrlTransform(url: string): string {
+  return url.startsWith("cite:") ? url : defaultUrlTransform(url);
+}
+
+function MessageViewBase({ message, onQuote, onContextMenu }: Props) {
   const [copied, setCopied] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [citationsOpen, setCitationsOpen] = useState(false);
@@ -80,6 +101,15 @@ export function MessageView({ message, onQuote, onContextMenu }: Props) {
   const notify = useAssistant((state) => state.notify);
   const streamingId = useAssistant((state) => state.streamingId);
   const setBoostAnswer = useAssistant((state) => state.setBoostAnswer);
+  const aiMode = useAssistant((state) => state.aiMode);
+  const activeDocHash = useViewer((state) => state.docHash);
+  const sourceLabel =
+    aiMode === "shared" && message.docHash && message.docHash !== activeDocHash ? (
+      <div className={styles.documentSource} title="这条消息来自另一份 PDF">
+        <Icon name="page" size={11} />
+        <span>{message.docName ?? "另一份 PDF"}</span>
+      </div>
+    ) : null;
 
   const citations = useMemo(() => extractCitations(message.content), [message.content]);
   const allowed = useMemo(
@@ -118,6 +148,7 @@ export function MessageView({ message, onQuote, onContextMenu }: Props) {
 
   useEffect(() => {
     if (!citationsOpen || !citations.length) return;
+    if (message.docHash && message.docHash !== activeDocHash) return;
     const pdf = getActiveDocument();
     if (!pdf) return;
     let alive = true;
@@ -142,7 +173,7 @@ export function MessageView({ message, onQuote, onContextMenu }: Props) {
     return () => {
       alive = false;
     };
-  }, [citationsOpen, citations]);
+  }, [citationsOpen, citations, message.docHash, activeDocHash]);
 
   const handleCopy = async () => {
     const ok = await copyText(message.content);
@@ -150,15 +181,78 @@ export function MessageView({ message, onQuote, onContextMenu }: Props) {
     notify(ok ? "已复制" : "复制失败", ok ? "success" : "error");
   };
 
-  const jump = (citation: Citation) => {
-    useViewer.getState().requestCitation(citation.page, citation.quote);
-    setCitationsOpen(false);
-  };
+  const jump = useCallback(
+    (citation: Citation) => {
+      setCitationsOpen(false);
+      void (async () => {
+        const targetHash = message.docHash;
+        if (targetHash && targetHash !== useViewer.getState().docHash) {
+          const tabs = useTabs.getState();
+          let sourceTab = message.sourceTabId
+            ? tabs.tabs.find((tab) => tab.id === message.sourceTabId)
+            : undefined;
+          if (sourceTab && sourceTab.docHash && sourceTab.docHash !== targetHash) {
+            sourceTab = undefined;
+          }
+          sourceTab ??= tabs.tabs.find((tab) => tab.docHash === targetHash);
+          if (sourceTab) {
+            await tabs.activateTab(sourceTab.id);
+          } else {
+            const cached = await loadRecentBytes(targetHash).catch(() => null);
+            if (!cached?.data) {
+              notify("来源 PDF 已不在本地缓存，请重新打开后再查看引用", "error");
+              return;
+            }
+            await tabs.openRecentTab(targetHash, message.docName ?? cached.name);
+          }
+          if (useViewer.getState().docHash !== targetHash) {
+            notify("来源 PDF 尚未打开，无法定位引用", "error");
+            return;
+          }
+        }
+        useViewer.getState().requestCitation(citation.page, citation.quote);
+      })();
+    },
+    [message.docHash, message.docName, message.sourceTabId, notify],
+  );
 
-  const markdown =
-    message.role === "assistant"
-      ? normalizeMath(markdownWithCitations(message.content, allowed))
-      : "";
+  const markdown = useMemo(
+    () =>
+      message.role === "assistant"
+        ? normalizeMath(markdownWithCitations(message.content, allowed))
+        : "",
+    [message.role, message.content, allowed],
+  );
+  const markdownComponents = useMemo(
+    () => ({
+      a: ({ href, children }: { href?: string; children?: ReactNode }) => {
+        if (href?.startsWith("cite:")) {
+          const citation = parseCiteHref(href);
+          if (!citation) return <>{children}</>;
+          return (
+            <button
+              className={styles.cite}
+              onClick={() => jump(citation)}
+              title={
+                citation.quote
+                  ? `p.${citation.page} · ${citation.quote}`
+                  : `跳到第 ${citation.page} 页`
+              }
+              aria-label={`引用第 ${citation.page} 页`}
+            >
+              p.{citation.page}
+            </button>
+          );
+        }
+        return (
+          <a href={href} target="_blank" rel="noreferrer noopener">
+            {children}
+          </a>
+        );
+      },
+    }),
+    [jump],
+  );
   const showToggle = message.role === "assistant" && message.content.length > 900;
   const tools = message.tools?.length ?? 0;
   const general =
@@ -180,6 +274,7 @@ export function MessageView({ message, onQuote, onContextMenu }: Props) {
           }
         }}
       >
+        {sourceLabel}
         <div className={styles.userMessage}>{message.content}</div>
         {message.note ? <div className={styles.excludedTag}>{message.note}</div> : null}
         {message.excluded ? <div className={styles.excludedTag}>已从上下文移除</div> : null}
@@ -211,6 +306,7 @@ export function MessageView({ message, onQuote, onContextMenu }: Props) {
         }
       }}
     >
+      {sourceLabel}
       {message.reasoning ? (
         <details className={styles.thinking}>
           <summary>
@@ -327,38 +423,10 @@ export function MessageView({ message, onQuote, onContextMenu }: Props) {
       {message.content ? (
         <div className={`${styles.messageBody} ${showToggle && !expanded ? styles.clamped : ""}`}>
           <ReactMarkdown
-            remarkPlugins={[remarkGfm, remarkMath]}
-            rehypePlugins={[
-              [rehypeKatex, { throwOnError: false, strict: false, errorColor: "#d14d4d" }],
-            ]}
-            urlTransform={(url) => (url.startsWith("cite:") ? url : defaultUrlTransform(url))}
-            components={{
-              a: ({ href, children }) => {
-                if (href?.startsWith("cite:")) {
-                  const citation = parseCiteHref(href);
-                  if (!citation) return <>{children}</>;
-                  return (
-                    <button
-                      className={styles.cite}
-                      onClick={() => jump(citation)}
-                      title={
-                        citation.quote
-                          ? `p.${citation.page} · ${citation.quote}`
-                          : `跳到第 ${citation.page} 页`
-                      }
-                      aria-label={`引用第 ${citation.page} 页`}
-                    >
-                      p.{citation.page}
-                    </button>
-                  );
-                }
-                return (
-                  <a href={href} target="_blank" rel="noreferrer noopener">
-                    {children}
-                  </a>
-                );
-              },
-            }}
+            remarkPlugins={REMARK_PLUGINS}
+            rehypePlugins={message.status === "streaming" ? [] : KATEX_PLUGINS}
+            urlTransform={markdownUrlTransform}
+            components={markdownComponents}
           >
             {markdown}
           </ReactMarkdown>
@@ -441,3 +509,5 @@ export function MessageView({ message, onQuote, onContextMenu }: Props) {
     </div>
   );
 }
+
+export const MessageView = memo(MessageViewBase);

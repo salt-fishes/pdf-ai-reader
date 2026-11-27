@@ -8,6 +8,7 @@
 - [Privacy technical](PRIVACY-TECHNICAL.md) — 数据目录、OCR 运行时复用与实现细节（维护者）
 - [Brand](BRAND.md) — 色板、对比度、图标网格、命名边界与资产
 - [Brand audit](BRAND-AUDIT.md) — 2026-11 全项目旧品牌残留检查与保留项
+- [PDF memory](PDF-MEMORY.md) — 病态大页面 PDF 的内存问题与预光栅化方案
 - [Brand system v3](brand/v3/brand-system.png) — 珊瑚 / 暖纸 / 夜间色板与组件验收板
 - [Icon directions v3](brand/v3/brand-v3.png) — 应用图标、PDF 文件图标与透明星芒呼吸灯
 - [OCR mirror](OCR-MIRROR.md) — 自定义 OCR 下载源目录与示例

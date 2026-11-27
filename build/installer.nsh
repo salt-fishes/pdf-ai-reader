@@ -1,6 +1,10 @@
 !include "nsDialogs.nsh"
 !include "LogicLib.nsh"
 
+!ifndef BUILD_UNINSTALLER
+  !include "getProcessInfo.nsh"
+!endif
+
 ; Previous display and internal names, kept only to clean up shortcuts and registry entries.
 !define LEGACY_APP_NAME "纸间"
 !define LEGACY_EXE_NAME "PaperReader.exe"
@@ -8,6 +12,74 @@
 !define LEGACY_CAPABILITIES "PaperReader"
 
 !ifndef BUILD_UNINSTALLER
+Var LegacyMsiKey
+Var LegacyMsiIndex
+Var LegacyMsiDisplayName
+Var LegacyMsiInstaller
+Var LegacyMsiResult
+Var LegacyMsiAttempt
+Var pid
+
+; Run after the app has been closed, but before electron-builder removes an old
+; NSIS install or extracts the new files. This prevents an old MSI from deleting
+; the newly installed files during a later customInstall hook.
+!macro customCheckAppRunning
+  !insertmacro IS_POWERSHELL_AVAILABLE
+  !insertmacro _CHECK_APP_RUNNING
+  Call RemoveLegacyMsiInstalls
+!macroend
+
+!macro RemoveLegacyMsiRoot ROOT
+  StrCpy $LegacyMsiIndex 0
+
+FindLegacyMsi_${ROOT}:
+  EnumRegKey $LegacyMsiKey ${ROOT} "Software\Microsoft\Windows\CurrentVersion\Uninstall" $LegacyMsiIndex
+  StrCmp $LegacyMsiKey "" DoneLegacyMsi_${ROOT}
+
+  ; The msiWrapped product only launches this installer and is not registered as
+  ; an installed app. Keep this guard in case a future WiX version does register it.
+  StrCmp $LegacyMsiKey "{4AD099FF-9EA2-5A2E-B9B1-9DF38E2D1FCB}" NextLegacyMsi_${ROOT}
+
+  StrCpy $LegacyMsiDisplayName ""
+  StrCpy $LegacyMsiInstaller 0
+  ReadRegStr $LegacyMsiDisplayName ${ROOT} "Software\Microsoft\Windows\CurrentVersion\Uninstall\$LegacyMsiKey" DisplayName
+  ReadRegDWORD $LegacyMsiInstaller ${ROOT} "Software\Microsoft\Windows\CurrentVersion\Uninstall\$LegacyMsiKey" WindowsInstaller
+
+  ${If} $LegacyMsiDisplayName == "${PRODUCT_NAME}"
+  ${AndIf} $LegacyMsiInstaller == 1
+    DetailPrint "Removing previous Wenshu MSI installation..."
+    StrCpy $LegacyMsiAttempt 0
+
+RetryLegacyMsi_${ROOT}:
+    IntOp $LegacyMsiAttempt $LegacyMsiAttempt + 1
+    ExecWait '"$SYSDIR\msiexec.exe" /x "$LegacyMsiKey" /qn /norestart' $LegacyMsiResult
+    ${If} $LegacyMsiResult == 0
+    ${OrIf} $LegacyMsiResult == 3010
+      Goto NextLegacyMsi_${ROOT}
+    ${EndIf}
+
+    ${If} $LegacyMsiAttempt < 3
+      Sleep 1000
+      Goto RetryLegacyMsi_${ROOT}
+    ${EndIf}
+
+    MessageBox MB_ICONSTOP|MB_TOPMOST "无法卸载旧版文疏（错误码 $LegacyMsiResult）。安装已取消，请关闭文疏后重试。"
+    SetErrorLevel 1
+    Quit
+  ${EndIf}
+
+NextLegacyMsi_${ROOT}:
+  IntOp $LegacyMsiIndex $LegacyMsiIndex + 1
+  Goto FindLegacyMsi_${ROOT}
+
+DoneLegacyMsi_${ROOT}:
+!macroend
+
+Function RemoveLegacyMsiInstalls
+  !insertmacro RemoveLegacyMsiRoot HKCU
+  !insertmacro RemoveLegacyMsiRoot HKLM
+FunctionEnd
+
 Var PdfAssocCheckbox
 Var PdfAssocState
 Var PdfSettingsCheckbox
@@ -44,11 +116,24 @@ FunctionEnd
 !endif
 
 !macro customInstall
+  ; Use a fresh Windows taskbar identity instead of reusing the legacy app id,
+  ; which can keep the old name/icon cached on existing installations.
+  ${If} ${FileExists} "$newStartMenuLink"
+    WinShell::SetLnkAUMI "$newStartMenuLink" "cn.paperreader.app.wenshu"
+  ${EndIf}
+  ${If} ${FileExists} "$newDesktopLink"
+    WinShell::SetLnkAUMI "$newDesktopLink" "cn.paperreader.app.wenshu"
+  ${EndIf}
+
   ; Remove shortcuts left by older installs that used the previous name.
   Delete "$DESKTOP\${LEGACY_APP_NAME}.lnk"
   Delete "$SMPROGRAMS\${LEGACY_APP_NAME}.lnk"
+  Delete "$STARTMENU\${LEGACY_APP_NAME}.lnk"
+  Delete "$SMPROGRAMS\..\${LEGACY_APP_NAME}.lnk"
   Delete "$DESKTOP\${LEGACY_CAPABILITIES}.lnk"
   Delete "$SMPROGRAMS\${LEGACY_CAPABILITIES}.lnk"
+  Delete "$STARTMENU\${LEGACY_CAPABILITIES}.lnk"
+  Delete "$SMPROGRAMS\..\${LEGACY_CAPABILITIES}.lnk"
 
   ${If} $PdfAssocState == ${BST_CHECKED}
     ; Remove the pre-0.10.2 PaperReader registration before writing Wenshu.
@@ -88,6 +173,8 @@ FunctionEnd
 !macroend
 
 !macro customUnInstall
+  WinShell::UninstAppUserModelId "cn.paperreader.app.wenshu"
+
   DeleteRegValue SHELL_CONTEXT "Software\Classes\.pdf\OpenWithProgids" "Wenshu.pdf"
   DeleteRegKey SHELL_CONTEXT "Software\Classes\Applications\Wenshu.exe"
   DeleteRegKey SHELL_CONTEXT "Software\Classes\Wenshu.pdf"
@@ -103,6 +190,10 @@ FunctionEnd
 
   Delete "$DESKTOP\${LEGACY_APP_NAME}.lnk"
   Delete "$SMPROGRAMS\${LEGACY_APP_NAME}.lnk"
+  Delete "$STARTMENU\${LEGACY_APP_NAME}.lnk"
+  Delete "$SMPROGRAMS\..\${LEGACY_APP_NAME}.lnk"
   Delete "$DESKTOP\${LEGACY_CAPABILITIES}.lnk"
   Delete "$SMPROGRAMS\${LEGACY_CAPABILITIES}.lnk"
+  Delete "$STARTMENU\${LEGACY_CAPABILITIES}.lnk"
+  Delete "$SMPROGRAMS\..\${LEGACY_CAPABILITIES}.lnk"
 !macroend

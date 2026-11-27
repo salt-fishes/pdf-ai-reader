@@ -27,6 +27,7 @@ function subscribe(listener: () => void) {
     // Chromium's device emulation and some remote-desktop setups change DPR
     // without firing a media-query or resize event, so keep a cheap heartbeat.
     poll = setInterval(update, 500);
+    update();
   }
   listeners.add(listener);
   return () => {

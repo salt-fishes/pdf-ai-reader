@@ -6,6 +6,7 @@ import {
   useState,
   type PointerEvent as ReactPointerEvent,
 } from "react";
+import type { PDFPageProxy } from "pdfjs-dist";
 import { useShallow } from "zustand/react/shallow";
 import {
   attachTextLayer,
@@ -34,6 +35,22 @@ type Props = {
 };
 
 const FALLBACK = { width: 612, height: 792 };
+
+function findTextNode(nodes: Array<{ node: Text; start: number; end: number }>, offset: number) {
+  let low = 0;
+  let high = nodes.length - 1;
+  let best = -1;
+  while (low <= high) {
+    const mid = (low + high) >> 1;
+    if (nodes[mid].start <= offset) {
+      best = mid;
+      low = mid + 1;
+    } else {
+      high = mid - 1;
+    }
+  }
+  return best >= 0 ? nodes[best] : undefined;
+}
 
 function collectSearchRects(
   container: HTMLElement,
@@ -66,8 +83,8 @@ function collectSearchRects(
   let index = haystack.indexOf(needle);
   while (index !== -1 && rects.length < 240) {
     const end = index + needle.length;
-    const first = nodes.find((item) => index >= item.start && index < item.end);
-    const last = nodes.find((item) => end > item.start && end <= item.end);
+    const first = findTextNode(nodes, index);
+    const last = findTextNode(nodes, end - 1);
     if (first && last) {
       const range = document.createRange();
       range.setStart(first.node, index - first.start);
@@ -94,7 +111,7 @@ function collectSearchRects(
 }
 
 function smartMask(base: HTMLCanvasElement): HTMLCanvasElement {
-  const width = 48;
+  const width = 96;
   const height = Math.max(8, Math.round((48 * base.height) / base.width));
   const sample = document.createElement("canvas");
   sample.width = width;
@@ -163,12 +180,14 @@ function PageViewBase({ pageNumber, zoom, visible, sizeHint }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
   const baseRef = useRef<HTMLCanvasElement | null>(null);
+  const scratchRef = useRef<HTMLCanvasElement | null>(null);
   const maskRef = useRef<HTMLCanvasElement | null>(null);
-  const renderingRef = useRef(false);
+  const pageRef = useRef<PDFPageProxy | null>(null);
+  const renderGenerationRef = useRef(0);
+  const committedGenerationRef = useRef(-1);
   const [size, setSize] = useState(sizeHint ?? FALLBACK);
   const pixelRatio = usePixelRatio();
   const [dimmed, setDimmed] = useState(false);
-  const [renderVersion, setRenderVersion] = useState(0);
   const colorMode = useViewer((state) => state.colorMode);
   const colorIntensity = useViewer((state) => state.colorIntensity);
   const highlights = useViewer(
@@ -344,6 +363,11 @@ function PageViewBase({ pageNumber, zoom, visible, sizeHint }: Props) {
     getPageSize(pdf, pageNumber).then((next) => {
       if (alive) setSize(next);
     });
+    void pdf.getPage(pageNumber).then((page) => {
+      if (!alive) return;
+      if (pageRef.current && pageRef.current !== page) pageRef.current.cleanup();
+      pageRef.current = page;
+    });
     void getNativePageText(pdf, pageNumber).then((text) => {
       if (alive) setNativeChars(text.replace(/\s+/g, "").length);
     });
@@ -353,9 +377,28 @@ function PageViewBase({ pageNumber, zoom, visible, sizeHint }: Props) {
     };
   }, [pageNumber, visible]);
 
+  useEffect(() => {
+    if (visible) return;
+    pageRef.current?.cleanup();
+    pageRef.current = null;
+  }, [visible]);
+
+  useEffect(
+    () => () => {
+      pageRef.current?.cleanup();
+      pageRef.current = null;
+    },
+    [],
+  );
+
   const paint = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas || !canvas.width || !canvas.height) return;
+    const generation = renderGenerationRef.current;
+    // A new PDF render owns the base canvas until it commits. Never composite
+    // a half-painted base when zoom, DPR or color mode changes mid-render.
+    if (committedGenerationRef.current !== generation) return;
+
     const { colorMode: mode, colorIntensity: intensity } = useViewer.getState();
     const context = canvas.getContext("2d", { alpha: false });
     if (!context) return;
@@ -371,14 +414,12 @@ function PageViewBase({ pageNumber, zoom, visible, sizeHint }: Props) {
       context.drawImage(base, 0, 0);
       context.restore();
       baseRef.current = null;
+      scratchRef.current = null;
       maskRef.current = null;
       return;
     }
 
     if (!base || base.width !== canvas.width || base.height !== canvas.height) {
-      // A render is in flight; wait for it to finish instead of copying a
-      // partially painted canvas.
-      if (renderingRef.current) return;
       base = document.createElement("canvas");
       base.width = canvas.width;
       base.height = canvas.height;
@@ -386,6 +427,7 @@ function PageViewBase({ pageNumber, zoom, visible, sizeHint }: Props) {
       if (!baseContext) return;
       baseContext.drawImage(canvas, 0, 0);
       baseRef.current = base;
+      scratchRef.current = null;
       maskRef.current = null;
     }
 
@@ -396,36 +438,55 @@ function PageViewBase({ pageNumber, zoom, visible, sizeHint }: Props) {
     context.globalCompositeOperation = "source-over";
     context.globalAlpha = 1;
     context.filter = "none";
-    context.drawImage(base, 0, 0);
 
-    if (mode === "smart" && strength > 0.001) {
-      // Adaptive smart dark: invert only paper-like regions. A very low-res
-      // luminance mask keeps dark covers, photos and white-on-dark titles as
-      // they are while turning white paper into a soft dark surface.
-      const layer = document.createElement("canvas");
-      layer.width = canvas.width;
-      layer.height = canvas.height;
-      const layerContext = layer.getContext("2d");
-      if (layerContext) {
-        layerContext.filter = effect.filter ?? "none";
-        layerContext.drawImage(base, 0, 0);
-        layerContext.filter = "none";
-        layerContext.globalCompositeOperation = "destination-in";
-        layerContext.imageSmoothingEnabled = true;
-        layerContext.imageSmoothingQuality = "high";
-        const mask = maskRef.current ?? smartMask(base);
-        maskRef.current = mask;
-        layerContext.drawImage(mask, 0, 0, layer.width, layer.height);
-        context.globalAlpha = strength;
-        context.drawImage(layer, 0, 0);
-        context.globalAlpha = 1;
-      }
-    } else if (effect.filter && strength > 0.001) {
+    // At full strength the filtered image is opaque. Drawing the original first
+    // only adds a full-page blit and can make edge transitions look softer.
+    if (mode !== "smart" && effect.filter && strength >= 0.999) {
       context.filter = effect.filter;
-      context.globalAlpha = strength;
       context.drawImage(base, 0, 0);
       context.filter = "none";
-      context.globalAlpha = 1;
+    } else {
+      context.drawImage(base, 0, 0);
+
+      if (mode === "smart" && strength > 0.001) {
+        let layer = scratchRef.current;
+        if (!layer) {
+          layer = document.createElement("canvas");
+          scratchRef.current = layer;
+        }
+        if (layer.width !== canvas.width || layer.height !== canvas.height) {
+          layer.width = canvas.width;
+          layer.height = canvas.height;
+        }
+        const layerContext = layer.getContext("2d");
+        if (layerContext) {
+          layerContext.save();
+          layerContext.setTransform(1, 0, 0, 1, 0, 0);
+          layerContext.globalCompositeOperation = "source-over";
+          layerContext.globalAlpha = 1;
+          layerContext.filter = "none";
+          layerContext.clearRect(0, 0, layer.width, layer.height);
+          layerContext.filter = effect.filter ?? "none";
+          layerContext.drawImage(base, 0, 0);
+          layerContext.filter = "none";
+          layerContext.globalCompositeOperation = "destination-in";
+          layerContext.imageSmoothingEnabled = true;
+          layerContext.imageSmoothingQuality = "high";
+          const mask = maskRef.current ?? smartMask(base);
+          maskRef.current = mask;
+          layerContext.drawImage(mask, 0, 0, layer.width, layer.height);
+          layerContext.restore();
+          context.globalAlpha = strength;
+          context.drawImage(layer, 0, 0);
+          context.globalAlpha = 1;
+        }
+      } else if (effect.filter && strength > 0.001) {
+        context.filter = effect.filter;
+        context.globalAlpha = strength;
+        context.drawImage(base, 0, 0);
+        context.filter = "none";
+        context.globalAlpha = 1;
+      }
     }
 
     if (effect.overlay && strength > 0.001) {
@@ -440,7 +501,7 @@ function PageViewBase({ pageNumber, zoom, visible, sizeHint }: Props) {
   useEffect(() => {
     const frame = requestAnimationFrame(paint);
     return () => cancelAnimationFrame(frame);
-  }, [paint, colorMode, colorIntensity, renderVersion]);
+  }, [paint, colorMode, colorIntensity]);
 
   useEffect(() => {
     if (!visible) {
@@ -452,8 +513,9 @@ function PageViewBase({ pageNumber, zoom, visible, sizeHint }: Props) {
         canvas.height = 0;
       }
       baseRef.current = null;
-      renderingRef.current = false;
+      scratchRef.current = null;
       maskRef.current = null;
+      committedGenerationRef.current = -1;
       setLinks([]);
       setDimmed(false);
       return;
@@ -461,6 +523,8 @@ function PageViewBase({ pageNumber, zoom, visible, sizeHint }: Props) {
 
     const pdf = getActiveDocument();
     if (!pdf) return;
+    const generation = ++renderGenerationRef.current;
+    committedGenerationRef.current = -1;
 
     let cancelled = false;
     let task: { cancel: () => void; promise: Promise<void> } | null = null;
@@ -471,14 +535,22 @@ function PageViewBase({ pageNumber, zoom, visible, sizeHint }: Props) {
         try {
           const page = await pdf.getPage(pageNumber);
           if (cancelled) return;
+          if (pageRef.current && pageRef.current !== page) pageRef.current.cleanup();
+          pageRef.current = page;
           const viewport = page.getViewport({ scale: zoom * PDF_TO_CSS_UNITS });
           const canvas = canvasRef.current;
           const text = textRef.current;
           if (!canvas || !text) return;
+          text.replaceChildren();
 
-          const ratio = renderPixelRatio(pixelRatio, viewport.width, viewport.height);
-          const width = Math.max(1, Math.round(viewport.width * ratio));
-          const height = Math.max(1, Math.round(viewport.height * ratio));
+          const rect = canvas.getBoundingClientRect();
+          const cssWidth = rect.width || viewport.width;
+          const cssHeight = rect.height || viewport.height;
+          const ratio = renderPixelRatio(pixelRatio, cssWidth, cssHeight);
+          const width = Math.max(1, Math.round(cssWidth * ratio));
+          const height = Math.max(1, Math.round(cssHeight * ratio));
+          const outputScaleX = width / cssWidth;
+          const outputScaleY = height / cssHeight;
           canvas.width = width;
           canvas.height = height;
 
@@ -508,18 +580,20 @@ function PageViewBase({ pageNumber, zoom, visible, sizeHint }: Props) {
           context.globalAlpha = 1;
           context.globalCompositeOperation = "source-over";
 
-          renderingRef.current = true;
           const renderTask = page.render({
             canvas: target,
             canvasContext: context,
             viewport,
-            transform: ratio !== 1 ? [ratio, 0, 0, ratio, 0, 0] : undefined,
+            transform:
+              outputScaleX !== 1 || outputScaleY !== 1
+                ? [outputScaleX, 0, 0, outputScaleY, 0, 0]
+                : undefined,
             background: "#ffffff",
           });
           task = renderTask;
           await renderTask.promise;
-          renderingRef.current = false;
           if (cancelled) return;
+          committedGenerationRef.current = generation;
 
           if (target !== canvas) {
             baseRef.current = target as HTMLCanvasElement;
@@ -531,6 +605,7 @@ function PageViewBase({ pageNumber, zoom, visible, sizeHint }: Props) {
             baseRef.current = null;
             if (useViewer.getState().colorMode !== "original") paint();
           }
+          setDimmed(true);
 
           layer = await attachTextLayer(page, text, viewport);
           if (cancelled) {
@@ -538,11 +613,8 @@ function PageViewBase({ pageNumber, zoom, visible, sizeHint }: Props) {
             return;
           }
           setLinks(await getPageLinks(pdf, page, viewport));
-          setDimmed(true);
           setLayerVersion((version) => version + 1);
-          setRenderVersion((version) => version + 1);
         } catch (error) {
-          renderingRef.current = false;
           const name = (error as { name?: string })?.name;
           if (name !== "RenderingCancelledException" && !cancelled) {
             console.error("page render failed", pageNumber, error);
@@ -553,6 +625,8 @@ function PageViewBase({ pageNumber, zoom, visible, sizeHint }: Props) {
 
     return () => {
       cancelled = true;
+      renderGenerationRef.current += 1;
+      committedGenerationRef.current = -1;
       clearTimeout(timer);
       try {
         task?.cancel();
@@ -588,7 +662,7 @@ function PageViewBase({ pageNumber, zoom, visible, sizeHint }: Props) {
         height: size.height * zoom * PDF_TO_CSS_UNITS,
       }}
     >
-      {!dimmed && visible ? <div className={styles.skeleton} /> : null}
+      {!dimmed ? <div className={styles.skeleton} /> : null}
       <canvas ref={canvasRef} />
       <div className={styles.highlights} aria-hidden="true">
         {rects.map((highlight) =>

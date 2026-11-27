@@ -103,6 +103,7 @@ type ViewerState = {
   docHash: string;
   numPages: number;
   currentPage: number;
+  scrollTop: number;
   zoom: number;
   fitMode: "width" | "page" | "custom";
   fitNonce: number;
@@ -132,8 +133,8 @@ type ViewerState = {
   searchFocus: SearchFocus | null;
   regionPage: number | null;
 
-  openFile: (file: File) => Promise<void>;
-  openRecent: (hash: string) => Promise<void>;
+  openFile: (file: File) => Promise<string | null>;
+  openRecent: (hash: string) => Promise<string | null>;
   refreshRecent: () => Promise<void>;
   submitPassword: (password: string) => Promise<void>;
   cancelPassword: () => void;
@@ -162,6 +163,7 @@ type ViewerState = {
   focusSearchResult: (page: number, occurrence: number, query: string) => void;
   clearSearchFocus: () => void;
   savePosition: (scrollTop: number) => void;
+  flushPosition: () => void;
   startRegion: (page: number) => void;
   cancelRegion: () => void;
 };
@@ -174,7 +176,8 @@ let citationFlashTimer: ReturnType<typeof setTimeout> | null = null;
 let locationSeq = 0;
 let scrollTopMemory = 0;
 let searchToken = 0;
-let pendingOpen: { file: File; bytes: ArrayBuffer } | null = null;
+let documentEpoch = 0;
+let pendingOpen: { file: File } | null = null;
 /** Last normalized reading position per page, used by citation jumps. */
 export const pageAnchorMemory: Record<number, number> = {};
 
@@ -189,16 +192,65 @@ const initialColorMode: ColorMode = isColorMode(settings.colorMode)
   : colorModeFromTheme(settings.theme);
 
 export const useViewer = create<ViewerState>((set, get) => {
+  const persistDocument = () => {
+    const state = get();
+    if (!state.docHash) return;
+    void saveDocumentRecord({
+      hash: state.docHash,
+      name: state.docName,
+      pages: state.numPages,
+      lastPage: state.currentPage,
+      zoom: state.zoom,
+      zoomUnits: "css",
+      scrollTop: scrollTopMemory,
+      colorMode: state.colorMode,
+      colorIntensity: state.colorIntensity,
+    });
+  };
+
+  const scheduleDocumentSave = () => {
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(persistDocument, 500);
+  };
+
+  const beginOpen = (progress: number) => {
+    set({
+      loading: true,
+      progress,
+      outlineBusy: false,
+      error: null,
+      passwordRequired: false,
+      passwordError: null,
+      selection: null,
+      searchResults: [],
+      searchFocus: null,
+      scrollTarget: null,
+      focusedHighlight: null,
+      citationFocus: null,
+      citationFlash: null,
+    });
+  };
+
   const loadOpenedPdf = async (
     file: File,
     bytes: ArrayBuffer,
+    mine: number,
     password?: string,
-  ): Promise<void> => {
+  ): Promise<string | null> => {
+    const current = () => mine === documentEpoch;
+    if (!current()) return null;
     set({ progress: 0.22 });
     const hash = await hashBytes(bytes);
+    if (!current()) return null;
     set({ progress: 0.38 });
     const pdf = await openPdf(bytes, password);
-    const savedOcr = await loadOcrRecord(hash);
+    if (!current()) return null;
+    const [savedOcr, saved, savedHighlights] = await Promise.all([
+      loadOcrRecord(hash),
+      loadDocumentRecord(hash),
+      loadHighlightsRecord(hash),
+    ]);
+    if (!current()) return null;
     if (savedOcr) {
       for (const [page, text] of Object.entries(savedOcr.pages)) {
         const pageNumber = Number(page);
@@ -210,8 +262,6 @@ export const useViewer = create<ViewerState>((set, get) => {
 
     // Read the saved position before exposing the document, otherwise a
     // slow IndexedDB read can overwrite a page jump made right after open.
-    const saved = await loadDocumentRecord(hash);
-    const savedHighlights = await loadHighlightsRecord(hash);
     const savedPage =
       saved && saved.lastPage >= 1 && saved.lastPage <= pdf.numPages ? saved.lastPage : 1;
     const savedZoom = saved
@@ -220,15 +270,25 @@ export const useViewer = create<ViewerState>((set, get) => {
         : saved.zoom / PDF_TO_CSS_UNITS
       : 1;
     const restoredZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, savedZoom));
+    const restoredColorMode =
+      saved?.colorMode && isColorMode(saved.colorMode) ? saved.colorMode : initialColorMode;
+    const restoredColorIntensity = clampIntensity(
+      saved?.colorIntensity ?? settings.colorIntensity ?? 100,
+    );
 
+    if (!current()) return null;
     for (const key of Object.keys(pageAnchorMemory)) delete pageAnchorMemory[Number(key)];
+    scrollTopMemory = saved?.scrollTop ?? 0;
     set({
       docName: file.name,
       docHash: hash,
       numPages: pdf.numPages,
       currentPage: savedPage,
+      scrollTop: saved?.scrollTop ?? 0,
       zoom: restoredZoom,
       fitMode: saved ? "custom" : "width",
+      colorMode: restoredColorMode,
+      colorIntensity: restoredColorIntensity,
       loading: false,
       progress: 1,
       passwordRequired: false,
@@ -244,15 +304,19 @@ export const useViewer = create<ViewerState>((set, get) => {
       citationFlash: null,
     });
 
-    if (bytes.byteLength <= 24 * 1024 * 1024) {
-      void recordRecentDocument({
-        hash,
-        name: file.name,
-        pages: pdf.numPages,
-        size: bytes.byteLength,
-        updatedAt: Date.now(),
-        data: bytes.slice(0),
-      })
+    if (file.size <= 24 * 1024 * 1024) {
+      void file
+        .arrayBuffer()
+        .then((data) =>
+          recordRecentDocument({
+            hash,
+            name: file.name,
+            pages: pdf.numPages,
+            size: file.size,
+            updatedAt: Date.now(),
+            data,
+          }),
+        )
         .then((records) =>
           set({
             recent: records.map(({ hash: itemHash, name, pages, size, updatedAt }) => ({
@@ -267,21 +331,20 @@ export const useViewer = create<ViewerState>((set, get) => {
         .catch(() => undefined);
     }
 
-    if (saved) {
-      scrollTopMemory = saved.scrollTop;
-    }
     set({ restoreScrollTop: saved?.scrollTop && saved.scrollTop > 0 ? saved.scrollTop : null });
     if (!saved?.scrollTop) get().requestScroll(savedPage);
 
+    if (!current()) return null;
     set({ outlineBusy: true });
     try {
       const outline = await getOutline(pdf);
-      set({ outline });
+      if (current()) set({ outline });
     } catch {
-      set({ outline: [] });
+      if (current()) set({ outline: [] });
     } finally {
-      set({ outlineBusy: false });
+      if (current()) set({ outlineBusy: false });
     }
+    return hash;
   };
 
   return {
@@ -289,6 +352,7 @@ export const useViewer = create<ViewerState>((set, get) => {
     docHash: "",
     numPages: 0,
     currentPage: 1,
+    scrollTop: 0,
     zoom: 1,
     fitMode: "width",
     fitNonce: 0,
@@ -319,26 +383,17 @@ export const useViewer = create<ViewerState>((set, get) => {
     regionPage: null,
 
     openFile: async (file) => {
-      set({
-        loading: true,
-        progress: 0.08,
-        error: null,
-        passwordRequired: false,
-        passwordError: null,
-        selection: null,
-        searchResults: [],
-        searchFocus: null,
-        scrollTarget: null,
-        focusedHighlight: null,
-        citationFocus: null,
-        citationFlash: null,
-      });
+      const mine = ++documentEpoch;
+      beginOpen(0.08);
       try {
         const bytes = await file.arrayBuffer();
-        pendingOpen = { file, bytes };
-        await loadOpenedPdf(file, bytes);
-        pendingOpen = null;
+        if (mine !== documentEpoch) return null;
+        pendingOpen = { file };
+        const hash = await loadOpenedPdf(file, bytes, mine);
+        if (mine === documentEpoch && hash) pendingOpen = null;
+        return hash;
       } catch (error) {
+        if (mine !== documentEpoch) return null;
         const name = (error as { name?: string })?.name;
         if (name === "PasswordException") {
           set({
@@ -348,7 +403,7 @@ export const useViewer = create<ViewerState>((set, get) => {
             passwordError: null,
             error: null,
           });
-          return;
+          return null;
         }
         pendingOpen = null;
         const message = error instanceof Error ? error.message : "无法打开该 PDF";
@@ -358,19 +413,44 @@ export const useViewer = create<ViewerState>((set, get) => {
             useAssistant.getState().notify(`打开失败：${message}`, "error");
           });
         }
+        return null;
       }
     },
 
     openRecent: async (hash) => {
+      const mine = ++documentEpoch;
+      beginOpen(0.08);
       const record = await loadRecentBytes(hash).catch(() => null);
+      if (mine !== documentEpoch) return null;
       if (!record?.data) {
         void import("../assistant/useAssistantStore").then(({ useAssistant }) => {
           useAssistant.getState().notify("该文件没有本地缓存，请重新选择文件", "error");
         });
-        return;
+        return null;
       }
       const file = new File([record.data], record.name, { type: "application/pdf" });
-      await get().openFile(file);
+      pendingOpen = { file };
+      try {
+        const opened = await loadOpenedPdf(file, record.data, mine);
+        if (mine === documentEpoch && opened) pendingOpen = null;
+        return opened;
+      } catch (error) {
+        if (mine !== documentEpoch) return null;
+        if ((error as { name?: string })?.name === "PasswordException") {
+          set({
+            loading: false,
+            progress: 0,
+            passwordRequired: true,
+            passwordError: null,
+            error: null,
+          });
+          return null;
+        }
+        pendingOpen = null;
+        const message = error instanceof Error ? error.message : "无法打开该 PDF";
+        set({ loading: false, error: message, progress: 0 });
+        return null;
+      }
     },
 
     refreshRecent: async () => {
@@ -393,10 +473,14 @@ export const useViewer = create<ViewerState>((set, get) => {
         return;
       }
       set({ loading: true, progress: 0.2, passwordRequired: false, passwordError: null });
+      const mine = ++documentEpoch;
       try {
-        await loadOpenedPdf(pending.file, pending.bytes, password);
-        pendingOpen = null;
+        const bytes = await pending.file.arrayBuffer();
+        if (mine !== documentEpoch) return;
+        const hash = await loadOpenedPdf(pending.file, bytes, mine, password);
+        if (mine === documentEpoch && hash) pendingOpen = null;
       } catch (error) {
+        if (mine !== documentEpoch) return;
         const name = (error as { name?: string })?.name;
         if (name === "PasswordException") {
           set({
@@ -415,6 +499,7 @@ export const useViewer = create<ViewerState>((set, get) => {
     },
 
     cancelPassword: () => {
+      documentEpoch += 1;
       pendingOpen = null;
       set({
         passwordRequired: false,
@@ -426,15 +511,26 @@ export const useViewer = create<ViewerState>((set, get) => {
     },
 
     closeDocument: async () => {
+      if (saveTimer) {
+        clearTimeout(saveTimer);
+        saveTimer = null;
+        persistDocument();
+      }
+      const mine = ++documentEpoch;
+      pendingOpen = null;
+      scrollTopMemory = 0;
       await closePdf();
+      if (mine !== documentEpoch) return;
       for (const key of Object.keys(pageAnchorMemory)) delete pageAnchorMemory[Number(key)];
-      if (saveTimer) clearTimeout(saveTimer);
       set({
         docName: "",
         docHash: "",
         numPages: 0,
         currentPage: 1,
+        scrollTop: 0,
         zoom: 1,
+        colorMode: initialColorMode,
+        colorIntensity: clampIntensity(settings.colorIntensity ?? 100),
         loading: false,
         progress: 0,
         error: null,
@@ -460,25 +556,13 @@ export const useViewer = create<ViewerState>((set, get) => {
       const { numPages, currentPage } = get();
       if (page < 1 || page > numPages || page === currentPage) return;
       set({ currentPage: page });
-      const { docHash, docName, zoom } = get();
-      if (!docHash) return;
-      if (saveTimer) clearTimeout(saveTimer);
-      saveTimer = setTimeout(() => {
-        void saveDocumentRecord({
-          hash: docHash,
-          name: docName,
-          pages: numPages,
-          lastPage: page,
-          zoom,
-          zoomUnits: "css",
-          scrollTop: scrollTopMemory,
-        });
-      }, 500);
+      scheduleDocumentSave();
     },
 
     setZoom: (zoom, mode = "custom") => {
       const clamped = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Number(zoom.toFixed(3))));
       set({ zoom: clamped, fitMode: mode });
+      if (get().docHash) scheduleDocumentSave();
     },
 
     requestFit: (mode) => set({ fitMode: mode, fitNonce: Date.now() }),
@@ -570,13 +654,15 @@ export const useViewer = create<ViewerState>((set, get) => {
 
     setColorMode: (colorMode) => {
       set({ colorMode });
-      saveSettings({ colorMode });
+      if (get().docHash) persistDocument();
+      else saveSettings({ colorMode });
     },
 
     setColorIntensity: (value) => {
       const colorIntensity = clampIntensity(value);
       set({ colorIntensity });
-      saveSettings({ colorIntensity });
+      if (get().docHash) scheduleDocumentSave();
+      else saveSettings({ colorIntensity });
     },
 
     cycleColorMode: () => {
@@ -642,7 +728,9 @@ export const useViewer = create<ViewerState>((set, get) => {
       }
 
       try {
+        let completed = 0;
         for (let page = 1; page <= numPages; page += 1) {
+          completed = page;
           if (mine !== searchToken) return;
           let text = await getPageText(pdf, page);
           if (hash && ocrIndex.has(page) && text.replace(/\s+/g, "").length < 20) {
@@ -671,8 +759,17 @@ export const useViewer = create<ViewerState>((set, get) => {
             occurrence += 1;
             index = haystack.indexOf(lower, index + lower.length);
           }
-          set({ searchProgress: { done: page, total: numPages }, searchResults: [...results] });
+          if (page % 8 === 0 || results.length >= 200) {
+            set({ searchProgress: { done: page, total: numPages }, searchResults: [...results] });
+            await new Promise((resolve) => setTimeout(resolve, 0));
+          }
           if (results.length >= 200) break;
+        }
+        if (mine === searchToken) {
+          set({
+            searchResults: [...results],
+            searchProgress: { done: completed, total: numPages },
+          });
         }
       } finally {
         if (mine === searchToken) set({ searchBusy: false, searchProgress: null });
@@ -681,20 +778,17 @@ export const useViewer = create<ViewerState>((set, get) => {
 
     savePosition: (scrollTop) => {
       scrollTopMemory = scrollTop;
-      const { docHash, docName, numPages, currentPage, zoom } = get();
-      if (!docHash) return;
-      if (saveTimer) clearTimeout(saveTimer);
-      saveTimer = setTimeout(() => {
-        void saveDocumentRecord({
-          hash: docHash,
-          name: docName,
-          pages: numPages,
-          lastPage: currentPage,
-          zoom,
-          zoomUnits: "css",
-          scrollTop,
-        });
-      }, 600);
+      set({ scrollTop });
+      if (!get().docHash) return;
+      scheduleDocumentSave();
+    },
+
+    flushPosition: () => {
+      if (saveTimer) {
+        clearTimeout(saveTimer);
+        saveTimer = null;
+      }
+      persistDocument();
     },
 
     startRegion: (page) => {

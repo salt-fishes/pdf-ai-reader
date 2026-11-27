@@ -2,7 +2,7 @@
 
 ## 版本策略
 
-- 当前目标版本：`0.11.0`；`0.10.1` 已发布。下一版继续处理 `[Unreleased]` 中的产品化项。
+- 当前目标版本：`0.12.0`；`0.11.0` 已发布。下一版继续处理 `[Unreleased]` 中的产品化项。
 - SemVer：`MAJOR.MINOR.PATCH`。0.x 阶段 minor 加功能，patch 修问题。
 - `package.json` 是唯一版本源；用 `npm version X.Y.Z --no-git-tag-version` 同步 lockfile。
 - tag 格式 `vX.Y.Z`，使用 annotated tag；预发布用 `vX.Y.Z-rc.1` 并标记 pre-release。
@@ -38,7 +38,7 @@ npm run build:installers
 - 外链走系统浏览器；代理只监听 `127.0.0.1`。
 - 基础 zip <160MB，OCR 组件包 <60MB，两者合计 <185MB；NSIS/MSI 各 <160MB。
 - 无 `.env`、`server/models`、`server/data`、`node_modules` 与测试 PDF。
-- 安装包验证：安装到 `%LOCALAPPDATA%\Programs\Wenshu`，开始菜单显示“文疏”；卸载后目录与快捷方式消失；旧 `PaperReader` 安装可覆盖升级。
+- 安装包验证：安装到 `%LOCALAPPDATA%\Programs\Wenshu`，开始菜单显示“文疏”；卸载后目录与快捷方式消失；旧 `PaperReader` 安装可覆盖升级；旧 NSIS/MSI 均先卸载再安装新版，不保留重复快捷方式或卸载项。
 - 图标：安装器、卸载器、`Wenshu.exe`、桌面/开始菜单快捷方式、控制面板均显示文疏图标；`pdf-file.ico` 与 exe 同目录，注册 PDF 关联后 `.pdf` 文件显示白底文档图标，缺失时回退到 exe 图标。
 - 标题栏：无第二层系统标题栏；拖动、双击最大化、最小化/最大化/关闭按钮正常；夜间主题按钮颜色正确。
 - 双击 PDF：安装后从“打开方式”选择文疏能直接打开；应用已运行时再次双击会复用窗口并打开新文件。
@@ -59,7 +59,7 @@ git push origin main --tags
 
 1. 校验 tag 与 `package.json` 版本一致。
 2. 跑 typecheck / lint / 单测 / build / build:server。
-3. 打包可移植目录、OCR 组件包，并用 electron-builder 生成 NSIS 与 MSI。
+3. 打包可移植目录、OCR 组件包，并用 electron-builder 生成 NSIS 与 MSI 包装版。
 4. 生成包含两个 zip、NSIS、MSI 的 `SHA256SUMS.txt` 与 CHANGELOG 对应的 release notes。
    发布物文件名为 `wenshu-v<version>-win-x64.zip`、`wenshu-ocr-v<version>-win-x64.zip`、
    `wenshu-v<version>-x64.exe`、`wenshu-v<version>-x64.msi`。

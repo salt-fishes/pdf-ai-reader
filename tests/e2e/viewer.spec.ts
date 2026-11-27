@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { openSample, registerMockGuard } from "./helpers";
+import { dropFixture, openSample, registerMockGuard } from "./helpers";
 registerMockGuard();
 test("page thumbnails load and jump", async ({ page }) => {
   await openSample(page, "sample-long.pdf");
@@ -21,11 +21,30 @@ test("page thumbnails load and jump", async ({ page }) => {
   await expect(page.locator('header input[class*="pageInput"]')).toHaveValue("5");
 });
 
+test("virtualizes a long page sidebar", async ({ page }) => {
+  await openSample(page, "sample-long.pdf");
+  await page.locator('[aria-label="页面"]').click();
+  const sidebar = page.locator('aside[aria-label="页面"]');
+  const pageButtons = sidebar.locator('button[aria-label^="第 "]');
+  expect(await pageButtons.count()).toBeLessThan(32);
+
+  await sidebar.locator('[class*="sidebarBody"]').evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+  });
+  await expect(sidebar.getByRole("button", { name: "第 32 页", exact: true })).toBeVisible();
+  expect(await pageButtons.count()).toBeLessThan(32);
+});
+
 test("virtualizes pages and mounts the jump target", async ({ page }) => {
   await openSample(page, "sample-long.pdf");
   const mounted = await page.locator("[data-page]").count();
-  expect(mounted).toBeLessThan(10);
+  expect(mounted).toBeLessThanOrEqual(6);
   expect(mounted).toBeGreaterThan(0);
+  expect(
+    await page
+      .locator("[data-page] canvas")
+      .evaluateAll((items) => items.filter((item) => (item as HTMLCanvasElement).width > 0).length),
+  ).toBeLessThanOrEqual(3);
 
   const pageInput = page.locator('header input[class*="pageInput"]');
   await pageInput.fill("30");
@@ -33,7 +52,118 @@ test("virtualizes pages and mounts the jump target", async ({ page }) => {
   await expect(page.getByText("当前第 30 页，共 32 页")).toBeAttached({ timeout: 10_000 });
   await expect(page.locator('[data-page="30"]')).toBeVisible({ timeout: 10_000 });
   await expect(page.locator('[data-page="1"]')).toHaveCount(0);
-  expect(await page.locator("[data-page]").count()).toBeLessThan(10);
+  expect(await page.locator("[data-page]").count()).toBeLessThanOrEqual(6);
+  expect(
+    await page
+      .locator("[data-page] canvas")
+      .evaluateAll((items) => items.filter((item) => (item as HTMLCanvasElement).width > 0).length),
+  ).toBeLessThanOrEqual(3);
+});
+
+test("PDF tabs keep independent reading state and release inactive pages", async ({ page }) => {
+  await openSample(page, "sample-long.pdf");
+  await dropFixture(page, "sample-small.pdf");
+  await expect(page.getByRole("tab")).toHaveCount(2);
+
+  const longTab = page.getByRole("tab", { name: /sample-long\.pdf/ });
+  await longTab.click();
+  await expect(page.locator('[data-page="1"] .textLayer span').first()).toBeVisible();
+  const pageInput = page.locator('header input[class*="pageInput"]');
+  await pageInput.fill("10");
+  await pageInput.press("Enter");
+  await expect(page.locator('[data-page="10"]')).toBeVisible();
+
+  await page.getByRole("tab", { name: /sample-small\.pdf/ }).click();
+  await expect(page.locator('[data-page="1"] .textLayer span').first()).toBeVisible();
+  expect(
+    await page
+      .locator("[data-page] canvas")
+      .evaluateAll((items) => items.filter((item) => (item as HTMLCanvasElement).width > 0).length),
+  ).toBeLessThanOrEqual(3);
+
+  await longTab.click();
+  await expect(page.locator('[data-page="10"]')).toBeVisible();
+  await expect(pageInput).toHaveValue("10");
+
+  await longTab.focus();
+  await page.keyboard.press("Delete");
+  await expect(page.getByRole("tab")).toHaveCount(1);
+  await expect(page.getByRole("tab", { name: /sample-small\.pdf/ })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+});
+
+test("PDF tabs and reading state restore after reload", async ({ page }) => {
+  await openSample(page, "sample-long.pdf");
+  const pageInput = page.locator('header input[class*="pageInput"]');
+  await pageInput.fill("10");
+  await pageInput.press("Enter");
+  await expect(page.locator('[data-page="10"]')).toBeVisible();
+  await dropFixture(page, "sample-small.pdf");
+  await expect(page.getByRole("tab")).toHaveCount(2);
+  await expect(page.locator('header [class*="pager"]')).toContainText("/ 3");
+  await page.waitForTimeout(400);
+
+  await page.reload();
+  await expect(page.getByRole("tab")).toHaveCount(2, { timeout: 15_000 });
+  await expect(page.getByRole("tab", { name: /sample-small\.pdf/ })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await expect(page.locator("header")).toContainText("sample-small.pdf");
+
+  await page.getByRole("tab", { name: /sample-long\.pdf/ }).click();
+  await expect(page.locator('[data-page="10"]')).toBeVisible({ timeout: 15_000 });
+  await expect(pageInput).toHaveValue("10");
+});
+
+test("a slow stale tab open cannot overwrite the latest active tab", async ({ page }) => {
+  await openSample(page, "sample-small.pdf");
+  await page.evaluate(() => {
+    const original = File.prototype.arrayBuffer;
+    File.prototype.arrayBuffer = function () {
+      if (this.name === "sample-long.pdf") {
+        return new Promise((resolve, reject) => {
+          setTimeout(() => original.call(this).then(resolve, reject), 900);
+        });
+      }
+      return original.call(this);
+    };
+  });
+
+  await dropFixture(page, "sample-long.pdf", { waitForHeader: false });
+  await expect(page.getByRole("tab")).toHaveCount(2);
+  await dropFixture(page, "sample-small.pdf");
+  await expect(page.locator('header [class*="pager"]')).toContainText("/ 3");
+  await page.waitForTimeout(1400);
+
+  await expect(page.getByRole("tab", { name: /sample-small\.pdf/ }).last()).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await expect(page.locator('[data-page="1"]')).toContainText("三页测试文档");
+  await expect(page.locator('header [class*="pager"]')).toContainText("/ 3");
+});
+
+test("same-page scroll offset is captured when reloading tabs", async ({ page }) => {
+  await openSample(page, "sample-long.pdf");
+  await page.locator('[data-page="2"]').scrollIntoViewIfNeeded();
+  await expect(page.locator('[data-page="2"] .textLayer span').first()).toBeVisible();
+  await page.locator("[data-reader]").evaluate((element) => {
+    element.scrollTop = 1800;
+  });
+  await page.waitForTimeout(100);
+  await page.reload();
+
+  await expect(page.getByRole("tab", { name: /sample-long\.pdf/ })).toBeVisible();
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() => document.querySelector<HTMLElement>("[data-reader]")?.scrollTop ?? 0),
+      { timeout: 10_000 },
+    )
+    .toBeGreaterThan(1750);
 });
 
 test("virtualizes mixed page sizes without shifting the scroll height", async ({ page }) => {
@@ -152,7 +282,7 @@ test("cross-page selection joins page ranges", async ({ page }) => {
   await expect(toolbar).toBeVisible();
   await toolbar.getByRole("button", { name: /引用/ }).click();
   const panel = page.locator("[data-assistant-panel]");
-  await panel.locator('button[aria-label="上下文详情"]').click();
+  await panel.locator('button[aria-label="上下文来源"]').click();
   await expect(panel).toContainText("选中 · P1–P2");
 });
 
@@ -273,7 +403,10 @@ test("restores the saved scroll offset, not just the page number", async ({ page
 test("Ctrl + wheel zooms around the pointer without shifting the page", async ({ page }) => {
   await openSample(page, "sample-long.pdf");
   const target = page.locator('[data-page="4"]');
-  await target.scrollIntoViewIfNeeded();
+  const pageInput = page.locator('header input[class*="pageInput"]');
+  await pageInput.fill("4");
+  await pageInput.press("Enter");
+  await expect(target).toBeVisible();
   await page.waitForTimeout(400);
 
   const viewerBox = await page.locator("[data-reader]").boundingBox();

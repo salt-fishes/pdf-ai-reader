@@ -40,48 +40,71 @@ test("settings dialog traps Tab focus and restores it", async ({ page }) => {
     .toBe("设置");
 });
 
+test("settings closes from the close control and keeps a blurred backdrop", async ({ page }) => {
+  await openSample(page);
+  const trigger = page.locator('button[aria-label="设置"]').first();
+  await trigger.click();
+  const dialog = page.getByRole("dialog", { name: "设置" });
+  await expect(dialog).toBeVisible();
+
+  const chrome = await dialog.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      background: style.backgroundColor,
+      backdrop: style.backdropFilter,
+      panelBackground: getComputedStyle(element.firstElementChild as Element).backgroundColor,
+    };
+  });
+  expect(chrome.backdrop).toContain("blur");
+  expect(chrome.background).not.toBe("rgb(246, 243, 237)");
+  expect(chrome.panelBackground).toMatch(/^rgb\(/);
+
+  await dialog.getByRole("button", { name: "关闭设置" }).click();
+  await expect(dialog).toBeHidden();
+});
+
 test("privacy section opens the bundled privacy document", async ({ page }) => {
   await openSample(page);
   await page.locator('button[aria-label="设置"]').first().click();
   const settings = page.getByRole("dialog", { name: "设置" });
-  await settings.getByRole("button", { name: "隐私与数据", exact: true }).click();
+  await settings.getByRole("button", { name: "数据与隐私", exact: true }).click();
   await settings.getByRole("button", { name: "查看完整隐私说明 →" }).click();
-  const doc = page.getByRole("dialog", { name: "隐私说明" });
+  const doc = page.getByRole("heading", { name: "隐私说明" });
   await expect(doc).toBeVisible();
-  await expect(doc).toContainText("本地处理");
-  await expect(doc).toContainText("不会发送整份 PDF");
+  await expect(settings).toContainText("本地处理");
+  await expect(settings).toContainText("不会发送整份 PDF");
   for (let index = 0; index < 10; index += 1) {
     await page.keyboard.press("Tab");
     expect(
       await page.evaluate(() =>
         document.activeElement?.closest('[role="dialog"]')?.getAttribute("aria-label"),
       ),
-    ).toBe("隐私说明");
+    ).toBe("设置");
   }
   await page.keyboard.press("Escape");
   await expect(doc).toBeHidden();
   await expect(settings).toBeVisible();
   await expect
     .poll(() => page.evaluate(() => document.activeElement?.textContent?.trim()))
-    .toContain("查看完整隐私说明");
+    .toContain("数据与隐私");
 });
 
-test("settings navigation keeps six buttons and moves with the keyboard", async ({ page }) => {
+test("settings navigation keeps nine buttons and moves with the keyboard", async ({ page }) => {
   await openSample(page);
   await page.locator('button[aria-label="设置"]').first().click();
   const settings = page.getByRole("dialog", { name: "设置" });
   const nav = settings.getByRole("navigation", { name: "设置分类" });
-  await expect(nav.getByRole("button")).toHaveCount(6);
+  await expect(nav.getByRole("button")).toHaveCount(9);
 
   const about = nav.getByRole("button", { name: "关于", exact: true });
   await about.click();
   await expect(about).toHaveAttribute("aria-current", "page");
   await page.keyboard.press("Home");
-  const model = nav.getByRole("button", { name: "模型服务", exact: true });
-  await expect(model).toHaveAttribute("aria-current", "page");
-  await expect(model).toBeFocused();
+  const appearance = nav.getByRole("button", { name: "外观", exact: true });
+  await expect(appearance).toHaveAttribute("aria-current", "page");
+  await expect(appearance).toBeFocused();
 
-  await nav.getByRole("button", { name: "隐私与数据", exact: true }).click();
+  await nav.getByRole("button", { name: "数据与隐私", exact: true }).click();
   for (const term of ["IndexedDB", "localStorage", "server/data", "bundle"]) {
     await expect(settings).not.toContainText(term);
   }
@@ -108,7 +131,7 @@ test("update check only runs on demand and reports a newer release", async ({ pa
   await openSample(page);
   await page.locator('button[aria-label="设置"]').first().click();
   const settings = page.getByRole("dialog", { name: "设置" });
-  await settings.getByRole("button", { name: "关于", exact: true }).click();
+  await settings.getByRole("button", { name: "系统", exact: true }).click();
   expect(calls).toHaveLength(0);
   await settings.getByRole("button", { name: "检查更新" }).click();
   await expect(settings).toContainText("发现新版本 9.9.9");
@@ -125,7 +148,7 @@ test("clearing all local data requires a second confirmation and reloads empty",
   await openSample(page);
   await page.locator('button[aria-label="设置"]').first().click();
   const settings = page.getByRole("dialog", { name: "设置" });
-  await settings.getByRole("button", { name: "隐私与数据", exact: true }).click();
+  await settings.getByRole("button", { name: "数据与隐私", exact: true }).click();
   await settings.getByRole("button", { name: "清空阅读数据" }).click();
   await expect(settings).toContainText("操作不可撤销");
   await Promise.all([

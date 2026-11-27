@@ -5,6 +5,7 @@ import { loadPageMetrics, savePageMetrics } from "../../lib/storage/db";
 import { pickPdfFile } from "../../lib/openFile";
 import { PdfFileMark } from "../../components/icons/SparkleIcon";
 import { useOcr } from "../ocr/useOcrStore";
+import { useTabs } from "../tabs/useTabStore";
 import { pageAnchorMemory, useViewer } from "./useViewerStore";
 import { PageView } from "./PageView";
 import styles from "./PdfViewer.module.css";
@@ -14,7 +15,9 @@ const reducedMotion = () =>
 
 const PAGE_GAP = 28;
 const PADDING_TOP = 28;
-const OVERSCAN = 4800;
+const OVERSCAN = 1600;
+const RENDER_OVERSCAN = 520;
+const MAX_MOUNTED_PAGES = 8;
 
 function pageOfNode(node: Node): HTMLElement | null {
   const element =
@@ -125,9 +128,9 @@ export function PdfViewer() {
   const currentPage = useViewer((state) => state.currentPage);
   const regionPage = useViewer((state) => state.regionPage);
   const ocrInit = useOcr((state) => state.init);
-  const openFile = useViewer((state) => state.openFile);
   const recent = useViewer((state) => state.recent);
-  const openRecent = useViewer((state) => state.openRecent);
+  const openFileTab = useTabs((state) => state.openFileTab);
+  const openRecentTab = useTabs((state) => state.openRecentTab);
   const refreshRecent = useViewer((state) => state.refreshRecent);
   const setZoom = useViewer((state) => state.setZoom);
   const setCurrentPage = useViewer((state) => state.setCurrentPage);
@@ -217,9 +220,9 @@ export function PdfViewer() {
       applyPageSizes(sizes);
 
       const measured = sizes.slice();
-      for (let start = 0; start < numPages; start += 48) {
+      for (let start = 0; start < numPages; start += 8) {
         if (!alive) return;
-        const count = Math.min(48, numPages - start);
+        const count = Math.min(8, numPages - start);
         const chunk = await Promise.all(
           Array.from({ length: count }, (_, offset) =>
             getPageSize(pdf, start + offset + 1).catch(() => first),
@@ -399,14 +402,25 @@ export function PdfViewer() {
       const widthScale = availableWidth / size.width / PDF_TO_CSS_UNITS;
       const heightScale = availableHeight / size.height / PDF_TO_CSS_UNITS;
       const scale = fitMode === "width" ? widthScale : Math.min(widthScale, heightScale);
-      setZoom(Math.min(3, Math.max(0.5, scale)), fitMode);
+      const next = Math.min(3, Math.max(0.5, scale));
+      if (Math.abs(useViewer.getState().zoom - next) < 0.001) return;
+      setZoom(next, fitMode);
     };
 
     void apply();
-    const observer = new ResizeObserver(() => void apply());
+    let frame = 0;
+    const schedule = () => {
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        void apply();
+      });
+    };
+    const observer = new ResizeObserver(schedule);
     observer.observe(viewport);
     return () => {
       alive = false;
+      if (frame) cancelAnimationFrame(frame);
       observer.disconnect();
     };
   }, [fitMode, fitNonce, numPages, docHash, setZoom]);
@@ -549,6 +563,34 @@ export function PdfViewer() {
     const limitBottom = scrollTop + Math.max(viewportHeight, 600) + OVERSCAN;
     while (end < n && PADDING_TOP + layout.prefix[end] < limitBottom) end += 1;
     if (end <= start) end = Math.min(n, start + 1);
+    if (end - start > MAX_MOUNTED_PAGES) {
+      const anchor = Math.max(0, Math.min(n - 1, currentPage - 1));
+      start = Math.max(0, Math.min(n - MAX_MOUNTED_PAGES, anchor - 3));
+      end = Math.min(n, start + MAX_MOUNTED_PAGES);
+    }
+    return { start, end };
+  }, [layout, scrollTop, viewportHeight, currentPage]);
+
+  const renderRange = useMemo(() => {
+    const n = layout.itemHeights.length;
+    if (!n) return { start: 0, end: 0 };
+    const limitTop = scrollTop - RENDER_OVERSCAN;
+    let low = 0;
+    let high = n - 1;
+    let start = n - 1;
+    while (low <= high) {
+      const mid = (low + high) >> 1;
+      if (PADDING_TOP + layout.prefix[mid] + layout.itemHeights[mid] >= limitTop) {
+        start = mid;
+        high = mid - 1;
+      } else {
+        low = mid + 1;
+      }
+    }
+    let end = start;
+    const limitBottom = scrollTop + Math.max(viewportHeight, 600) + RENDER_OVERSCAN;
+    while (end < n && PADDING_TOP + layout.prefix[end] < limitBottom) end += 1;
+    if (end <= start) end = Math.min(n, start + 1);
     return { start, end };
   }, [layout, scrollTop, viewportHeight]);
 
@@ -632,7 +674,7 @@ export function PdfViewer() {
           </p>
           <button
             className={styles.primary}
-            onClick={() => pickPdfFile((file) => void openFile(file))}
+            onClick={() => pickPdfFile((file) => openFileTab(file))}
           >
             选择 PDF 文件
           </button>
@@ -645,7 +687,7 @@ export function PdfViewer() {
                 <button
                   key={item.hash}
                   className={styles.recentItem}
-                  onClick={() => void openRecent(item.hash)}
+                  onClick={() => void openRecentTab(item.hash, item.name)}
                   title={item.name}
                 >
                   <span className={styles.recentName}>{item.name}</span>
@@ -705,7 +747,7 @@ export function PdfViewer() {
               key={`${docHash}_${page}`}
               pageNumber={page}
               zoom={zoom}
-              visible
+              visible={page >= renderRange.start + 1 && page <= renderRange.end}
               sizeHint={pageSizes[page - 1] ?? sizeHint}
             />
           );

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "../components/icons/Icon";
 import { getActiveDocument, renderPageThumbnail } from "../lib/pdf/pdf";
 import { chapterRanges } from "../lib/pdf/chapters";
@@ -7,14 +7,14 @@ import { useAssistant } from "../features/assistant/useAssistantStore";
 import { useViewer } from "../features/viewer/useViewerStore";
 import styles from "./Chrome.module.css";
 
-function PageThumb({
+function PageThumbBase({
   page,
   active,
   onSelect,
 }: {
   page: number;
   active: boolean;
-  onSelect: () => void;
+  onSelect: (page: number) => void;
 }) {
   const ref = useRef<HTMLButtonElement>(null);
   const [src, setSrc] = useState<string | null>(null);
@@ -52,7 +52,7 @@ function PageThumb({
           void load();
         }
       },
-      { rootMargin: "360px 0px" },
+      { rootMargin: "96px 0px" },
     );
     observer.observe(element);
     return () => {
@@ -65,7 +65,7 @@ function PageThumb({
     <button
       ref={ref}
       className={`${styles.thumb} ${active ? styles.thumbActive : ""}`}
-      onClick={onSelect}
+      onClick={() => onSelect(page)}
       aria-label={`第 ${page} 页`}
       aria-current={active ? "page" : undefined}
     >
@@ -81,6 +81,11 @@ function PageThumb({
   );
 }
 
+export const PageThumb = memo(PageThumbBase);
+
+const PAGE_ROW_HEIGHT = 164;
+const PAGE_OVERSCAN_ROWS = 1;
+
 export function Sidebar() {
   const sidebar = useViewer((state) => state.sidebar);
   const numPages = useViewer((state) => state.numPages);
@@ -90,6 +95,7 @@ export function Sidebar() {
   const outline = useViewer((state) => state.outline);
   const highlights = useViewer((state) => state.highlights);
   const requestScroll = useViewer((state) => state.requestScroll);
+  const selectPage = useCallback((page: number) => requestScroll(page), [requestScroll]);
   const requestLocation = useViewer((state) => state.requestLocation);
   const removeHighlight = useViewer((state) => state.removeHighlight);
   const setPageRange = useAssistant((state) => state.setPageRange);
@@ -98,6 +104,45 @@ export function Sidebar() {
     () => new Map(chapters.map((chapter) => [chapter.start, chapter])),
     [chapters],
   );
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const [bodyScrollTop, setBodyScrollTop] = useState(0);
+  const [bodyHeight, setBodyHeight] = useState(600);
+
+  useLayoutEffect(() => {
+    const element = bodyRef.current;
+    if (!sidebar || !element) return;
+    const update = () => {
+      setBodyScrollTop(element.scrollTop);
+      setBodyHeight(element.clientHeight);
+    };
+    update();
+    if (sidebar === "pages") {
+      const activeRow = Math.floor((currentPage - 1) / 2);
+      element.scrollTop = Math.max(0, activeRow * PAGE_ROW_HEIGHT - element.clientHeight / 3);
+      setBodyScrollTop(element.scrollTop);
+    }
+    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(update) : null;
+    observer?.observe(element);
+    return () => observer?.disconnect();
+    // Recenter only when a panel is opened; reading must not yank the sidebar.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sidebar]);
+
+  const pageRows = Math.ceil(numPages / 2);
+  const visibleRowCount = Math.ceil(bodyHeight / PAGE_ROW_HEIGHT);
+  const firstVisibleRow = Math.max(
+    0,
+    Math.floor(bodyScrollTop / PAGE_ROW_HEIGHT) - PAGE_OVERSCAN_ROWS,
+  );
+  const lastVisibleRow = Math.min(
+    pageRows,
+    firstVisibleRow + visibleRowCount + PAGE_OVERSCAN_ROWS * 2,
+  );
+  const visiblePages: number[] = [];
+  for (let row = firstVisibleRow; row < lastVisibleRow; row += 1) {
+    visiblePages.push(row * 2 + 1);
+    if (row * 2 + 2 <= numPages) visiblePages.push(row * 2 + 2);
+  }
 
   if (!sidebar) return null;
 
@@ -157,17 +202,29 @@ export function Sidebar() {
         <span className={styles.sidebarTitle}>{title}</span>
         <span className={styles.sidebarCount}>{count}</span>
       </div>
-      <div className={styles.sidebarBody}>
+      <div
+        className={styles.sidebarBody}
+        ref={bodyRef}
+        onScroll={(event) => setBodyScrollTop(event.currentTarget.scrollTop)}
+      >
         {sidebar === "pages" ? (
-          <div className={styles.thumbGrid}>
-            {Array.from({ length: numPages }, (_, index) => index + 1).map((page) => (
-              <PageThumb
-                key={`${docHash}_${page}`}
-                page={page}
-                active={page === currentPage}
-                onSelect={() => requestScroll(page)}
-              />
-            ))}
+          <div className={styles.thumbWindow} style={{ height: pageRows * PAGE_ROW_HEIGHT + 8 }}>
+            {visiblePages.map((page) => {
+              const row = Math.floor((page - 1) / 2);
+              const column = (page - 1) % 2;
+              return (
+                <div
+                  className={styles.thumbCell}
+                  style={{
+                    top: row * PAGE_ROW_HEIGHT,
+                    left: column === 0 ? 0 : "calc(50% + 4px)",
+                  }}
+                  key={`${docHash}_${page}`}
+                >
+                  <PageThumb page={page} active={page === currentPage} onSelect={selectPage} />
+                </div>
+              );
+            })}
           </div>
         ) : null}
 

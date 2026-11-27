@@ -1,28 +1,19 @@
 import type { ChatMessage } from "./types";
 
-export type TrimmedHistory = {
+export type HistorySelection = {
   messages: ChatMessage[];
   omitted: number;
 };
 
 /**
- * Keep the most recent turns under a message-count limit. Starting a prompt
- * with an orphaned assistant message confuses most chat models, so snap the
- * window forward to the next user message when necessary. A limit of 0 keeps
- * everything.
+ * Keep only turns sourced from one document in a shared, document-only chat.
+ * History is no longer count-limited; only orphaned assistant turns are dropped.
  */
-export function trimHistory(messages: ChatMessage[], limit: number): TrimmedHistory {
-  if (!Number.isFinite(limit) || limit <= 0 || messages.length <= limit) {
-    return { messages, omitted: 0 };
-  }
-  let start = Math.max(0, messages.length - Math.round(limit));
-  while (start < messages.length && messages[start].role !== "user") start += 1;
-  if (start >= messages.length) {
-    const lastUser = messages.map((message) => message.role).lastIndexOf("user");
-    start = lastUser >= 0 ? lastUser : Math.max(0, messages.length - 1);
-  }
+export function filterDocumentHistory(messages: ChatMessage[], docHash: string): HistorySelection {
+  const scoped = messages.filter((message) => message.docHash === docHash);
+  const firstUser = scoped.findIndex((message) => message.role === "user");
   return {
-    messages: messages.slice(start),
-    omitted: start,
+    messages: firstUser < 0 ? [] : scoped.slice(firstUser),
+    omitted: 0,
   };
 }

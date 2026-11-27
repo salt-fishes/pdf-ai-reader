@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { buildRequest } from "../../lib/ai/prompt";
-import { trimHistory } from "../../lib/ai/history";
+import { filterDocumentHistory } from "../../lib/ai/history";
 import { describeError, fetchConfig, streamChat } from "../../lib/ai/client";
 import {
   SUMMARY_CHUNK_CHARS,
@@ -82,6 +82,7 @@ import {
 } from "../../lib/ocr/client";
 import { useViewer } from "../viewer/useViewerStore";
 import { useOcr } from "../ocr/useOcrStore";
+import { SHARED_AI_WORKSPACE_ID, useTabs } from "../tabs/useTabStore";
 
 export type AssistantStatus = "open" | "minimized" | "closed";
 
@@ -104,6 +105,8 @@ export type SummaryProgress = {
   total: number;
 };
 
+export type AiWorkspaceMode = "inherit" | "isolated" | "shared";
+
 type AssistantState = {
   status: AssistantStatus;
   mode: AssistantMode;
@@ -114,7 +117,6 @@ type AssistantState = {
   models: string[];
   thinking: ThinkingEffort;
   contextBudget: number;
-  historyLimit: number;
   documentOnly: boolean;
   pricing: Pricing;
 
@@ -123,6 +125,8 @@ type AssistantState = {
   activeSessionId: string;
   /** Document these messages belong to; survives a viewer doc switch. */
   boundDocHash: string;
+  aiMode: AiWorkspaceMode;
+  workspaceId: string;
   context: ContextState;
   draft: string;
   streamingId: string | null;
@@ -136,6 +140,8 @@ type AssistantState = {
   loadingChat: boolean;
 
   autoCurrentPage: boolean;
+  autoSelection: boolean;
+  selectionCommit: number;
   capturingPage: number | null;
   attaching: boolean;
   filtering: { done: number; total: number } | null;
@@ -166,8 +172,8 @@ type AssistantState = {
   setModel: (model: string) => void;
   setThinking: (thinking: ThinkingEffort) => void;
   setContextBudget: (tokens: number) => void;
-  setHistoryLimit: (limit: number) => void;
   setDocumentOnly: (documentOnly: boolean) => void;
+  setAutoSelection: (enabled: boolean) => void;
   setPricing: (pricing: Pricing) => void;
   setDraft: (draft: string) => void;
   setPanel: (rect: PanelRect) => void;
@@ -187,6 +193,12 @@ type AssistantState = {
   removePageRange: () => void;
   smartFilter: () => Promise<void>;
   removeSmartFilter: () => void;
+  updateSelection: (
+    page: number,
+    text: string,
+    pages?: Array<{ page: number; text: string; source?: "ocr" | "mixed" }>,
+    source?: "ocr" | "mixed",
+  ) => void;
   addSelection: (
     page: number,
     text: string,
@@ -211,7 +223,10 @@ type AssistantState = {
   isQuoted: (messageId: string) => boolean;
   toggleExclude: (messageId: string) => void;
 
-  loadForDoc: (hash: string) => Promise<void>;
+  loadForDoc: (
+    hash: string,
+    workspace?: { mode: AiWorkspaceMode; workspaceId: string },
+  ) => Promise<void>;
   newSession: () => void;
   switchSession: (id: string) => void;
   deleteSession: (id: string) => void;
@@ -228,7 +243,6 @@ const settings = loadSettings();
 const initialSession = createSession(settings.model ?? "deepseek-flash");
 const MAX_CONTEXT_BUDGET = 1_000_000;
 const DEFAULT_CONTEXT_BUDGET = 1_000_000;
-const DEFAULT_HISTORY_LIMIT = 20;
 const initialPricing: Pricing = { ...DEFAULT_PRICING, ...(settings.pricing ?? {}) };
 const initialBudget =
   settings.contextBudget && settings.contextBudget > 32_000
@@ -237,12 +251,15 @@ const initialBudget =
 let streamAbort: AbortController | null = null;
 let summaryAbort: AbortController | null = null;
 let pageToken = 0;
+let contextEpoch = 0;
 
 type ForegroundRun = {
   id: number;
   kind: "chat" | "summary";
   epoch: number;
   hash: string;
+  docName?: string;
+  sourceTabId?: string;
   controller: AbortController;
 };
 
@@ -254,6 +271,7 @@ function beginForeground(
   kind: ForegroundRun["kind"],
   hash: string,
   controller: AbortController,
+  source: { docName?: string; sourceTabId?: string },
 ): ForegroundRun | null {
   if (foregroundRun) return null;
   foregroundRun = {
@@ -261,6 +279,8 @@ function beginForeground(
     kind,
     epoch: docEpoch,
     hash,
+    docName: source.docName,
+    sourceTabId: source.sourceTabId,
     controller,
   };
   return foregroundRun;
@@ -276,6 +296,7 @@ function endForeground(run: ForegroundRun): void {
 let filterToken = 0;
 let toastTimer: ReturnType<typeof setTimeout> | null = null;
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
+let saveQueue: Promise<void> = Promise.resolve();
 
 const EMPTY_CONTEXT: ContextState = {
   currentPage: null,
@@ -368,14 +389,15 @@ function surfaceOf(state: AssistantState): {
   const viewer = useViewer.getState();
   if (!viewer.docHash || !state.model) return { surface: 0, projected: 0, hash: "" };
   const question = state.draft.trim() || "（等待输入）";
-  const history = trimHistory(state.messages, state.historyLimit);
+  const history = workspaceHistory(state, viewer.docHash);
   const request = buildRequest({
     docName: viewer.docName,
     totalPages: viewer.numPages,
-    context: state.context,
+    context: requestContext(state, viewer.docHash),
     history: history.messages,
     historyOmitted: history.omitted,
     question,
+    documentOnly: state.documentOnly,
   });
   const surface = estimateSurface({
     system: request.system,
@@ -408,6 +430,41 @@ function messageNote(context: ContextState): string | undefined {
   return notes.length ? notes.join("；") : undefined;
 }
 
+function activeMessageSource() {
+  const viewer = useViewer.getState();
+  return {
+    docHash: viewer.docHash || undefined,
+    docName: viewer.docName || undefined,
+    sourceTabId: useTabs.getState().activeTabId ?? undefined,
+  };
+}
+
+function workspaceHistory(state: AssistantState, docHash: string) {
+  return state.aiMode === "shared" && state.documentOnly
+    ? filterDocumentHistory(state.messages, docHash)
+    : { messages: state.messages, omitted: 0 };
+}
+
+function requestContext(state: AssistantState, docHash: string): ContextState {
+  if (state.aiMode !== "shared" || !state.documentOnly) return state.context;
+  return {
+    ...state.context,
+    quotes: state.context.quotes.filter((quote) => quote.docHash === docHash),
+  };
+}
+
+function contextIsCurrent(
+  pdf: ReturnType<typeof getActiveDocument>,
+  docHash: string,
+  epoch: number,
+): boolean {
+  return (
+    epoch === contextEpoch &&
+    useViewer.getState().docHash === docHash &&
+    getActiveDocument() === pdf
+  );
+}
+
 function chatRecordFrom(state: AssistantState) {
   const hash = state.boundDocHash;
   if (!hash) return null;
@@ -417,6 +474,7 @@ function chatRecordFrom(state: AssistantState) {
   );
   return {
     hash,
+    workspaceId: state.aiMode === "inherit" ? undefined : state.workspaceId || undefined,
     sessions: sessions.map((session) => ({
       id: session.id,
       title: session.title,
@@ -430,13 +488,21 @@ function chatRecordFrom(state: AssistantState) {
   };
 }
 
+function queueChatSave(state: AssistantState): void {
+  const record = chatRecordFrom(state);
+  if (!record) return;
+  saveQueue = saveQueue
+    .catch(() => undefined)
+    .then(() => saveChatRecord(record))
+    .catch(() => undefined);
+}
+
 function saveChatNow(state: AssistantState): void {
   if (saveTimer) {
     clearTimeout(saveTimer);
     saveTimer = null;
   }
-  const record = chatRecordFrom(state);
-  if (record) void saveChatRecord(record);
+  queueChatSave(state);
 }
 
 function persistChat(state: AssistantState): void {
@@ -444,8 +510,7 @@ function persistChat(state: AssistantState): void {
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     saveTimer = null;
-    const record = chatRecordFrom(state);
-    if (record) void saveChatRecord(record);
+    queueChatSave(state);
   }, 300);
 }
 
@@ -481,7 +546,6 @@ export const useAssistant = create<AssistantState>((set, get) => {
     models: [settings.model ?? "deepseek-flash"],
     thinking: settings.thinking ?? "high",
     contextBudget: initialBudget,
-    historyLimit: settings.historyLimit ?? DEFAULT_HISTORY_LIMIT,
     documentOnly: settings.documentOnly ?? false,
     pricing: initialPricing,
 
@@ -489,6 +553,8 @@ export const useAssistant = create<AssistantState>((set, get) => {
     sessions: [initialSession],
     activeSessionId: initialSession.id,
     boundDocHash: "",
+    aiMode: "inherit",
+    workspaceId: "",
     context: { ...EMPTY_CONTEXT },
     draft: "",
     streamingId: null,
@@ -502,6 +568,8 @@ export const useAssistant = create<AssistantState>((set, get) => {
     loadingChat: false,
 
     autoCurrentPage: true,
+    autoSelection: settings.autoSelection ?? true,
+    selectionCommit: 0,
     capturingPage: null,
     attaching: false,
     filtering: null,
@@ -639,16 +707,15 @@ export const useAssistant = create<AssistantState>((set, get) => {
       recalc();
     },
 
-    setHistoryLimit: (limit) => {
-      const historyLimit = Math.min(200, Math.max(0, Math.round(limit)));
-      set({ historyLimit });
-      saveSettings({ historyLimit });
-      recalc();
-    },
-
     setDocumentOnly: (documentOnly) => {
       set({ documentOnly });
       saveSettings({ documentOnly });
+    },
+
+    setAutoSelection: (autoSelection) => {
+      set({ autoSelection });
+      saveSettings({ autoSelection });
+      if (!autoSelection && get().context.selection) get().removeSelection();
     },
 
     setPricing: (pricing) => {
@@ -696,11 +763,20 @@ export const useAssistant = create<AssistantState>((set, get) => {
       if (!state.autoCurrentPage) return;
       const pdf = getActiveDocument();
       if (!pdf) return;
+      const docHash = useViewer.getState().docHash;
+      const epoch = contextEpoch;
       const mine = ++pageToken;
       try {
         await useOcr.getState().hydrate(page);
         const text = await getPageText(pdf, page);
-        if (mine !== pageToken || !get().autoCurrentPage) return;
+        if (
+          mine !== pageToken ||
+          epoch !== contextEpoch ||
+          !get().autoCurrentPage ||
+          !contextIsCurrent(pdf, docHash, epoch)
+        ) {
+          return;
+        }
         const scanned = text.length < 20 ? [page] : [];
         set((prev) => ({
           context: { ...prev.context, currentPage: page, currentPageText: text },
@@ -738,8 +814,13 @@ export const useAssistant = create<AssistantState>((set, get) => {
       }
       const pdf = getActiveDocument();
       if (!pdf) return { ok: false, message: "请先打开 PDF" };
+      const docHash = viewer.docHash;
+      const epoch = contextEpoch;
       await useOcr.getState().hydratePages(pages);
       const result = await getPagesText(pdf, pages);
+      if (!contextIsCurrent(pdf, docHash, epoch)) {
+        return { ok: false, message: "文档已切换，请重新选择页码" };
+      }
       set((state) => ({
         autoCurrentPage: false,
         context: {
@@ -758,8 +839,11 @@ export const useAssistant = create<AssistantState>((set, get) => {
     setPageRange: async (pages) => {
       const pdf = getActiveDocument();
       if (!pdf || pages.length === 0) return;
+      const docHash = useViewer.getState().docHash;
+      const epoch = contextEpoch;
       await useOcr.getState().hydratePages(pages);
       const result = await getPagesText(pdf, pages);
+      if (!contextIsCurrent(pdf, docHash, epoch)) return;
       set((state) => ({
         autoCurrentPage: false,
         context: {
@@ -781,11 +865,15 @@ export const useAssistant = create<AssistantState>((set, get) => {
         return;
       }
       if (get().allPagesBusy) return;
+      const docHash = viewer.docHash;
+      const epoch = contextEpoch;
       set({ allPagesBusy: true });
       try {
         const pages = Array.from({ length: viewer.numPages }, (_, index) => index + 1);
         await get().setPageRange(pages);
-        get().notify(`已加入全文 ${viewer.numPages} 页`, "success");
+        if (epoch === contextEpoch && useViewer.getState().docHash === docHash) {
+          get().notify(`已加入全文 ${viewer.numPages} 页`, "success");
+        }
       } finally {
         set({ allPagesBusy: false });
       }
@@ -872,7 +960,7 @@ export const useAssistant = create<AssistantState>((set, get) => {
       recalc();
     },
 
-    addSelection: (page, text, pages, source) => {
+    updateSelection: (page, text, pages, source) => {
       const clean = text.trim();
       if (!clean) return;
       const selection: Selection = {
@@ -882,9 +970,13 @@ export const useAssistant = create<AssistantState>((set, get) => {
         pages: pages?.length ? pages : undefined,
       };
       set((state) => ({ context: { ...state.context, selection } }));
-      get().openFrom(null);
-      set({ focusInputAt: Date.now() });
       recalc();
+    },
+
+    addSelection: (page, text, pages, source) => {
+      get().updateSelection(page, text, pages, source);
+      get().openFrom(null);
+      set((state) => ({ focusInputAt: Date.now(), selectionCommit: state.selectionCommit + 1 }));
     },
 
     removeSelection: () => {
@@ -1023,6 +1115,8 @@ export const useAssistant = create<AssistantState>((set, get) => {
     capturePage: async (page) => {
       const pdf = getActiveDocument();
       if (!pdf || get().capturingPage) return;
+      const docHash = useViewer.getState().docHash;
+      const epoch = contextEpoch;
       const imageCount =
         get().context.screenshots.length +
         get().context.attachments.filter((file) => file.kind === "image").length;
@@ -1033,6 +1127,7 @@ export const useAssistant = create<AssistantState>((set, get) => {
       set({ capturingPage: page });
       try {
         const image = await renderPageImage(pdf, page);
+        if (!contextIsCurrent(pdf, docHash, epoch)) return;
         const shot: Screenshot = {
           id: `shot_${Date.now().toString(36)}`,
           page,
@@ -1076,6 +1171,8 @@ export const useAssistant = create<AssistantState>((set, get) => {
     captureRegion: async (page, rect) => {
       const pdf = getActiveDocument();
       if (!pdf || get().capturingPage) return;
+      const docHash = useViewer.getState().docHash;
+      const epoch = contextEpoch;
       const images =
         get().context.screenshots.length +
         get().context.attachments.filter((file) => file.kind === "image").length;
@@ -1091,6 +1188,7 @@ export const useAssistant = create<AssistantState>((set, get) => {
       try {
         const image = await renderPageImage(pdf, page);
         const crop = await cropImageDataUrl(image.dataUrl, rect);
+        if (!contextIsCurrent(pdf, docHash, epoch)) return;
         if (crop.width < 32 || crop.height < 32) {
           set({ capturingPage: null });
           get().notify("选区太小，请重新框选", "error");
@@ -1217,6 +1315,15 @@ export const useAssistant = create<AssistantState>((set, get) => {
     toggleQuote: (message) => {
       const text = message.content.trim();
       if (!text) return;
+      if (
+        get().aiMode === "shared" &&
+        get().documentOnly &&
+        message.docHash &&
+        message.docHash !== useViewer.getState().docHash
+      ) {
+        get().notify("严格文档模式下不能引用其他 PDF 的消息", "error");
+        return;
+      }
       const existing = get().context.quotes.find((quote) => quote.messageId === message.id);
       if (existing) {
         set((state) => ({
@@ -1233,6 +1340,9 @@ export const useAssistant = create<AssistantState>((set, get) => {
         messageId: message.id,
         role: message.role,
         text: text.length > 1200 ? `${text.slice(0, 1200)}…` : text,
+        docHash: message.docHash,
+        docName: message.docName,
+        sourceTabId: message.sourceTabId,
       };
       set((state) => ({ context: { ...state.context, quotes: [...state.context.quotes, quote] } }));
       recalc();
@@ -1269,7 +1379,10 @@ export const useAssistant = create<AssistantState>((set, get) => {
       get().notify(message?.excluded ? "已从上下文移除" : "已恢复到上下文");
     },
 
-    loadForDoc: async (hash) => {
+    loadForDoc: async (hash, workspace) => {
+      const aiMode = workspace?.mode ?? "inherit";
+      const workspaceId =
+        aiMode === "shared" ? SHARED_AI_WORKSPACE_ID : (workspace?.workspaceId ?? "");
       // Finish the outgoing document first so its partial answer is written
       // under its own hash, not under the document we are about to load.
       const outgoing = get();
@@ -1281,12 +1394,27 @@ export const useAssistant = create<AssistantState>((set, get) => {
         foregroundRun = null;
       }
       docEpoch += 1;
+      contextEpoch += 1;
+      pageToken += 1;
+      const mine = docEpoch;
       streamAbort = null;
       summaryAbort = null;
-      set({ loadingChat: true, summary: null, streamingId: null, boundDocHash: hash });
+      saveChatNow(get());
+      set({
+        loadingChat: true,
+        capturingPage: null,
+        summary: null,
+        streamingId: null,
+        boundDocHash: hash,
+        aiMode,
+        workspaceId,
+      });
       filterToken += 1;
+      await saveQueue;
+      if (mine !== docEpoch) return;
       try {
-        const record = await loadChatRecord(hash);
+        const record = await loadChatRecord(hash, aiMode === "inherit" ? undefined : workspaceId);
+        if (mine !== docEpoch) return;
         const currentModel = get().model;
         let sessions: ChatSession[] = Array.isArray(record?.sessions)
           ? record.sessions.map((session, index) => {
@@ -1338,6 +1466,8 @@ export const useAssistant = create<AssistantState>((set, get) => {
           model: active.model,
           anchor: active.anchor,
           usage: active.anchor?.usage ?? null,
+          aiMode,
+          workspaceId,
           context: { ...EMPTY_CONTEXT },
           autoCurrentPage: true,
           draft: "",
@@ -1348,12 +1478,15 @@ export const useAssistant = create<AssistantState>((set, get) => {
         });
         get().refreshEstimate();
       } catch {
+        if (mine !== docEpoch) return;
         const fallback = createSession(get().model);
         set({
           sessions: [fallback],
           activeSessionId: fallback.id,
           messages: [],
           boundDocHash: hash,
+          aiMode,
+          workspaceId,
           context: { ...EMPTY_CONTEXT },
           autoCurrentPage: true,
           streamingId: null,
@@ -1374,6 +1507,8 @@ export const useAssistant = create<AssistantState>((set, get) => {
         return;
       }
       filterToken += 1;
+      contextEpoch += 1;
+      pageToken += 1;
       const session = createSession(state.model);
       set((prev) => ({
         sessions: [...prev.sessions, session],
@@ -1404,6 +1539,8 @@ export const useAssistant = create<AssistantState>((set, get) => {
       if (state.streamingId) get().stop();
       if (state.summary) get().stopSummary();
       filterToken += 1;
+      contextEpoch += 1;
+      pageToken += 1;
       set({
         activeSessionId: target.id,
         messages: target.messages,
@@ -1432,6 +1569,8 @@ export const useAssistant = create<AssistantState>((set, get) => {
       if (state.streamingId && id === state.activeSessionId) get().stop();
       if (state.summary && id === state.activeSessionId) get().stopSummary();
       filterToken += 1;
+      contextEpoch += 1;
+      pageToken += 1;
 
       const remaining = state.sessions.filter((session) => session.id !== id);
       if (!remaining.length) {
@@ -1481,18 +1620,18 @@ export const useAssistant = create<AssistantState>((set, get) => {
     send: async (question) => {
       const text = question.trim();
       const state = get();
-      if (!text || state.streamingId || foregroundRun) return;
+      if (!text || state.streamingId || state.loadingChat || foregroundRun) return;
       const viewer = useViewer.getState();
       if (!viewer.docHash) {
         get().notify("请先打开一个 PDF", "error");
         return;
       }
 
-      const history = trimHistory(state.messages, state.historyLimit);
+      const history = workspaceHistory(state, viewer.docHash);
       const request = buildRequest({
         docName: viewer.docName,
         totalPages: viewer.numPages,
-        context: state.context,
+        context: requestContext(state, viewer.docHash),
         history: history.messages,
         historyOmitted: history.omitted,
         question: text,
@@ -1516,9 +1655,10 @@ export const useAssistant = create<AssistantState>((set, get) => {
       }
       set({ sendError: null });
 
-      const runHash = state.boundDocHash || viewer.docHash;
+      const runHash = viewer.docHash;
       const controller = new AbortController();
-      const run = beginForeground("chat", runHash, controller);
+      const source = activeMessageSource();
+      const run = beginForeground("chat", runHash, controller, source);
       if (!run) return;
       const stale = () =>
         !isForegroundCurrent(run) || docEpoch !== run.epoch || get().boundDocHash !== run.hash;
@@ -1533,6 +1673,7 @@ export const useAssistant = create<AssistantState>((set, get) => {
         status: "done",
         createdAt: now,
         note: messageNote(state.context),
+        ...source,
       };
       const assistantMessage: ChatMessage = {
         id: assistantId,
@@ -1542,6 +1683,7 @@ export const useAssistant = create<AssistantState>((set, get) => {
         createdAt: now + 1,
         model: state.model,
         allowedPages: request.allowedPages,
+        ...source,
       };
 
       const nextMessages = [...state.messages, userMessage, assistantMessage];
@@ -1591,13 +1733,13 @@ export const useAssistant = create<AssistantState>((set, get) => {
       const schedule = () => {
         dirty = true;
         const elapsed = Date.now() - lastFlush;
-        if (elapsed >= 50) {
+        if (elapsed >= 120) {
           flush();
         } else if (!flushTimer) {
           flushTimer = setTimeout(() => {
             flushTimer = null;
             flush();
-          }, 50 - elapsed);
+          }, 120 - elapsed);
         }
       };
 
@@ -1755,6 +1897,9 @@ export const useAssistant = create<AssistantState>((set, get) => {
           content: "（已取消整本总结）",
           status: "stopped",
           createdAt: now,
+          ...(run?.kind === "summary"
+            ? { docHash: run.hash, docName: run.docName, sourceTabId: run.sourceTabId }
+            : activeMessageSource()),
         };
         const messages = [...get().messages, message];
         set((prev) => ({
@@ -1777,16 +1922,17 @@ export const useAssistant = create<AssistantState>((set, get) => {
         get().notify("请先打开一个 PDF", "error");
         return;
       }
-      if (state.summary || state.streamingId || foregroundRun) return;
+      if (state.summary || state.streamingId || state.loadingChat || foregroundRun) return;
       const pdf = getActiveDocument();
       if (!pdf) {
         get().notify("PDF 还没有加载完成", "error");
         return;
       }
 
-      const hash = state.boundDocHash || viewer.docHash;
+      const hash = viewer.docHash;
       const controller = new AbortController();
-      const run = beginForeground("summary", hash, controller);
+      const source = activeMessageSource();
+      const run = beginForeground("summary", hash, controller, source);
       if (!run) return;
       const stale = () =>
         !isForegroundCurrent(run) || docEpoch !== run.epoch || get().boundDocHash !== run.hash;
@@ -1805,6 +1951,7 @@ export const useAssistant = create<AssistantState>((set, get) => {
         status: "done",
         createdAt: now,
         note: `整本总结 · ${viewer.numPages} 页`,
+        ...source,
       };
       const assistantMessage: ChatMessage = {
         id: assistantId,
@@ -1814,6 +1961,7 @@ export const useAssistant = create<AssistantState>((set, get) => {
         createdAt: now + 1,
         model,
         allowedPages: allPages,
+        ...source,
       };
       const nextMessages = [...state.messages, userMessage];
       set((prev) => ({
@@ -2065,7 +2213,7 @@ export const useAssistant = create<AssistantState>((set, get) => {
               if (stale()) return;
               content += delta;
               const now = Date.now();
-              if (now - lastFlush < 60) return;
+              if (now - lastFlush < 120) return;
               lastFlush = now;
               patchMessage(assistantId, {
                 content,
@@ -2169,13 +2317,23 @@ export const useAssistant = create<AssistantState>((set, get) => {
       const index = messages.findIndex((message) => message.id === messageId);
       if (index < 0) return;
       let question = "";
+      let sourceDocHash: string | undefined;
       for (let cursor = index - 1; cursor >= 0; cursor -= 1) {
         if (messages[cursor].role === "user") {
           question = messages[cursor].content;
+          sourceDocHash = messages[cursor].docHash;
           break;
         }
       }
       if (!question) return;
+      if (
+        get().aiMode === "shared" &&
+        sourceDocHash &&
+        sourceDocHash !== useViewer.getState().docHash
+      ) {
+        get().notify("请先切换到来源 PDF，再重新生成", "info");
+        return;
+      }
       const trimmed = messages.slice(0, index);
       set((state) => ({
         messages: trimmed,
@@ -2197,6 +2355,7 @@ export const useAssistant = create<AssistantState>((set, get) => {
       summaryAbort?.abort();
       summaryAbort = null;
       pageToken += 1;
+      contextEpoch += 1;
       filterToken += 1;
       set((state) => ({
         messages: [],

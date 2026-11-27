@@ -9,7 +9,19 @@ const release = process.env.PDF_AI_RELEASE_DIR
   ? join(process.env.PDF_AI_RELEASE_DIR)
   : join(root, "release");
 const out = join(release, "win-unpacked");
-const electronDist = join(root, "node_modules", "electron", "dist");
+// 本地优先使用全机唯一的一份全局 Electron；CI 回退到项目内安装的 Electron。
+const globalElectronDist = join(
+  homedir(),
+  "AppData",
+  "Roaming",
+  "npm",
+  "node_modules",
+  "electron",
+  "dist",
+);
+const localElectronDist = join(root, "node_modules", "electron", "dist");
+const electronDist =
+  !process.env.CI && existsSync(globalElectronDist) ? globalElectronDist : localElectronDist;
 
 function psRemove(target) {
   execFileSync("powershell", [
@@ -20,9 +32,7 @@ function psRemove(target) {
 }
 
 if (!existsSync(electronDist)) {
-  throw new Error(
-    "Electron 二进制未安装；先运行 npm install / node node_modules/electron/install.js",
-  );
+  throw new Error("Electron 二进制未找到；本地请先安装全局 Electron，CI 请先运行 npm ci");
 }
 for (const required of ["dist", "server/dist/index.mjs"]) {
   if (!existsSync(join(root, required))) {

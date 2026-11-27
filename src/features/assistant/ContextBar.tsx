@@ -2,26 +2,16 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Icon, StateIcon } from "../../components/icons/Icon";
 import { copyImage, copyText, downloadDataUrl } from "../../lib/clipboard";
-import { formatChars, formatTokens } from "../../lib/tokens/estimate";
-import { estimateCost, formatCny } from "../../lib/tokens/meter";
 import { formatPageList } from "../../lib/pdf/range";
 import { useViewer } from "../viewer/useViewerStore";
 import { useOcr } from "../ocr/useOcrStore";
-import { PagePicker } from "./PagePicker";
 import { useAssistant, useContextCount } from "./useAssistantStore";
-import { TokenRing } from "./TokenRing";
 import styles from "./Assistant.module.css";
 
 export function ContextBar() {
   const context = useAssistant((state) => state.context);
   const autoCurrentPage = useAssistant((state) => state.autoCurrentPage);
-  const numPages = useViewer((state) => state.numPages);
   const scannedPages = useAssistant((state) => state.scannedPages);
-  const projected = useAssistant((state) => state.projected);
-  const budget = useAssistant((state) => state.budget);
-  const pricing = useAssistant((state) => state.pricing);
-  const anchor = useAssistant((state) => state.anchor);
-  const usage = useAssistant((state) => state.usage);
   const removeCurrentPage = useAssistant((state) => state.removeCurrentPage);
   const addCurrentPage = useAssistant((state) => state.addCurrentPage);
   const removePageRange = useAssistant((state) => state.removePageRange);
@@ -30,8 +20,6 @@ export function ContextBar() {
   const removeScreenshot = useAssistant((state) => state.removeScreenshot);
   const removeAttachment = useAssistant((state) => state.removeAttachment);
   const removeQuote = useAssistant((state) => state.removeQuote);
-  const addAllPages = useAssistant((state) => state.addAllPages);
-  const allPagesBusy = useAssistant((state) => state.allPagesBusy);
   const setBoostContext = useAssistant((state) => state.setBoostContext);
   const collapseAt = useAssistant((state) => state.contextCollapseAt);
   const ocrEnabled = useOcr((state) => state.enabled);
@@ -43,17 +31,14 @@ export function ContextBar() {
 
   const count = useContextCount();
   const [expanded, setExpanded] = useState(false);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [textPreview, setTextPreview] = useState<{ title: string; body: string } | null>(null);
 
   useEffect(() => {
     if (!collapseAt) return;
-    // Sending starts a new turn: give the answer the panel space back.
     setExpanded(false);
     setBoostContext(false);
   }, [collapseAt, setBoostContext]);
-
-  const [editingRange, setEditingRange] = useState(false);
-  const [preview, setPreview] = useState<string | null>(null);
-  const [textPreview, setTextPreview] = useState<{ title: string; body: string } | null>(null);
 
   useEffect(() => {
     if (!preview && !textPreview) return;
@@ -68,39 +53,32 @@ export function ContextBar() {
     return () => window.removeEventListener("keydown", onKey, true);
   }, [preview, textPreview]);
 
-  const occupancy = budget > 0 ? (projected * 1.15) / budget : 0;
   const jump = (page: number) => useViewer.getState().requestScroll(page);
-
-  const icons: Array<"page" | "highlight" | "camera" | "attach" | "history" | "search"> = [];
-  if (autoCurrentPage && context.currentPage) icons.push("page");
-  if (context.pageRange) icons.push("page");
-  if (context.smart) icons.push("search");
-  if (context.selection) icons.push("highlight");
-  if (context.screenshots.length) icons.push("camera");
-  if (context.attachments.length) icons.push("attach");
-  if (context.quotes.length) icons.push("history");
-
-  const overlap =
-    context.pageRange && context.currentPage && context.pageRange.includes(context.currentPage);
-
-  const smartOverlap =
-    context.smart && context.currentPage
-      ? context.smart.pages.includes(context.currentPage)
-      : false;
-
-  const allSelected = numPages > 0 && context.pageRange?.length === numPages;
   const selectionPages = context.selection?.pages?.map((page) => page.page) ?? [];
   const selectionLabel =
     selectionPages.length > 1
       ? `P${Math.min(...selectionPages)}–P${Math.max(...selectionPages)}`
       : `P${context.selection?.page ?? 1}`;
-  const pageHint = context.pageRange
+  const primaryLabel = context.pageRange
     ? formatPageList(context.pageRange)
-    : autoCurrentPage && context.currentPage
-      ? `P${context.currentPage}`
-      : context.selection
-        ? selectionLabel
-        : "—";
+    : context.smart
+      ? "智能筛选"
+      : autoCurrentPage && context.currentPage
+        ? `P${context.currentPage} 当前页`
+        : context.selection
+          ? `选中 · ${selectionLabel}`
+          : count > 0
+            ? `${count} 项上下文`
+            : "未添加上下文";
+  const primaryCount =
+    context.pageRange || context.smart || context.selection
+      ? 1
+      : autoCurrentPage && context.currentPage
+        ? 1
+        : 0;
+  const extraCount = Math.max(0, count - primaryCount);
+  const summary = extraCount > 0 ? `${primaryLabel} · 另 ${extraCount} 项` : primaryLabel;
+
   return (
     <div className={styles.context}>
       {autoCurrentPage && context.currentPage && scannedPages.includes(context.currentPage) ? (
@@ -119,6 +97,7 @@ export function ContextBar() {
           </span>
         </div>
       ) : null}
+
       <div className={styles.contextTop}>
         <button
           className={styles.contextRow}
@@ -128,23 +107,30 @@ export function ContextBar() {
             setBoostContext(next);
           }}
           aria-expanded={expanded}
-          aria-label="上下文详情"
-          title="上下文与用量"
+          aria-label="上下文来源"
+          title="查看本次上下文来源"
         >
           <span className={styles.sourceStack} aria-hidden="true">
-            {(icons.length ? icons : (["page"] as const)).slice(0, 3).map((glyph, index) => (
-              <span key={`${glyph}_${index}`} className={styles.sourceIcon}>
-                <Icon name={glyph} size={14} />
-              </span>
-            ))}
+            <span className={styles.sourceIcon}>
+              <Icon
+                name={
+                  context.selection
+                    ? "highlight"
+                    : context.screenshots.length
+                      ? "camera"
+                      : context.attachments.length
+                        ? "attach"
+                        : context.smart
+                          ? "search"
+                          : "page"
+                }
+                size={14}
+              />
+            </span>
           </span>
-          <span className={styles.contextCount}>{count}</span>
+          <span className={styles.contextSummary}>{summary}</span>
           <span className="visually-hidden">{count} 个来源</span>
-          <span className={styles.contextMeta}>≈{formatTokens(projected)}</span>
           <span className={styles.contextSpacer} />
-          <span className={styles.contextPage}>{pageHint}</span>
-          <TokenRing value={occupancy} />
-          <span className={styles.contextMeta}>{Math.max(1, Math.round(occupancy * 100))}%</span>
           <span className={styles.chevron}>
             <StateIcon
               off="chevronDown"
@@ -168,32 +154,6 @@ export function ContextBar() {
 
       {expanded ? (
         <div className={styles.contextExpanded}>
-          <div className={styles.pageQuickBar}>
-            <div className={styles.pageQuickInfo}>
-              <span className={styles.pageQuickLabel}>发送页面</span>
-              <span className={styles.pageQuickValue}>
-                {allSelected
-                  ? `全部 ${numPages} 页`
-                  : context.pageRange
-                    ? formatPageList(context.pageRange)
-                    : autoCurrentPage && context.currentPage
-                      ? `当前页 P${context.currentPage}`
-                      : "未选择"}
-              </span>
-            </div>
-            <span className={styles.pageQuickSpacer} />
-            <button
-              className={styles.pageQuickButton}
-              onClick={() => void addAllPages()}
-              disabled={allPagesBusy || allSelected}
-              title="把整份文档加入上下文"
-            >
-              {allPagesBusy ? "载入中…" : "全部页"}
-            </button>
-            <button className={styles.pageQuickButton} onClick={() => setEditingRange(true)}>
-              选择…
-            </button>
-          </div>
           <div className={styles.chips}>
             {autoCurrentPage && context.currentPage ? (
               <span className={styles.chip}>
@@ -202,7 +162,7 @@ export function ContextBar() {
                   onClick={() => jump(context.currentPage!)}
                   title="跳到当前页"
                 >
-                  P{context.currentPage} 当前页 · {formatChars(context.currentPageText.length)}
+                  P{context.currentPage} 当前页
                 </button>
                 <button
                   className={styles.chipRemove}
@@ -218,10 +178,10 @@ export function ContextBar() {
               <span className={styles.chip}>
                 <button
                   className={styles.chipLabel}
-                  onClick={() => setEditingRange(true)}
-                  title="编辑页码范围"
+                  onClick={() => jump(context.pageRange![0])}
+                  title="跳到页码范围首页"
                 >
-                  {formatPageList(context.pageRange)} · {formatChars(context.pageRangeText.length)}
+                  {formatPageList(context.pageRange)}
                 </button>
                 <button
                   className={styles.chipRemove}
@@ -240,8 +200,7 @@ export function ContextBar() {
                   onClick={() => jump(context.smart!.pages[0] ?? 1)}
                   title={`智能筛选问题：${context.smart.query}`}
                 >
-                  智能筛选 · {context.smart.chunks} 段 / {context.smart.pages.length} 页 ·{" "}
-                  {formatChars(context.smart.chars)}
+                  智能筛选 · {context.smart.chunks} 段 / {context.smart.pages.length} 页
                 </button>
                 <button
                   className={styles.chipRemove}
@@ -260,8 +219,7 @@ export function ContextBar() {
                   onClick={() => jump(context.selection!.page)}
                   title={context.selection.text}
                 >
-                  选中{context.selection.source ? "（OCR）" : ""} · {selectionLabel} ·{" "}
-                  {formatChars(context.selection.text.length)}
+                  选中{context.selection.source ? "（OCR）" : ""} · {selectionLabel}
                 </button>
                 <button
                   className={styles.chipRemove}
@@ -328,8 +286,7 @@ export function ContextBar() {
             {context.quotes.map((quote) => (
               <span key={quote.id} className={styles.chip}>
                 <span className={styles.chipLabel} title={quote.text}>
-                  引用 · {quote.role === "assistant" ? "回答" : "提问"} ·{" "}
-                  {formatChars(quote.text.length)}
+                  引用 · {quote.role === "assistant" ? "回答" : "提问"}
                 </span>
                 <button
                   className={styles.chipRemove}
@@ -369,66 +326,6 @@ export function ContextBar() {
               </span>
             </div>
           ) : null}
-
-          {smartOverlap ? (
-            <div className={styles.chipOverlap}>
-              第 {context.currentPage} 页已包含在智能筛选结果中，发送时会自动去重。
-            </div>
-          ) : null}
-
-          {overlap ? (
-            <div className={styles.chipOverlap}>
-              第 {context.currentPage} 页已包含在页码范围内，发送时会自动去重。
-            </div>
-          ) : null}
-
-          {editingRange ? (
-            <div className={styles.contextPagePicker}>
-              <PagePicker onClose={() => setEditingRange(false)} />
-            </div>
-          ) : null}
-
-          <details className={styles.usageDetails}>
-            <summary>用量详情</summary>
-            <div className={styles.buckets}>
-              <div className={styles.bucket}>
-                <span>上次发送</span>
-                <span className={styles.bucketValue}>
-                  {anchor ? formatTokens(anchor.promptTokens) : "—"}
-                </span>
-              </div>
-              <div className={styles.bucket}>
-                <span>本次新增</span>
-                <span className={styles.bucketValue}>
-                  {formatTokens(anchor ? Math.max(0, projected - anchor.promptTokens) : projected)}
-                </span>
-              </div>
-              <div className={styles.bucket}>
-                <span>缓存命中</span>
-                <span className={styles.bucketValue}>
-                  {usage ? formatTokens(usage.cacheRead) : "—"}
-                </span>
-              </div>
-              <div className={styles.bucket}>
-                <span>输入</span>
-                <span className={styles.bucketValue}>
-                  {usage ? formatTokens(usage.uncachedInput) : "—"}
-                </span>
-              </div>
-              <div className={styles.bucket}>
-                <span>输出</span>
-                <span className={styles.bucketValue}>
-                  {usage ? formatTokens(usage.output) : "—"}
-                </span>
-              </div>
-              <div className={styles.bucket}>
-                <span>预计费用</span>
-                <span className={styles.bucketValue}>
-                  {usage ? formatCny(estimateCost(usage, pricing)) : "—"}
-                </span>
-              </div>
-            </div>
-          </details>
         </div>
       ) : null}
 
@@ -493,12 +390,11 @@ export function ContextBar() {
               <div className={styles.textPreviewCard} onClick={(event) => event.stopPropagation()}>
                 <div className={styles.textPreviewTitle}>{textPreview.title}</div>
                 <pre className={styles.textPreviewBody}>{textPreview.body}</pre>
-                <div className={styles.previewActions}>
+                <div className={styles.previewActions} onClick={(event) => event.stopPropagation()}>
                   <button
                     className={styles.previewButton}
                     onClick={async () => {
-                      const text = textPreview.body;
-                      const ok = await copyText(text);
+                      const ok = await copyText(textPreview.body);
                       useAssistant
                         .getState()
                         .notify(ok ? "已复制" : "复制失败", ok ? "success" : "error");

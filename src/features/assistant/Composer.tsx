@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Icon, StateIcon } from "../../components/icons/Icon";
-import { formatTokens } from "../../lib/tokens/estimate";
 import { useViewer } from "../viewer/useViewerStore";
-import { PagePicker } from "./PagePicker";
+import { ContextPicker } from "./ContextPicker";
 import { useAssistant } from "./useAssistantStore";
 import styles from "./Assistant.module.css";
 
@@ -12,26 +11,16 @@ export function Composer() {
   const send = useAssistant((state) => state.send);
   const stop = useAssistant((state) => state.stop);
   const streaming = useAssistant((state) => Boolean(state.streamingId));
-  const projected = useAssistant((state) => state.projected);
-  const budget = useAssistant((state) => state.budget);
   const sendError = useAssistant((state) => state.sendError);
-  const attaching = useAssistant((state) => state.attaching);
-  const capturingPage = useAssistant((state) => state.capturingPage);
   const addAttachment = useAssistant((state) => state.addAttachment);
-  const capturePage = useAssistant((state) => state.capturePage);
-  const startRegionCapture = useAssistant((state) => state.startRegionCapture);
-  const summarizeDocument = useAssistant((state) => state.summarizeDocument);
-  const summary = useAssistant((state) => state.summary);
   const smartFilter = useAssistant((state) => state.smartFilter);
   const filtering = useAssistant((state) => state.filtering);
   const numPages = useViewer((state) => state.numPages);
   const notify = useAssistant((state) => state.notify);
   const focusAt = useAssistant((state) => state.focusInputAt);
-  const context = useAssistant((state) => state.context);
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [pageOpen, setPageOpen] = useState(false);
+  const [contextOpen, setContextOpen] = useState(false);
 
   useEffect(() => {
     if (focusAt) inputRef.current?.focus();
@@ -60,8 +49,6 @@ export function Composer() {
     }
   };
 
-  const overBudget = projected * 1.15 > budget;
-
   return (
     <div
       className={styles.composer}
@@ -75,7 +62,7 @@ export function Composer() {
         if (event.dataTransfer.files.length) void handleFiles(event.dataTransfer.files);
       }}
     >
-      <div className={`${styles.inputCard} ${pageOpen ? styles.inputCardOpen : ""}`}>
+      <div className={`${styles.inputCard} ${contextOpen ? styles.inputCardOpen : ""}`}>
         <textarea
           ref={inputRef}
           className={styles.input}
@@ -131,80 +118,19 @@ export function Composer() {
         ) : null}
 
         <div className={styles.composerRow}>
-          <input
-            ref={fileRef}
-            type="file"
-            hidden
-            multiple
-            accept=".pdf,application/pdf,image/*,.txt,.md,.markdown,.csv,.json"
-            onChange={(event) => {
-              if (event.target.files) void handleFiles(event.target.files);
-              event.target.value = "";
-            }}
-          />
           <button
-            className={styles.toolButton}
-            onClick={() => fileRef.current?.click()}
-            disabled={attaching}
-            title="添加附件（PDF / 图片 / 文本）"
-            aria-label="添加附件"
+            className={`${styles.contextAddButton} ${contextOpen ? styles.actionActive : ""}`}
+            onClick={() => setContextOpen((open) => !open)}
+            title="添加页面、截图、附件或总结"
+            aria-label="添加上下文"
+            aria-expanded={contextOpen}
           >
-            {attaching ? <span className="spin" /> : <Icon name="attach" size={16} />}
-          </button>
-          <button
-            className={styles.toolButton}
-            onClick={() => {
-              const page = useViewer.getState().currentPage;
-              void capturePage(page);
-            }}
-            disabled={capturingPage !== null || !useViewer.getState().docHash}
-            title="截取当前页"
-            aria-label="截取当前页"
-            aria-keyshortcuts="Control+Alt+S"
-          >
-            {capturingPage !== null ? <span className="spin" /> : <Icon name="camera" size={16} />}
-          </button>
-          <button
-            className={styles.toolButton}
-            onClick={() => {
-              const page = useViewer.getState().currentPage;
-              startRegionCapture(page);
-            }}
-            disabled={capturingPage !== null || !useViewer.getState().docHash}
-            title="框选截图（在页面上拖拽）"
-            aria-label="框选截图"
-            aria-keyshortcuts="Control+Alt+R"
-          >
-            {capturingPage !== null ? <span className="spin" /> : <Icon name="crop" size={16} />}
-          </button>
-          <button
-            className={styles.toolButton}
-            onClick={() => void summarizeDocument()}
-            disabled={Boolean(summary) || streaming || !useViewer.getState().docHash}
-            title="总结整份文档（自动分段，不把全部页面塞进当前上下文）"
-            aria-label="总结整份文档"
-          >
-            {summary ? <span className="spin" /> : <Icon name="outline" size={16} />}
-          </button>
-          <button
-            className={`${styles.toolButton} ${pageOpen ? styles.actionActive : ""}`}
-            onClick={() => setPageOpen((open) => !open)}
-            title="限定页码"
-            aria-label="限定页码"
-            aria-expanded={pageOpen}
-          >
-            <Icon name="page" size={16} />
+            <Icon name="plus" size={15} />
+            添加上下文
           </button>
 
           <div className={styles.composerSpacer} />
 
-          <span
-            className={`${styles.tokenHint} ${overBudget ? styles.tokenWarn : ""}`}
-            title="本次发送的 token 估算"
-          >
-            ≈ {formatTokens(projected)}
-            {context.screenshots.length ? ` · ${context.screenshots.length} 图` : ""}
-          </span>
           <button
             className={`${styles.sendButton} ${streaming ? styles.stop : ""}`}
             onClick={submit}
@@ -217,9 +143,9 @@ export function Composer() {
         </div>
       </div>
 
-      {pageOpen ? (
+      {contextOpen ? (
         <div className={`${styles.popover} ${styles.popoverWide}`}>
-          <PagePicker onClose={() => setPageOpen(false)} showSmart />
+          <ContextPicker onClose={() => setContextOpen(false)} />
         </div>
       ) : null}
     </div>

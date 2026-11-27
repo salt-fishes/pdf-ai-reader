@@ -1,4 +1,5 @@
-import { clear, get, set } from "idb-keyval";
+import { clear, del, get, set } from "idb-keyval";
+import type { AppTheme, MotionPreference } from "../appearance";
 import type { ColorMode } from "../reading/color";
 import type { OcrModelId } from "../ocr/client";
 import type { ShortcutBinding } from "../shortcuts";
@@ -11,6 +12,9 @@ export type DocumentRecord = {
   zoom: number;
   /** New records store CSS-scale (100% = 96dpi). Older ones used viewport scale. */
   zoomUnits?: "css";
+  /** Per-document PDF display color, independent from the application theme. */
+  colorMode?: ColorMode;
+  colorIntensity?: number;
   scrollTop: number;
   updatedAt?: number;
 };
@@ -27,6 +31,7 @@ export type StoredChatSession = {
 
 export type ChatRecord = {
   hash: string;
+  workspaceId?: string;
   sessions?: StoredChatSession[];
   activeId?: string;
   /** Legacy single-session fields; read for migration only. */
@@ -83,8 +88,10 @@ export type RecentDocumentRecord = {
   pages: number;
   size: number;
   updatedAt: number;
-  /** Cached bytes for small files, so they can be reopened without a picker. */
+  /** Cached bytes live in a separate key so listing recents stays lightweight. */
   data?: ArrayBuffer;
+  /** Size of the separately stored cache; zero means metadata only. */
+  cachedBytes?: number;
 };
 
 export type RecentDocumentMeta = Omit<RecentDocumentRecord, "data">;
@@ -119,12 +126,15 @@ export type HighlightsRecord = {
 };
 
 const docKey = (hash: string) => `doc:${hash}`;
-const chatKey = (hash: string) => `chat:${hash}`;
+const chatKey = (hash: string, workspaceId?: string) =>
+  workspaceId ? `chatws:${workspaceId}` : `chat:${hash}`;
 const ocrKey = (hash: string) => `ocr:${hash}`;
 const ocrPageKey = (hash: string, page: number) => `ocrpage:${hash}:${page}`;
 const ocrIndexKey = (hash: string) => `ocrindex:${hash}`;
 const pageMetricsKey = (hash: string) => `metrics:${hash}`;
-const recentKey = "recent:documents:v1";
+const legacyRecentKey = "recent:documents:v1";
+const recentKey = "recent:documents:v2";
+const recentBytesKey = (hash: string) => `recentbytes:${hash}`;
 const summaryKey = (hash: string) => `summary:${hash}`;
 const highlightsKey = (hash: string) => `highlights:${hash}`;
 
@@ -136,16 +146,19 @@ export async function saveDocumentRecord(record: DocumentRecord): Promise<void> 
   await set(docKey(record.hash), { ...record, updatedAt: Date.now() });
 }
 
-export async function loadChatRecord(hash: string): Promise<ChatRecord | null> {
-  return (await get<ChatRecord>(chatKey(hash))) ?? null;
+export async function loadChatRecord(
+  hash: string,
+  workspaceId?: string,
+): Promise<ChatRecord | null> {
+  return (await get<ChatRecord>(chatKey(hash, workspaceId))) ?? null;
 }
 
 export async function saveChatRecord(record: ChatRecord): Promise<void> {
-  await set(chatKey(record.hash), { ...record, updatedAt: Date.now() });
+  await set(chatKey(record.hash, record.workspaceId), { ...record, updatedAt: Date.now() });
 }
 
-export async function clearChatRecord(hash: string): Promise<void> {
-  await set(chatKey(hash), null);
+export async function clearChatRecord(hash: string, workspaceId?: string): Promise<void> {
+  await set(chatKey(hash, workspaceId), null);
 }
 
 export async function loadOcrRecord(hash: string): Promise<OcrRecord | null> {
@@ -187,24 +200,61 @@ export async function savePageMetrics(record: PageMetricsRecord): Promise<void> 
   await set(pageMetricsKey(record.hash), { ...record, updatedAt: Date.now() });
 }
 
-export async function loadRecentDocuments(): Promise<RecentDocumentRecord[]> {
-  return (await get<RecentDocumentRecord[]>(recentKey)) ?? [];
+export async function loadRecentDocuments(): Promise<RecentDocumentMeta[]> {
+  let records = await get<RecentDocumentMeta[]>(recentKey);
+  if (!records) {
+    const legacy = await get<RecentDocumentRecord[]>(legacyRecentKey);
+    if (legacy) {
+      await saveRecentDocuments(fitRecentBudget(legacy));
+      await del(legacyRecentKey);
+    } else {
+      await set(recentKey, []);
+    }
+    records = (await get<RecentDocumentMeta[]>(recentKey)) ?? [];
+  }
+  return records.map((record) => ({ ...record, cachedBytes: record.cachedBytes ?? 0 }));
 }
 
 export async function saveRecentDocuments(records: RecentDocumentRecord[]): Promise<void> {
-  await set(recentKey, records);
+  const previous = (await get<RecentDocumentMeta[]>(recentKey)) ?? [];
+  const nextHashes = new Set(records.map((record) => record.hash));
+  for (const record of previous) {
+    if (!nextHashes.has(record.hash)) await del(recentBytesKey(record.hash));
+  }
+
+  const metadata: RecentDocumentMeta[] = [];
+  for (const record of records) {
+    const { data, ...fields } = record;
+    const cachedBytes = data?.byteLength ?? record.cachedBytes ?? 0;
+    if (data) {
+      await set(recentBytesKey(record.hash), data);
+    } else if (cachedBytes <= 0) {
+      await del(recentBytesKey(record.hash));
+    }
+    metadata.push({ ...fields, cachedBytes });
+  }
+  await set(recentKey, metadata);
 }
 
-export async function recordRecentDocument(
-  record: RecentDocumentRecord,
-): Promise<RecentDocumentRecord[]> {
-  const current = await loadRecentDocuments();
-  const next = [record, ...current.filter((item) => item.hash !== record.hash)]
-    .sort((a, b) => b.updatedAt - a.updatedAt)
-    .slice(0, 8);
-  const fitted = fitRecentBudget(next);
-  await saveRecentDocuments(fitted);
-  return fitted;
+let recentQueue: Promise<void> = Promise.resolve();
+
+export function recordRecentDocument(record: RecentDocumentRecord): Promise<RecentDocumentMeta[]> {
+  const run = recentQueue
+    .catch(() => undefined)
+    .then(async () => {
+      const current = await loadRecentDocuments();
+      const next = [record, ...current.filter((item) => item.hash !== record.hash)]
+        .sort((a, b) => b.updatedAt - a.updatedAt)
+        .slice(0, 8);
+      const fitted = fitRecentBudget(next);
+      await saveRecentDocuments(fitted);
+      return fitted;
+    });
+  recentQueue = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
 }
 
 export const RECENT_TOTAL_BUDGET = 64 * 1024 * 1024;
@@ -218,20 +268,29 @@ export function fitRecentBudget(
   records: RecentDocumentRecord[],
   budget = RECENT_TOTAL_BUDGET,
 ): RecentDocumentRecord[] {
-  const next = records.map((item) => ({ ...item }));
-  let total = next.reduce((sum, item) => sum + (item.data?.byteLength ?? 0), 0);
+  const next = records.map((item) => ({
+    ...item,
+    cachedBytes: item.data?.byteLength ?? item.cachedBytes ?? 0,
+  }));
+  let total = next.reduce((sum, item) => sum + (item.cachedBytes ?? 0), 0);
   for (let index = next.length - 1; index >= 0 && total > budget; index -= 1) {
     const data = next[index].data;
-    if (!data) continue;
-    total -= data.byteLength;
+    const cachedBytes = next[index].cachedBytes ?? 0;
+    if (!data && cachedBytes <= 0) continue;
+    if (data) total -= data.byteLength;
+    else total -= cachedBytes;
     delete next[index].data;
+    next[index].cachedBytes = 0;
   }
   return next;
 }
 
 export async function loadRecentBytes(hash: string): Promise<RecentDocumentRecord | null> {
   const records = await loadRecentDocuments();
-  return records.find((item) => item.hash === hash) ?? null;
+  const record = records.find((item) => item.hash === hash);
+  if (!record) return null;
+  const data = await get<ArrayBuffer>(recentBytesKey(hash));
+  return { ...record, data: data ?? undefined };
 }
 
 export async function loadSummaryRecord(hash: string): Promise<SummaryRecord | null> {
@@ -260,7 +319,7 @@ export async function hashBytes(bytes: ArrayBuffer): Promise<string> {
 }
 
 const SETTINGS_KEY = "pdf-ai-reader:settings:v1";
-export const DB_VERSION = 2;
+export const DB_VERSION = 3;
 const DB_META_KEY = "meta:db";
 
 export type DbMeta = { version: number; updatedAt: number };
@@ -276,6 +335,7 @@ export async function saveDbMeta(meta: DbMeta): Promise<void> {
 /**
  * Bump-only migration. Version 2 trims the recent-document cache to the 64MB
  * budget and records the schema version; version 1 had no metadata key.
+ * Version 3 splits cached PDF bytes out of the recent-document list.
  */
 export async function migrateLocalData(): Promise<void> {
   const meta = await loadDbMeta();
@@ -286,6 +346,8 @@ export async function migrateLocalData(): Promise<void> {
 }
 
 export type StoredSettings = {
+  appTheme?: AppTheme;
+  motion?: MotionPreference;
   assistantStatus?: "minimized" | "closed";
   assistantMode?: "float" | "sidebar";
   panel?: { left: number; top: number; width: number; height: number; docked: boolean };
@@ -296,12 +358,13 @@ export type StoredSettings = {
   colorIntensity?: number;
   thinking?: "none" | "low" | "high" | "max";
   contextBudget?: number;
-  historyLimit?: number;
   /** Strict document-only answers; disables general knowledge and tools. */
   documentOnly?: boolean;
+  autoSelection?: boolean;
   pricing?: { inputMiss: number; inputHit: number; output: number };
   shortcuts?: Partial<Record<string, ShortcutBinding[]>>;
   showShortcuts?: boolean;
+  ocrAuto?: boolean;
   ocrTextLayer?: boolean;
   ocrModel?: OcrModelId;
 };

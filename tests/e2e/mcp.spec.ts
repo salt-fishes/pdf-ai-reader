@@ -3,11 +3,11 @@ import { openSample, registerMockGuard } from "./helpers";
 
 registerMockGuard();
 
-test("model settings expose Sciverse and MCP tool configuration", async ({ page }) => {
+test("tool settings expose Sciverse and MCP configuration", async ({ page }) => {
   await openSample(page);
   await page.locator('button[aria-label="设置"]').first().click();
   const settings = page.getByRole("dialog", { name: "设置" });
-  await settings.getByRole("button", { name: "模型服务", exact: true }).click();
+  await settings.getByRole("button", { name: "外部工具", exact: true }).click();
 
   await expect(settings.getByText("外部工具（MCP / Skills）")).toBeVisible();
   await expect(settings.getByText("学术检索 · Sciverse")).toBeVisible();

@@ -1,8 +1,10 @@
 import {
   Suspense,
   lazy,
+  useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type CSSProperties,
   type DragEvent,
@@ -18,8 +20,8 @@ import { REGION_EVENT, type RegionSelectionDetail } from "../features/viewer/reg
 import { AssistantFab } from "../features/assistant/AssistantFab";
 import { SelectionToolbar } from "../features/assistant/SelectionToolbar";
 import { useAssistant } from "../features/assistant/useAssistantStore";
+import { useTabs } from "../features/tabs/useTabStore";
 import { closePanel, minimizePanel } from "../features/assistant/panelControl";
-import { SettingsDialog } from "../features/settings/SettingsDialog";
 import { ShortcutsDialog } from "../features/shortcuts/ShortcutsDialog";
 import { useShortcutsStore } from "../features/shortcuts/useShortcutsStore";
 import { useHotkeys, type Hotkey } from "../hooks/useHotkeys";
@@ -33,7 +35,8 @@ import {
   takePendingPdf,
   type DesktopPdfPayload,
 } from "../lib/desktop";
-import { getColorMode } from "../lib/reading/color";
+import { resolveAppTheme, resolveMotion } from "../lib/appearance";
+import { useAppearance } from "../features/appearance/useAppearanceStore";
 import { SHORTCUT_ACTIONS, type ShortcutId } from "../lib/shortcuts";
 import styles from "./App.module.css";
 import assistantStyles from "../features/assistant/Assistant.module.css";
@@ -44,11 +47,26 @@ const AssistantPanel = lazy(() =>
   })),
 );
 
+const SettingsWorkspace = lazy(() =>
+  import("../features/settings/SettingsWorkspace").then((module) => ({
+    default: module.SettingsWorkspace,
+  })),
+);
+
 export function App() {
   const docHash = useViewer((state) => state.docHash);
   const currentPage = useViewer((state) => state.currentPage);
   const colorMode = useViewer((state) => state.colorMode);
-  const theme = getColorMode(colorMode).chrome;
+  const themePreference = useAppearance((state) => state.theme);
+  const motionPreference = useAppearance((state) => state.motion);
+  const [systemDark, setSystemDark] = useState(
+    () => window.matchMedia("(prefers-color-scheme: dark)").matches,
+  );
+  const [systemReducedMotion, setSystemReducedMotion] = useState(
+    () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+  );
+  const theme = resolveAppTheme(themePreference, systemDark);
+  const motion = resolveMotion(motionPreference, systemReducedMotion);
   const regionPage = useViewer((state) => state.regionPage);
   const status = useAssistant((state) => state.status);
   const mode = useAssistant((state) => state.mode);
@@ -56,10 +74,40 @@ export function App() {
   const panelPreviewWidth = useAssistant((state) => state.panelPreviewWidth);
   const toast = useAssistant((state) => state.toast);
   const loadForDoc = useAssistant((state) => state.loadForDoc);
+  const updateSelection = useAssistant((state) => state.updateSelection);
+  const removeSelection = useAssistant((state) => state.removeSelection);
+  const autoSelection = useAssistant((state) => state.autoSelection);
+  const selectionCommit = useAssistant((state) => state.selectionCommit);
+  const selection = useViewer((state) => state.selection);
+  const lastSelectionCommitRef = useRef(0);
+  const activeTabId = useTabs((state) => state.activeTabId);
+  const activeTabHash = useTabs(
+    (state) => state.tabs.find((tab) => tab.id === state.activeTabId)?.docHash,
+  );
+  const activeTabStatus = useTabs(
+    (state) => state.tabs.find((tab) => tab.id === state.activeTabId)?.status,
+  );
+  const activeTabAiMode = useTabs(
+    (state) => state.tabs.find((tab) => tab.id === state.activeTabId)?.aiMode ?? "inherit",
+  );
+  const activeTabWorkspaceId = useTabs(
+    (state) => state.tabs.find((tab) => tab.id === state.activeTabId)?.workspaceId ?? "",
+  );
+  const openFileTab = useTabs((state) => state.openFileTab);
+  const restoreTabs = useTabs((state) => state.restoreTabs);
   const bootstrap = useAssistant((state) => state.bootstrap);
   const shortcutBindings = useShortcutsStore((state) => state.bindings);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const settingsTriggerRef = useRef<HTMLElement | null>(null);
+  const openSettings = useCallback(() => {
+    settingsTriggerRef.current = document.activeElement as HTMLElement | null;
+    setSettingsOpen(true);
+  }, []);
+  const closeSettings = useCallback(() => {
+    setSettingsOpen(false);
+    window.setTimeout(() => settingsTriggerRef.current?.focus(), 0);
+  }, []);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [dragging, setDragging] = useState(false);
   // The assistant chunk is ~500KB. Keep it unmounted until the panel is first
@@ -77,6 +125,26 @@ export function App() {
   }, [bootstrap]);
 
   useEffect(() => {
+    void restoreTabs();
+  }, [restoreTabs]);
+
+  useEffect(() => {
+    const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const update = () => {
+      setSystemDark(darkQuery.matches);
+      setSystemReducedMotion(motionQuery.matches);
+    };
+    update();
+    darkQuery.addEventListener("change", update);
+    motionQuery.addEventListener("change", update);
+    return () => {
+      darkQuery.removeEventListener("change", update);
+      motionQuery.removeEventListener("change", update);
+    };
+  }, []);
+
+  useEffect(() => {
     setTitleBarTheme(theme === "night");
   }, [theme]);
 
@@ -84,10 +152,7 @@ export function App() {
   // file that arrives earlier stays in the one-slot pending queue.
   useEffect(() => {
     const openPayload = (payload: DesktopPdfPayload) => {
-      void useViewer
-        .getState()
-        .openFile(fileFromDesktopPayload(payload))
-        .catch(() => undefined);
+      openFileTab(fileFromDesktopPayload(payload));
     };
     const unsubscribe = onOpenPdf(openPayload);
     markRendererReady();
@@ -95,7 +160,7 @@ export function App() {
       if (payload) openPayload(payload);
     });
     return unsubscribe;
-  }, []);
+  }, [openFileTab]);
 
   // Ctrl/⌘ + wheel is reserved for document zoom. Outside the reader there is
   // nothing to scale, so stop Chromium from zooming the whole application UI.
@@ -118,22 +183,49 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    if (!docHash) return;
+    if (!docHash || !activeTabId || activeTabStatus !== "ready" || activeTabHash !== docHash) {
+      return;
+    }
     let alive = true;
     void (async () => {
-      await loadForDoc(docHash);
+      await loadForDoc(docHash, {
+        mode: activeTabAiMode,
+        workspaceId: activeTabWorkspaceId,
+      });
       if (!alive) return;
       await useAssistant.getState().syncCurrentPage(useViewer.getState().currentPage);
     })();
     return () => {
       alive = false;
     };
-  }, [docHash, loadForDoc]);
+  }, [
+    docHash,
+    activeTabId,
+    activeTabHash,
+    activeTabStatus,
+    activeTabAiMode,
+    activeTabWorkspaceId,
+    loadForDoc,
+  ]);
 
   useEffect(() => {
     if (!docHash) return;
     void useAssistant.getState().syncCurrentPage(currentPage);
-  }, [currentPage, docHash]);
+  }, [currentPage, docHash, activeTabId]);
+
+  useEffect(() => {
+    if (!autoSelection) return;
+    if (!selection) {
+      if (selectionCommit !== lastSelectionCommitRef.current) {
+        lastSelectionCommitRef.current = selectionCommit;
+        return;
+      }
+      removeSelection();
+      return;
+    }
+    lastSelectionCommitRef.current = selectionCommit;
+    updateSelection(selection.page, selection.text, selection.pages, selection.source);
+  }, [selection, selectionCommit, autoSelection, updateSelection, removeSelection]);
 
   const bindings = useMemo<Hotkey[]>(() => {
     const toggleAssistant = () => {
@@ -168,7 +260,7 @@ export function App() {
         if (selection) useAssistant.getState().addSelection(selection.page, selection.text);
       },
       "reader.search": () => useViewer.getState().openSearch(),
-      "reader.open": () => pickPdfFile((file) => void useViewer.getState().openFile(file)),
+      "reader.open": () => pickPdfFile((file) => openFileTab(file)),
       "reader.nextPage": () => {
         const viewer = useViewer.getState();
         if (viewer.numPages)
@@ -195,7 +287,7 @@ export function App() {
         run: runs[action.id],
       })),
     );
-  }, [shortcutBindings]);
+  }, [shortcutBindings, openFileTab]);
 
   useHotkeys(bindings);
 
@@ -207,7 +299,7 @@ export function App() {
         return;
       }
       if (settingsOpen) {
-        setSettingsOpen(false);
+        closeSettings();
         return;
       }
       if (shortcutsOpen) {
@@ -236,7 +328,7 @@ export function App() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [settingsOpen, shortcutsOpen]);
+  }, [settingsOpen, shortcutsOpen, closeSettings]);
 
   const onDrop = async (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -247,7 +339,7 @@ export function App() {
       (file) => file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf"),
     );
     if (pdf) {
-      await useViewer.getState().openFile(pdf);
+      openFileTab(pdf);
     }
     const rest = files.filter((file) => file !== pdf);
     for (const file of rest) {
@@ -270,7 +362,10 @@ export function App() {
       className={styles.app}
       data-theme={theme}
       data-color-mode={colorMode}
+      data-motion={motion}
       data-desktop={isDesktop() ? "true" : undefined}
+      inert={settingsOpen ? true : undefined}
+      aria-hidden={settingsOpen ? true : undefined}
       onDragOver={(event) => {
         if (event.dataTransfer.types.includes("Files")) {
           event.preventDefault();
@@ -283,42 +378,44 @@ export function App() {
       onDrop={(event) => void onDrop(event)}
     >
       <Header
-        onOpenSettings={() => setSettingsOpen(true)}
+        onOpenSettings={openSettings}
         onOpenShortcuts={() => setShortcutsOpen(true)}
         onOpenSearch={() => useViewer.getState().openSearch()}
       />
       <div className={styles.body}>
-        <Rail
-          onOpenSettings={() => setSettingsOpen(true)}
-          onOpenShortcuts={() => setShortcutsOpen(true)}
-        />
+        <Rail onOpenSettings={openSettings} onOpenShortcuts={() => setShortcutsOpen(true)} />
         <Sidebar />
         <main
           className={`${styles.reader} ${reserved ? styles.readerReserved : ""}`}
           style={reserveStyle}
         >
-          <PdfViewer />
+          <PdfViewer key={activeTabId ?? "empty"} />
         </main>
       </div>
 
       <AssistantFab />
       {assistantMounted ? (
         <Suspense fallback={null}>
-          <AssistantPanel onOpenSettings={() => setSettingsOpen(true)} />
+          <AssistantPanel onOpenSettings={openSettings} />
         </Suspense>
       ) : null}
       <SelectionToolbar />
       <SearchOverlay />
 
       <PasswordDialog />
-      <SettingsDialog
-        open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
-        onOpenShortcuts={() => {
-          setSettingsOpen(false);
-          setShortcutsOpen(true);
-        }}
-      />
+      {settingsOpen ? (
+        <Suspense fallback={null}>
+          <SettingsWorkspace
+            onClose={closeSettings}
+            onOpenShortcuts={() => {
+              setSettingsOpen(false);
+              setShortcutsOpen(true);
+            }}
+            theme={theme}
+            motion={motion}
+          />
+        </Suspense>
+      ) : null}
       <ShortcutsDialog open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
 
       {toast ? (

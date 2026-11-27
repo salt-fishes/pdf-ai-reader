@@ -4,6 +4,8 @@ import { Icon } from "../components/icons/Icon";
 import { pickPdfFile } from "../lib/openFile";
 import { useViewer } from "../features/viewer/useViewerStore";
 import { useAssistant } from "../features/assistant/useAssistantStore";
+import { PdfTabStrip } from "../features/tabs/PdfTabStrip";
+import { useTabs } from "../features/tabs/useTabStore";
 import styles from "./Chrome.module.css";
 
 type Props = {
@@ -17,10 +19,12 @@ export function Header({ onOpenSettings, onOpenShortcuts, onOpenSearch }: Props)
   const numPages = useViewer((state) => state.numPages);
   const currentPage = useViewer((state) => state.currentPage);
   const zoom = useViewer((state) => state.zoom);
-  const openFile = useViewer((state) => state.openFile);
   const recent = useViewer((state) => state.recent);
-  const openRecent = useViewer((state) => state.openRecent);
-  const closeDocument = useViewer((state) => state.closeDocument);
+  const tabs = useTabs((state) => state.tabs);
+  const activeTabId = useTabs((state) => state.activeTabId);
+  const openFileTab = useTabs((state) => state.openFileTab);
+  const openRecentTab = useTabs((state) => state.openRecentTab);
+  const closeTab = useTabs((state) => state.closeTab);
   const requestScroll = useViewer((state) => state.requestScroll);
   const zoomBy = useViewer((state) => state.zoomBy);
   const requestFit = useViewer((state) => state.requestFit);
@@ -87,9 +91,13 @@ export function Header({ onOpenSettings, onOpenShortcuts, onOpenSearch }: Props)
         <span className={styles.brandName}>文疏</span>
       </div>
       <div className={styles.divider} />
-      <div className={styles.docTitle} title={docName || "未打开文档"}>
-        {docName ? `${docName}${numPages ? ` · ${numPages} 页` : ""}` : "未打开文档"}
-      </div>
+      {tabs.length ? (
+        <PdfTabStrip />
+      ) : (
+        <div className={styles.docTitle} title={docName || "未打开文档"}>
+          {docName ? `${docName}${numPages ? ` · ${numPages} 页` : ""}` : "未打开文档"}
+        </div>
+      )}
 
       <div className={styles.spacer} />
 
@@ -213,7 +221,7 @@ export function Header({ onOpenSettings, onOpenShortcuts, onOpenSearch }: Props)
                 role="menuitem"
                 onClick={() => {
                   setMenuOpen(false);
-                  pickPdfFile((file) => void openFile(file));
+                  pickPdfFile((file) => openFileTab(file));
                 }}
               >
                 <Icon name="page" size={14} />
@@ -227,7 +235,7 @@ export function Header({ onOpenSettings, onOpenShortcuts, onOpenSearch }: Props)
                   title={`${item.name} · ${item.pages} 页`}
                   onClick={() => {
                     setMenuOpen(false);
-                    void openRecent(item.hash);
+                    void openRecentTab(item.hash, item.name);
                   }}
                 >
                   <Icon name="history" size={14} />
@@ -277,11 +285,11 @@ export function Header({ onOpenSettings, onOpenShortcuts, onOpenSearch }: Props)
                     role="menuitem"
                     onClick={() => {
                       setMenuOpen(false);
-                      void closeDocument();
+                      if (activeTabId) void closeTab(activeTabId);
                     }}
                   >
                     <Icon name="close" size={14} />
-                    关闭文档
+                    {tabs.length > 1 ? "关闭标签" : "关闭文档"}
                   </button>
                 </>
               ) : null}

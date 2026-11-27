@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { Icon } from "../../../components/icons/Icon";
 import { clearAllLocalData } from "../../../lib/storage/db";
+import { clearStoredTabs } from "../../tabs/tabStorage";
 import { useAssistant } from "../../assistant/useAssistantStore";
 import { useViewer } from "../../viewer/useViewerStore";
-import styles from "../../../components/Modal.module.css";
+import { useTabs } from "../../tabs/useTabStore";
+import styles from "../SettingsUI.module.css";
 
 type Props = { onOpenPrivacyDoc: () => void };
 
@@ -42,6 +44,8 @@ export function PrivacySection({ onOpenPrivacyDoc }: Props) {
     setClearing(true);
     setMessage("");
     try {
+      await useTabs.getState().clearTabs();
+      clearStoredTabs();
       await clearAllLocalData();
       setConfirmClear(false);
       setMessage("阅读数据已清空。PDF 文件、模型密钥与 OCR 组件仍然保留。");

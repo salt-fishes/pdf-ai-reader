@@ -33,5 +33,17 @@ describe("recent document cache budget", () => {
     const records = [record("a", 1, 2), record("b", 2, 1)];
     const fitted = fitRecentBudget(records, 64 * 1024 * 1024);
     expect(fitted.every((item) => item.data)).toBe(true);
+    expect(fitted.map((item) => item.cachedBytes)).toEqual([1 * 1024 * 1024, 2 * 1024 * 1024]);
+  });
+
+  it("budgets separately stored bytes without loading them", () => {
+    const records: RecentDocumentRecord[] = [
+      { ...record("new", 20, 5), data: undefined, cachedBytes: 20 * 1024 * 1024 },
+      { ...record("old", 40, 1), data: undefined, cachedBytes: 40 * 1024 * 1024 },
+    ];
+    const fitted = fitRecentBudget(records, 50 * 1024 * 1024);
+    expect(fitted[0].cachedBytes).toBe(20 * 1024 * 1024);
+    expect(fitted[1].cachedBytes).toBe(0);
+    expect(fitted[1].data).toBeUndefined();
   });
 });

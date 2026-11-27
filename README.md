@@ -109,11 +109,12 @@ npm run dev:all
 ```bash
 npm run desktop:dev       # 开发壳
 npm run package:desktop   # 可移植目录，输出到 release/
-npm run build:installers  # NSIS .exe + MSI，输出到 release/
+npm run build:installers  # NSIS .exe + MSI 包装版，输出到 release/
 ```
 
-发布页同时提供便携 zip、NSIS 与 MSI；安装版和便携版都不内置 OCR，首次开启时下载组件。
+发布页同时提供便携 zip、NSIS 与 MSI 包装版；安装版和便携版都不内置 OCR，首次开启时下载组件。
 NSIS 安装向导可选择“在 PDF 打开方式中显示文疏”（默认勾选），只声明打开方式，不会自动设为默认。
+EXE 与 MSI 都会先卸载旧版 NSIS/MSI，再安装新版，避免重复快捷方式。
 
 ### 没有 API Key
 

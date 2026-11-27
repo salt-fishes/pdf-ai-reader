@@ -1,8 +1,18 @@
 import { spawn } from "node:child_process";
-import { createRequire } from "node:module";
+import { homedir } from "node:os";
+import { join } from "node:path";
 
-const require = createRequire(import.meta.url);
-const electronPath = require("electron");
+// 全机统一：使用全局安装的唯一一份 Electron 二进制
+const electronPath = join(
+  homedir(),
+  "AppData",
+  "Roaming",
+  "npm",
+  "node_modules",
+  "electron",
+  "dist",
+  "electron.exe",
+);
 const isWindows = process.platform === "win32";
 
 const dev = spawn(isWindows ? "npm.cmd" : "npm", ["run", "dev:all"], {

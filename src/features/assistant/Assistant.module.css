@@ -701,6 +701,27 @@
   margin-top: 3px;
 }
 
+.documentSource {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  margin: 0 0 4px;
+  padding: 2px 6px;
+  border: 1px solid var(--brand-a10);
+  border-radius: 999px;
+  background: var(--brand-a05);
+  color: var(--muted);
+  font-size: var(--text-2xs);
+  line-height: 1.4;
+}
+
+.documentSource span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .messageBody {
   font-size: var(--text-md);
   line-height: 1.66;
@@ -1242,6 +1263,15 @@
 .contextCount {
   color: var(--ink);
   font-weight: 500;
+}
+
+.contextSummary {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .contextMeta {
@@ -2566,6 +2596,122 @@
 .textPreviewCard .previewButton {
   background: rgb(27 26 34 / 6%);
   box-shadow: none;
+}
+
+.contextAddButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 9px;
+  border-radius: 7px;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+  transition:
+    color var(--motion-fast) var(--ease-standard),
+    background var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-out);
+}
+
+.contextAddButton:hover {
+  background: var(--brand-a08);
+  color: var(--accent-deep);
+}
+
+.contextAddButton:active {
+  transform: scale(0.98);
+}
+
+.contextMenu {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.contextMenuHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.contextMenuTitle {
+  color: var(--ink);
+  font-size: var(--text-sm);
+  font-weight: 650;
+}
+
+.contextMenuHint {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+}
+
+.contextMenuClose {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  color: var(--muted);
+}
+
+.contextMenuClose:hover {
+  background: var(--surface-muted);
+  color: var(--ink);
+}
+
+.contextActions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.contextAction {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  column-gap: 8px;
+  align-items: center;
+  min-height: 52px;
+  padding: 7px 8px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  color: var(--ink);
+  font-size: var(--text-xs);
+  text-align: left;
+  transition:
+    border-color var(--motion-fast) var(--ease-standard),
+    background var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-out);
+}
+
+.contextAction:hover:not(:disabled) {
+  border-color: var(--brand-a30);
+  background: var(--brand-a05);
+  transform: translateY(-1px);
+}
+
+.contextAction:disabled {
+  opacity: 0.45;
+}
+
+.contextActionIcon {
+  grid-row: 1 / 3;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: var(--brand-a08);
+  color: var(--accent-deep);
+}
+
+.contextAction small {
+  color: var(--muted);
+  font-size: var(--text-2xs);
 }
 
 /* ---------- Mobile ---------- */

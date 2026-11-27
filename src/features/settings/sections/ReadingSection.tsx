@@ -1,9 +1,10 @@
 import { Icon } from "../../../components/icons/Icon";
 import { formatBindings, SHORTCUT_ACTIONS } from "../../../lib/shortcuts";
 import { ColorModeControl } from "../../viewer/ColorModeControl";
+import { useViewer } from "../../viewer/useViewerStore";
 import { useAssistant } from "../../assistant/useAssistantStore";
 import { useShortcutsStore } from "../../shortcuts/useShortcutsStore";
-import styles from "../../../components/Modal.module.css";
+import styles from "../SettingsUI.module.css";
 
 type Props = { onOpenShortcuts: () => void };
 
@@ -11,6 +12,7 @@ export function ReadingSection({ onOpenShortcuts }: Props) {
   const mode = useAssistant((state) => state.mode);
   const setMode = useAssistant((state) => state.setMode);
   const bindings = useShortcutsStore((state) => state.bindings);
+  const docName = useViewer((state) => state.docName);
   const toggleAction = SHORTCUT_ACTIONS.find((action) => action.id === "assistant.toggle");
   const toggleKeys = formatBindings(bindings["assistant.toggle"] ?? toggleAction?.defaults ?? []);
 
@@ -19,8 +21,12 @@ export function ReadingSection({ onOpenShortcuts }: Props) {
       <header className={styles.pageHeader}>
         <div>
           <h2 className={styles.pageTitle}>阅读</h2>
-          <p className={styles.pageDesc}>调整助手的位置、页面色彩与操作方式。</p>
+          <p className={styles.pageDesc}>调整当前 PDF 的显示方式、助手位置与操作习惯。</p>
         </div>
+        <span className={`${styles.statusPill} ${styles.pillOk}`}>
+          <i className={styles.pillDot} aria-hidden="true" />
+          {docName || "新文档默认"}
+        </span>
       </header>
 
       <div className={styles.group}>

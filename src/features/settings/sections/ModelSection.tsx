@@ -3,8 +3,7 @@ import { Icon } from "../../../components/icons/Icon";
 import { fetchModels, saveProviderConfig } from "../../../lib/ai/client";
 import { DEFAULT_PRICING } from "../../../lib/tokens/meter";
 import { useAssistant } from "../../assistant/useAssistantStore";
-import styles from "../../../components/Modal.module.css";
-import { McpTools } from "./McpTools";
+import styles from "../SettingsUI.module.css";
 
 function splitModels(value: string): string[] {
   return [
@@ -419,8 +418,6 @@ export function ModelSection() {
           </div>
         ) : null}
       </div>
-
-      <McpTools />
 
       <details className={`${styles.group} ${styles.groupDetails}`}>
         <summary className={styles.groupSummary}>

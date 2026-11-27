@@ -16,6 +16,7 @@ import {
   type OcrStatus,
 } from "../../lib/ocr/client";
 import {
+  loadOcrIndex,
   loadOcrPage,
   loadSettings,
   saveOcrPage,
@@ -39,6 +40,7 @@ type OcrState = {
   phase: OcrPhase;
   error: string | null;
   enabled: boolean;
+  autoEnabled: boolean;
   textVersion: number;
   installing: boolean;
   lastCompleted: number | null;
@@ -47,6 +49,7 @@ type OcrState = {
   reset: (hash: string) => void;
   refreshStatus: () => Promise<void>;
   setEnabled: (enabled: boolean) => void;
+  setAutoEnabled: (enabled: boolean) => void;
   observe: (page: number, priority?: OcrPriority) => void;
   ensurePage: (page: number, priority?: OcrPriority) => Promise<void>;
   ensurePages: (pages: number[], priority?: OcrPriority) => void;
@@ -224,6 +227,7 @@ export const useOcr = create<OcrState>((set, get) => {
     phase: "idle",
     error: null,
     enabled: settings.ocrTextLayer !== false,
+    autoEnabled: settings.ocrAuto ?? settings.ocrTextLayer !== false,
     textVersion: 0,
     installing: false,
     lastCompleted: null,
@@ -272,11 +276,16 @@ export const useOcr = create<OcrState>((set, get) => {
     setEnabled: (enabled) => {
       set({ enabled });
       saveSettings({ ocrTextLayer: enabled });
-      if (!enabled) get().cancelPending();
+    },
+
+    setAutoEnabled: (autoEnabled) => {
+      set({ autoEnabled });
+      saveSettings({ ocrAuto: autoEnabled });
+      if (!autoEnabled) get().cancelPending();
     },
 
     observe: (page, priority = "high") => {
-      if (!get().enabled) return;
+      if (!get().autoEnabled) return;
       if (priority === "high") {
         // The page the reader is looking at now wins over older high-priority
         // pages that were only briefly visible.
@@ -332,18 +341,27 @@ export const useOcr = create<OcrState>((set, get) => {
     hydratePages: async (pages) => {
       const hash = currentHash();
       if (!hash) return;
-      let changed = false;
-      for (let index = 0; index < pages.length; index += 1) {
-        const page = pages[index];
-        if (get().pages[page]) continue;
+      const index = await loadOcrIndex(hash).catch(() => null);
+      if (!index || currentHash() !== hash) return;
+      const indexed = new Set(index.pages);
+      const records: Record<number, OcrPageData> = {};
+      const pdf = getActiveDocument();
+      const targets = pages.filter((page) => indexed.has(page) && !get().pages[page]);
+      for (let position = 0; position < targets.length; position += 1) {
+        if (currentHash() !== hash) return;
+        const page = targets[position];
         const record = await loadOcrPage(hash, page);
-        if (!record || currentHash() !== hash) continue;
-        const pdf = getActiveDocument();
+        if (!record || currentHash() !== hash) return;
         if (pdf) setPageText(pdf, page, record.text);
-        set((prev) => ({ pages: { ...prev.pages, [page]: record } }));
-        changed = true;
+        records[page] = record;
+        if (position % 16 === 15) await new Promise((resolve) => setTimeout(resolve, 0));
       }
-      if (changed) set((prev) => ({ textVersion: prev.textVersion + 1 }));
+      if (Object.keys(records).length) {
+        set((prev) => ({
+          pages: { ...prev.pages, ...records },
+          textVersion: prev.textVersion + 1,
+        }));
+      }
     },
 
     install: async (model) => {

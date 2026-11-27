@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+} from "react";
 import type { ChatMessage } from "../../lib/ai/types";
 import { QuoteIcon, SparkleIcon } from "../../components/icons/SparkleIcon";
 import { Icon, type IconName } from "../../components/icons/Icon";
@@ -106,7 +113,7 @@ export function MessageList() {
     };
   }, [menu]);
 
-  const openMenu = (event: ReactMouseEvent, message: ChatMessage) => {
+  const openMenu = useCallback((event: ReactMouseEvent, message: ChatMessage) => {
     event.preventDefault();
     const width = 200;
     const height = 82;
@@ -115,7 +122,9 @@ export function MessageList() {
       y: Math.min(event.clientY, window.innerHeight - height - 8),
       message,
     });
-  };
+  }, []);
+
+  const quoteMessage = useCallback((message: ChatMessage) => toggleQuote(message), [toggleQuote]);
 
   const summarize = () => {
     if (summary || streamingId || !numPages) return;
@@ -232,7 +241,7 @@ export function MessageList() {
               <MessageView
                 key={message.id}
                 message={message}
-                onQuote={(item) => toggleQuote(item)}
+                onQuote={quoteMessage}
                 onContextMenu={openMenu}
               />
             ))

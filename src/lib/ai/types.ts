@@ -34,6 +34,10 @@ export type ChatMessage = {
   excluded?: boolean;
   /** Textual note about images that were attached to this turn. */
   note?: string;
+  /** Source document, used by shared AI workspaces for safe citation jumps. */
+  docHash?: string;
+  docName?: string;
+  sourceTabId?: string;
 };
 
 export type Screenshot = {
@@ -64,6 +68,10 @@ export type Quote = {
   messageId: string;
   role: ChatRole;
   text: string;
+  /** Source document, so strict shared chats can reject cross-PDF quotes. */
+  docHash?: string;
+  docName?: string;
+  sourceTabId?: string;
 };
 
 export type ChatSession = {

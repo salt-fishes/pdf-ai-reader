@@ -72,7 +72,7 @@ test("recognizes a scanned page in the background and builds a selectable OCR la
   await toolbar.getByRole("button", { name: "引用" }).click();
 
   const panel = page.locator("[data-assistant-panel]");
-  await panel.locator('button[aria-label="上下文详情"]').click();
+  await panel.locator('button[aria-label="上下文来源"]').click();
   await expect(panel).toContainText("选中（OCR）", { timeout: 15_000 });
   await expect(panel).not.toContainText("没有文字层");
 

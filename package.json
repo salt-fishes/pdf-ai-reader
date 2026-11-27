@@ -1,7 +1,7 @@
 {
   "name": "pdf-ai-reader",
   "private": true,
-  "version": "0.11.0",
+  "version": "0.12.0",
   "type": "module",
   "description": "Wenshu, a local-first PDF reader with reading and conversation on one page",
   "main": "electron/main.mjs",
@@ -28,9 +28,9 @@
     "build:server": "esbuild server/src/index.ts --bundle --platform=node --format=esm --target=node22 --outfile=server/dist/index.mjs --external:onnxruntime-node --external:ppu-paddle-ocr --banner:js=\"import { createRequire as __bundleRequire } from 'node:module'; const require = __bundleRequire(import.meta.url);\" && esbuild server/src/ocrWorker.ts --bundle --platform=node --format=esm --target=node22 --outfile=server/dist/ocr-worker.mjs --external:onnxruntime-node --external:ppu-paddle-ocr",
     "desktop:dev": "node electron/dev.mjs",
     "desktop": "npm run build && npm run build:server && electron .",
-    "build:desktop": "npm run build && npm run build:server && electron-builder --win --x64 --publish never",
+    "build:desktop": "npm run build && npm run build:server && node scripts/build-installers.mjs nsis msiWrapped portable",
     "build:desktop:dir": "npm run build && npm run build:server && electron-builder --win --x64 --dir --publish never",
-    "build:installers": "npm run build && npm run build:server && electron-builder --win nsis msi --x64 --publish never",
+    "build:installers": "npm run build && npm run build:server && node scripts/build-installers.mjs",
     "package:desktop": "npm run build && npm run build:server && node scripts/package-desktop.mjs",
     "package:ocr-pack": "node scripts/package-ocr-pack.mjs",
     "preview": "vite preview",
@@ -52,7 +52,8 @@
     "check:motion": "node scripts/check-motion.mjs",
     "check:version": "node scripts/check-version.mjs",
     "release:notes": "node scripts/release-notes.mjs",
-    "icons": "node scripts/build-icons.mjs"
+    "icons": "node scripts/build-icons.mjs",
+    "pdf:lite": "python scripts/optimize-heavy-pdf.py"
   },
   "dependencies": {
     "@hono/node-server": "2.1.8",
@@ -89,7 +90,7 @@
     "@vitejs/plugin-react": "6.3.0",
     "@vitest/coverage-v8": "^5.1.0",
     "concurrently": "9.2.1",
-    "electron": "^45.3.2",
+    "electron": "45.4.1",
     "electron-builder": "^26.18.0",
     "esbuild": "^0.28.2",
     "eslint": "^9.39.4",
@@ -137,7 +138,7 @@
     "win": {
       "target": [
         "nsis",
-        "msi",
+        "msiWrapped",
         "portable"
       ],
       "icon": "build/icon.ico",
@@ -157,18 +158,11 @@
       "runAfterFinish": true,
       "include": "installer.nsh"
     },
-    "msi": {
-      "oneClick": false,
-      "perMachine": false,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "文疏",
-      "runAfterFinish": true,
-      "warningsAsErrors": false,
-      "additionalLightArgs": [
-        "-loc",
-        "../../build/zh-CN.wxl"
-      ]
+    "msiWrapped": {
+      "artifactName": "wenshu-v${version}-${arch}.${ext}",
+      "wrappedInstallerArgs": "/S /currentuser",
+      "impersonate": false,
+      "warningsAsErrors": false
     },
     "portable": {
       "artifactName": "wenshu-v${version}-portable.${ext}"

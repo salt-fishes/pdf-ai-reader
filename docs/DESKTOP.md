@@ -44,8 +44,8 @@ npm run desktop
 ```bash
 npm run package:desktop     # 可移植目录 release/win-unpacked（不依赖 electron-builder 二进制）
 npm run build:desktop:dir   # 只产出 release/win-unpacked，便于快速验证
-npm run build:installers    # NSIS .exe + MSI（按用户安装，无需代码签名）
-npm run build:desktop       # NSIS + MSI + portable
+npm run build:installers    # NSIS .exe + MSI 包装版（按用户安装，无需代码签名）
+npm run build:desktop       # NSIS + MSI 包装版 + portable
 ```
 
 `package:desktop` 复制 Electron 运行时、前端 `dist` 与 `server/dist`，生成可直接双击的 `Wenshu.exe`。OCR 运行时（ONNX Runtime、OpenCV、canvas）与模型不再进包，而是 `package:ocr-pack` 单独生成约 **26MB** 的组件包，首次在设置中开启 OCR 时下载。基础 zip 约 **146.5MB**，解压约 **317MB**。如果 `release/` 所在目录被 Windows 受控文件夹/杀毒软件拦截，可指定输出目录：
@@ -63,9 +63,9 @@ npm run package:desktop
   - 默认勾选“在 PDF 的‘打开方式’中显示文疏”，只写 OpenWith 声明，不影响默认应用。
   - 可选“安装完成后打开 Windows 默认应用设置”，默认不勾选；勾选后仍需在系统设置里确认。
   - 静默安装 `/S` 不显示该页，也不会自动写声明。
-- MSI：`release/wenshu-v0.10.1-x64.msi`，使用 `build/zh-CN.wxl` 的 GBK 代码页；中文产品名、快捷方式与卸载项正常。
-  MSI 暂不提供该勾选页，安装后可在 设置 → 关于 中注册。`.msi` 文件本身的图标由 Windows Installer 决定；
-  electron-builder 26 只通过 `win.icon` 控制 exe、快捷方式与控制面板图标。
+- MSI（NSIS 包装版）：`release/wenshu-v0.10.1-x64.msi`。它以静默方式调用同一套 NSIS 安装流程，
+  安装前会先关闭文疏并卸载旧版 NSIS/MSI，再安装新版；旧版卸载失败时停止安装。
+  MSI 包装层使用 WiX，实际应用仍安装到 `%LOCALAPPDATA%\Programs\Wenshu`。
 - 两者都按当前用户安装到 `%LOCALAPPDATA%\Programs\Wenshu`，安装后的可执行文件为
   `Wenshu.exe`，快捷方式显示“文疏”；不包含 `node_modules` 或 OCR 组件。
   覆盖安装会清理旧 `PaperReader` 的注册项与快捷方式。
